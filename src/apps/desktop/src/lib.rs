@@ -457,6 +457,7 @@ pub async fn run() {
             delete_persisted_session,
             touch_session_activity,
             load_persisted_session_metadata,
+            fork_session,
             initialize_mcp_servers,
             api::mcp_api::initialize_mcp_servers_non_destructive,
             get_mcp_servers,

@@ -19,6 +19,7 @@ import { useFlowChatStaticContext } from './FlowChatContext';
 import { FlowChatStore } from '../../store/FlowChatStore';
 import { taskCollapseStateManager } from '../../store/TaskCollapseStateManager';
 import { ExportImageButton } from './ExportImageButton';
+import { ForkSessionButton } from './ForkSessionButton';
 import { Tooltip } from '@/component-library';
 import { createLogger } from '@/shared/utils/logger';
 import './ModelRoundItem.scss';
@@ -44,8 +45,18 @@ function hasActiveStreamingNarrative(items: FlowItem[]): boolean {
 export const ModelRoundItem = React.memo<ModelRoundItemProps>(
   ({ round, turnId, isLastRound = false }) => {
     const { t } = useTranslation('flow-chat');
+    const { sessionId } = useFlowChatStaticContext();
     const [copied, setCopied] = useState(false);
     const copyButtonRef = useRef<HTMLButtonElement>(null);
+    const isDispatcherSession = (() => {
+      if (!sessionId) return false;
+      const session = FlowChatStore.getInstance().getState().sessions.get(sessionId);
+      if (!session) return false;
+      return (
+        session.mode?.toLowerCase() === 'dispatcher' ||
+        session.storageScope === 'agentic_os'
+      );
+    })();
     
     useEffect(() => {
       if (!copied) return;
@@ -359,6 +370,10 @@ export const ModelRoundItem = React.memo<ModelRoundItemProps>(
         
         {isLastRound && hasContent && !round.isStreaming && (
           <div className="model-round-item__footer">
+            {!isDispatcherSession && (
+              <ForkSessionButton sessionId={sessionId} turnId={turnId} />
+            )}
+
             <Tooltip content={copied ? t('modelRound.copiedDialog') : t('modelRound.copyDialog')} placement="top">
               <button
                 ref={copyButtonRef}

@@ -29,6 +29,7 @@ import {
   switchChatSession as switchChatSessionModule,
   deleteChatSession as deleteChatSessionModule,
   renameChatSessionTitle as renameChatSessionTitleModule,
+  forkChatSession as forkChatSessionModule,
   cleanupSaveState,
   cleanupSessionBuffers,
   sendMessage as sendMessageModule,
@@ -401,6 +402,10 @@ export class FlowChatManager {
 
   async renameChatSessionTitle(sessionId: string, title: string): Promise<string> {
     return renameChatSessionTitleModule(this.context, sessionId, title);
+  }
+
+  async forkChatSession(sourceSessionId: string, sourceTurnId: string): Promise<string> {
+    return forkChatSessionModule(this.context, sourceSessionId, sourceTurnId);
   }
 
   async resetWorkspaceSessions(
