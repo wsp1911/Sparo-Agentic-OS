@@ -22,6 +22,32 @@ function remoteSessionFields(
 }
 
 export class SessionAPI {
+  async forkSession(
+    sourceSessionId: string,
+    sourceTurnId: string,
+    workspacePath?: string,
+    remoteConnectionId?: string,
+    remoteSshHost?: string,
+    storageScope?: SessionStorageScope
+  ): Promise<{ sessionId: string; sessionName: string; agentType: string }> {
+    try {
+      return await api.invoke('fork_session', {
+        request: {
+          source_session_id: sourceSessionId,
+          source_turn_id: sourceTurnId,
+          workspace_path: workspacePath,
+          ...remoteSessionFields(remoteConnectionId, remoteSshHost, storageScope),
+        }
+      });
+    } catch (error) {
+      throw createTauriCommandError('fork_session', error, {
+        sourceSessionId,
+        sourceTurnId,
+        workspacePath,
+      });
+    }
+  }
+
   async listSessions(
     workspacePath?: string,
     remoteConnectionId?: string,

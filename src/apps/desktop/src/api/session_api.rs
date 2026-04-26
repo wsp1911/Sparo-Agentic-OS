@@ -4,7 +4,9 @@ use crate::api::app_state::AppState;
 use crate::api::session_storage_path::{
     desktop_effective_session_storage_path, SessionStorageScopeDto,
 };
-use bitfun_core::agentic::persistence::PersistenceManager;
+use bitfun_core::agentic::persistence::{
+    PersistenceManager, SessionBranchRequest, SessionBranchResult,
+};
 use bitfun_core::infrastructure::PathManager;
 use bitfun_core::service::session::{
     DialogTurnData, SessionMetadata, SessionTranscriptExport, SessionTranscriptExportOptions,
@@ -249,6 +251,21 @@ async fn migrate_legacy_dispatcher_sessions_if_needed(
     Ok(())
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForkSessionRequest {
+    pub source_session_id: String,
+    pub source_turn_id: String,
+    pub workspace_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote_connection_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote_ssh_host: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub storage_scope: Option<SessionStorageScopeDto>,
+}
+
+pub type ForkSessionResponse = SessionBranchResult;
+
 #[tauri::command]
 pub async fn list_persisted_sessions(
     request: ListPersistedSessionsRequest,
@@ -482,4 +499,44 @@ pub async fn load_persisted_session_metadata(
         .map_err(|e| format!("Failed to load persisted session metadata: {}", e))?;
 
     Ok(metadata.filter(|metadata| !metadata.should_hide_from_user_lists()))
+}
+
+#[tauri::command]
+pub async fn fork_session(
+    request: ForkSessionRequest,
+    app_state: State<'_, AppState>,
+    path_manager: State<'_, Arc<PathManager>>,
+) -> Result<ForkSessionResponse, String> {
+    let workspace_path = desktop_effective_session_storage_path(
+        &app_state,
+        request.workspace_path.as_deref(),
+        request.remote_connection_id.as_deref(),
+        request.remote_ssh_host.as_deref(),
+        request.storage_scope,
+    )
+    .await;
+    let manager = PersistenceManager::new(path_manager.inner().clone())
+        .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
+    if matches!(
+        request.storage_scope,
+        Some(SessionStorageScopeDto::AgenticOs)
+    ) {
+        migrate_legacy_dispatcher_sessions_if_needed(
+            &manager,
+            path_manager.inner().as_ref(),
+            &workspace_path,
+        )
+        .await?;
+    }
+
+    manager
+        .branch_session(
+            &workspace_path,
+            &SessionBranchRequest {
+                source_session_id: request.source_session_id,
+                source_turn_id: request.source_turn_id,
+            },
+        )
+        .await
+        .map_err(|e| format!("Failed to fork session: {}", e))
 }

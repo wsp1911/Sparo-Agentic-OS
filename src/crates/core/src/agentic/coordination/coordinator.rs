@@ -17,7 +17,9 @@ use crate::agentic::events::{
     SessionBackgroundActivityKind, SessionBackgroundActivityStatus,
 };
 use crate::agentic::execution::{ContextCompactionOutcome, ExecutionContext, ExecutionEngine};
-use crate::agentic::fork::{ForkContextSnapshot, ForkExecutionRequest, ForkExecutionResult};
+use crate::agentic::fork_agent::{
+    ForkAgentContextSnapshot, ForkAgentExecutionRequest, ForkAgentExecutionResult,
+};
 use crate::agentic::image_analysis::ImageContextData;
 use crate::agentic::round_preempt::DialogRoundPreemptSource;
 use crate::agentic::session::SessionManager;
@@ -2144,7 +2146,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             let memory_dir = memory_store_dir_path_for_target(memory_target);
             let memory_dir_display = memory_dir.to_string_lossy().replace('\\', "/");
             let existing_memories = build_memory_manifest_for_target(memory_target).await?;
-            let snapshot = self.capture_fork_context_snapshot(session_id).await?;
+            let snapshot = self.capture_fork_agent_context_snapshot(session_id).await?;
             let recent_message_count = count_recent_model_visible_messages(
                 &snapshot.messages,
                 cursor
@@ -2174,8 +2176,8 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             );
 
             let result = self
-                .execute_forked_agent(
-                    ForkExecutionRequest {
+                .execute_fork_agent(
+                    ForkAgentExecutionRequest {
                         snapshot,
                         agent_type: session.agent_type.clone(),
                         description: "Auto memory extraction".to_string(),
@@ -2622,10 +2624,10 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         })
     }
 
-    pub async fn capture_fork_context_snapshot(
+    pub async fn capture_fork_agent_context_snapshot(
         &self,
         parent_session_id: &str,
-    ) -> BitFunResult<ForkContextSnapshot> {
+    ) -> BitFunResult<ForkAgentContextSnapshot> {
         let parent_session = self
             .session_manager
             .get_session(parent_session_id)
@@ -2633,29 +2635,29 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                 BitFunError::NotFound(format!("Parent session not found: {}", parent_session_id))
             })?;
         let context_messages = self.load_session_context_messages(&parent_session).await?;
-        ForkContextSnapshot::from_parent_session(&parent_session, context_messages)
+        ForkAgentContextSnapshot::from_parent_session(&parent_session, context_messages)
     }
 
     /// Execute a hidden child agent that inherits the parent session's current
     /// model-visible context.
-    pub async fn execute_forked_agent(
+    pub async fn execute_fork_agent(
         &self,
-        request: ForkExecutionRequest,
+        request: ForkAgentExecutionRequest,
         cancel_token: Option<&CancellationToken>,
-    ) -> BitFunResult<ForkExecutionResult> {
+    ) -> BitFunResult<ForkAgentExecutionResult> {
         if request.agent_type.trim().is_empty() {
             return Err(BitFunError::Validation(
-                "ForkExecutionRequest.agent_type is required".to_string(),
+                "ForkAgentExecutionRequest.agent_type is required".to_string(),
             ));
         }
         if request.description.trim().is_empty() {
             return Err(BitFunError::Validation(
-                "ForkExecutionRequest.description is required".to_string(),
+                "ForkAgentExecutionRequest.description is required".to_string(),
             ));
         }
         if request.prompt_messages.is_empty() {
             return Err(BitFunError::Validation(
-                "ForkExecutionRequest.prompt_messages must not be empty".to_string(),
+                "ForkAgentExecutionRequest.prompt_messages must not be empty".to_string(),
             ));
         }
 
@@ -2681,7 +2683,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             )
             .await?;
 
-        Ok(ForkExecutionResult {
+        Ok(ForkAgentExecutionResult {
             text: child_result.text,
             inherited_message_count,
             prompt_message_count,
