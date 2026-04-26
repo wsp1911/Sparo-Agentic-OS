@@ -21,6 +21,7 @@ import type { SessionKind, SessionStorageScope, SessionMetadata } from '@/shared
 import {
   deriveLastFinishedAtFromMetadata,
   deriveSessionRelationshipFromMetadata,
+  isLegacyPersistedBtwSession,
   normalizeSessionRelationship,
 } from '../utils/sessionMetadata';
 import {
@@ -282,6 +283,7 @@ export class FlowChatStore {
         sessionKind: relationship.sessionKind,
         btwThreads: [],
         btwOrigin: relationship.btwOrigin,
+        isTransient: false,
         backgroundActivities: {},
       };
 
@@ -305,7 +307,12 @@ export class FlowChatStore {
     title: string,
     mode: string,
     workspacePath?: string,
-    meta?: { parentSessionId?: string; sessionKind?: SessionKind; btwOrigin?: Session['btwOrigin'] },
+    meta?: {
+      parentSessionId?: string;
+      sessionKind?: SessionKind;
+      btwOrigin?: Session['btwOrigin'];
+      isTransient?: boolean;
+    },
     remoteConnectionId?: string,
     remoteSshHost?: string,
     storageScope?: import('@/shared/types/session-history').SessionStorageScope
@@ -342,6 +349,7 @@ export class FlowChatStore {
         sessionKind: relationship.sessionKind,
         btwThreads: [],
         btwOrigin: relationship.btwOrigin,
+        isTransient: meta?.isTransient ?? false,
         backgroundActivities: {},
       };
 
@@ -1444,6 +1452,9 @@ export class FlowChatStore {
         log.warn('Session not found, skipping save', { sessionId, turnId });
         return;
       }
+      if (session.isTransient) {
+        return;
+      }
 
       const workspacePath = session.workspacePath;
       if (!workspacePath) {
@@ -1588,7 +1599,7 @@ export class FlowChatStore {
             todos: metadata.todos || currentSession.todos || [],
             workspacePath: metadata.workspacePath || currentSession.workspacePath || workspacePath,
             remoteConnectionId: metadata.remoteConnectionId || currentSession.remoteConnectionId || remoteConnectionId,
-            remoteSshHost:
+          remoteSshHost:
               metadata.remoteSshHost ||
               metadata.workspaceHostname ||
               currentSession.remoteSshHost ||
@@ -1597,6 +1608,7 @@ export class FlowChatStore {
             parentSessionId: relationship.parentSessionId,
             sessionKind: relationship.sessionKind,
             btwOrigin: relationship.btwOrigin,
+            isTransient: false,
             isHistorical: currentSession.dialogTurns.length === 0 ? true : currentSession.isHistorical,
           });
           return {
@@ -1604,6 +1616,9 @@ export class FlowChatStore {
             sessions: nextSessions,
           };
         });
+        return;
+      }
+      if (isLegacyPersistedBtwSession(metadata)) {
         return;
       }
 
@@ -1675,6 +1690,7 @@ export class FlowChatStore {
           sessionKind: relationship.sessionKind,
           btwThreads: [],
           btwOrigin: relationship.btwOrigin,
+          isTransient: false,
           backgroundActivities: {},
         };
 

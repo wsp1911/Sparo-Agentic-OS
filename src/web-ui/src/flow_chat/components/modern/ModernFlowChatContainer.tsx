@@ -25,7 +25,6 @@ import { useExploreGroupState } from './useExploreGroupState';
 import { useFlowChatFileActions } from './useFlowChatFileActions';
 import { useFlowChatNavigation } from './useFlowChatNavigation';
 import { useFlowChatCopyDialog } from './useFlowChatCopyDialog';
-import { useFlowChatSessionRelationship } from './useFlowChatSessionRelationship';
 import { useFlowChatSync } from './useFlowChatSync';
 import { useFlowChatToolActions } from './useFlowChatToolActions';
 import { useFlowChatSearch } from './useFlowChatSearch';
@@ -73,7 +72,6 @@ export const ModernFlowChatContainer: React.FC<ModernFlowChatContainerProps> = (
     () => assistantWorkspacesList.find(w => !w.assistantId) ?? assistantWorkspacesList[0] ?? null,
     [assistantWorkspacesList]
   );
-  const { btwOrigin, btwParentTitle } = useFlowChatSessionRelationship(activeSession);
   const {
     exploreGroupStates,
     onExploreGroupToggle: handleExploreGroupToggle,
@@ -388,8 +386,6 @@ export const ModernFlowChatContainer: React.FC<ModernFlowChatContainerProps> = (
         <FlowChatHeader
           visible={!!activeSession}
           sessionId={activeSession?.sessionId}
-          btwOrigin={btwOrigin}
-          btwParentTitle={btwParentTitle}
           turns={turnSummaries}
           onJumpToTurn={handleJumpToTurn}
           searchQuery={searchQuery}

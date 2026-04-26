@@ -1199,7 +1199,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         workspacePath,
         question,
         modelId: 'fast',
-        maxContextMessages: 60,
       });
       openBtwSessionInAuxPane({
         childSessionId,

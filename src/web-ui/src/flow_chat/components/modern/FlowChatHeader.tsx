@@ -1,5 +1,5 @@
 /**
- * FlowChat header — message search (when turn list is collapsed), turn list toggle, BTW back.
+ * FlowChat header — message search and turn list controls.
  *
  * The session title and the "return to Agentic OS" button have been moved to
  * UnifiedTopBar so the whole application shares a single top chrome.
@@ -7,13 +7,10 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ChevronDown, ChevronUp, CornerUpLeft, Eye, EyeOff, List, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye, EyeOff, List, Search, X } from 'lucide-react';
 import { IconButton, Input } from '@/component-library';
 import { useTranslation } from 'react-i18next';
-import { globalEventBus } from '@/infrastructure/event-bus';
 import { SessionFilesBadge } from './SessionFilesBadge';
-import type { Session } from '../../types/flow-chat';
-import { FLOWCHAT_FOCUS_ITEM_EVENT, type FlowChatFocusItemRequest } from '../../events/flowchatNavigation';
 import { aiExperienceConfigService, type AIExperienceSettings } from '@/infrastructure/config/services/AIExperienceConfigService';
 import { createLogger } from '@/shared/utils/logger';
 import './FlowChatHeader.scss';
@@ -31,10 +28,6 @@ export interface FlowChatHeaderProps {
   visible: boolean;
   /** Session ID. */
   sessionId?: string;
-  /** BTW child-session origin metadata. */
-  btwOrigin?: Session['btwOrigin'] | null;
-  /** BTW parent session title. */
-  btwParentTitle?: string;
   /** Ordered turn summaries used by header navigation. */
   turns?: FlowChatHeaderTurnSummary[];
   /** Jump to a specific turn (used by turn list sidebar). */
@@ -66,8 +59,6 @@ export interface FlowChatHeaderProps {
 export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   visible,
   sessionId,
-  btwOrigin,
-  btwParentTitle = '',
   turns = [],
   onJumpToTurn,
   searchQuery = '',
@@ -88,17 +79,6 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   );
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  const parentLabel = btwParentTitle || t('btw.parent', { defaultValue: 'parent session' });
-  const backTooltip = btwOrigin?.parentTurnIndex
-    ? t('flowChatHeader.btwBackTooltipWithTurn', {
-      title: parentLabel,
-      turn: btwOrigin.parentTurnIndex,
-      defaultValue: `Go back to the source session: ${parentLabel} (Turn ${btwOrigin.parentTurnIndex})`,
-    })
-    : t('flowChatHeader.btwBackTooltipWithoutTurn', {
-      title: parentLabel,
-      defaultValue: `Go back to the source session: ${parentLabel}`,
-    });
   const turnListTooltip = t('flowChatHeader.turnList', {
     defaultValue: 'Turn list',
   });
@@ -180,20 +160,6 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   );
 
   const hasNoResults = searchQuery.trim().length > 0 && searchMatchCount === 0;
-
-  const handleBackToParent = () => {
-    const parentId = btwOrigin?.parentSessionId;
-    if (!parentId) return;
-    const requestId = btwOrigin?.requestId;
-    const itemId = requestId ? `btw_marker_${requestId}` : undefined;
-    const request: FlowChatFocusItemRequest = {
-      sessionId: parentId,
-      turnIndex: btwOrigin?.parentTurnIndex,
-      itemId,
-      source: 'btw-back',
-    };
-    globalEventBus.emit(FLOWCHAT_FOCUS_ITEM_EVENT, request, 'FlowChatHeader');
-  };
 
   const handleToggleTurnList = () => {
     if (!hasTurnNavigation) return;
@@ -314,20 +280,6 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
             data-testid="flowchat-header-search"
           >
             <Search size={14} />
-          </IconButton>
-        )}
-        {!!btwOrigin?.parentSessionId && (
-          <IconButton
-            className="flowchat-header__btw-back"
-            variant="ghost"
-            size="xs"
-            onClick={handleBackToParent}
-            tooltip={backTooltip}
-            disabled={!btwOrigin.parentSessionId}
-            aria-label={t('btw.back', { defaultValue: 'Back' })}
-            data-testid="flowchat-header-btw-back"
-          >
-            <CornerUpLeft size={12} />
           </IconButton>
         )}
         <div className="flowchat-header__turn-nav">

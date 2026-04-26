@@ -196,6 +196,7 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
   }, [isTurnProcessing, lastItem, isContentGrowing]);
 
   const btwOrigin = childSession?.btwOrigin;
+  const isReviewSession = childSession?.mode === 'CodeReview';
   const parentLabel = resolveSessionTitle(parentSession, t('btw.parent'));
   const backTooltip = btwOrigin?.parentTurnIndex
     ? t('flowChatHeader.btwBackTooltipWithTurn', {
@@ -207,6 +208,7 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
         title: parentLabel,
         defaultValue: `Go back to the source session: ${parentLabel}`,
       });
+  const canReturnToParentSession = isReviewSession && !!(btwOrigin?.parentSessionId || parentSessionId);
 
   const handleFocusOriginTurn = useCallback(() => {
     const resolvedParentSessionId = btwOrigin?.parentSessionId || parentSessionId;
@@ -254,7 +256,7 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
               <Link2 size={11} />
               <span className="btw-session-panel__meta-title">{resolveSessionTitle(parentSession, t('btw.parent'))}</span>
             </div>
-            {!!(btwOrigin?.parentSessionId || parentSessionId) && (
+            {canReturnToParentSession && (
               <IconButton
                 className="btw-session-panel__origin-button"
                 variant="ghost"
