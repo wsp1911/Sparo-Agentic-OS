@@ -1,0 +1,166 @@
+use crate::service::memory_store::MemoryScope;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RequestContextSection {
+    WorkspaceInstructions,
+    ExecutiveCompanionContext,
+    RecentWorkspaces,
+    MemoryFiles(MemoryScope),
+    GlobalWorkspaceOverviews,
+    ProjectLayout,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequestContextPolicy {
+    pub sections: Vec<RequestContextSection>,
+}
+
+impl RequestContextPolicy {
+    pub fn new(sections: Vec<RequestContextSection>) -> Self {
+        let mut policy = Self::empty();
+        for section in sections {
+            policy = policy.with_section(section);
+        }
+        policy
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            sections: Vec::new(),
+        }
+    }
+
+    pub fn with_section(mut self, section: RequestContextSection) -> Self {
+        if !self.sections.contains(&section) {
+            self.sections.push(section);
+        }
+        self
+    }
+
+    pub fn with_workspace_instructions(self) -> Self {
+        self.with_section(RequestContextSection::WorkspaceInstructions)
+    }
+
+    pub fn with_executive_companion_context(self) -> Self {
+        self.with_section(RequestContextSection::ExecutiveCompanionContext)
+    }
+
+    pub fn with_recent_workspaces(self) -> Self {
+        self.with_section(RequestContextSection::RecentWorkspaces)
+    }
+
+    pub fn with_memory_scope(self, scope: MemoryScope) -> Self {
+        self.with_section(RequestContextSection::MemoryFiles(scope))
+    }
+
+    pub fn with_global_workspace_overviews(self) -> Self {
+        self.with_section(RequestContextSection::GlobalWorkspaceOverviews)
+    }
+
+    pub fn with_project_layout(self) -> Self {
+        self.with_section(RequestContextSection::ProjectLayout)
+    }
+
+    pub fn includes(&self, section: RequestContextSection) -> bool {
+        self.sections.contains(&section)
+    }
+
+    pub fn memory_scopes(&self) -> Vec<MemoryScope> {
+        self.sections
+            .iter()
+            .filter_map(|section| match section {
+                RequestContextSection::MemoryFiles(scope) => Some(*scope),
+                _ => None,
+            })
+            .collect()
+    }
+
+    pub fn has_override_sections(&self) -> bool {
+        self.sections.iter().any(|section| {
+            matches!(
+                section,
+                RequestContextSection::MemoryFiles(_)
+                    | RequestContextSection::GlobalWorkspaceOverviews
+            )
+        })
+    }
+}
+
+impl Default for RequestContextPolicy {
+    fn default() -> Self {
+        Self::empty()
+            .with_workspace_instructions()
+            .with_memory_scope(MemoryScope::WorkspaceProject)
+            .with_project_layout()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{RequestContextPolicy, RequestContextSection};
+    use crate::service::memory_store::MemoryScope;
+
+    #[test]
+    fn default_policy_uses_workspace_memory_scope() {
+        let policy = RequestContextPolicy::default();
+
+        assert!(policy.includes(RequestContextSection::WorkspaceInstructions));
+        assert!(policy.includes(RequestContextSection::ProjectLayout));
+        assert_eq!(policy.memory_scopes(), vec![MemoryScope::WorkspaceProject]);
+        assert!(policy.has_override_sections());
+    }
+
+    #[test]
+    fn custom_policy_can_target_global_memory_scope() {
+        let policy = RequestContextPolicy::empty().with_memory_scope(MemoryScope::GlobalAgenticOs);
+
+        assert_eq!(policy.memory_scopes(), vec![MemoryScope::GlobalAgenticOs]);
+        assert!(policy.has_override_sections());
+    }
+
+    #[test]
+    fn workspace_overviews_section_counts_as_override() {
+        let policy = RequestContextPolicy::empty().with_global_workspace_overviews();
+
+        assert!(policy.has_override_sections());
+    }
+
+    #[test]
+    fn recent_workspaces_section_does_not_count_as_override() {
+        let policy = RequestContextPolicy::empty().with_recent_workspaces();
+
+        assert!(policy.includes(RequestContextSection::RecentWorkspaces));
+        assert!(!policy.has_override_sections());
+    }
+
+    #[test]
+    fn executive_companion_context_section_does_not_count_as_override() {
+        let policy = RequestContextPolicy::empty().with_executive_companion_context();
+
+        assert!(policy.includes(RequestContextSection::ExecutiveCompanionContext));
+        assert!(!policy.has_override_sections());
+    }
+
+    #[test]
+    fn with_section_deduplicates_entries() {
+        let policy = RequestContextPolicy::empty()
+            .with_workspace_instructions()
+            .with_workspace_instructions()
+            .with_executive_companion_context()
+            .with_executive_companion_context()
+            .with_recent_workspaces()
+            .with_recent_workspaces()
+            .with_memory_scope(MemoryScope::WorkspaceProject)
+            .with_memory_scope(MemoryScope::WorkspaceProject);
+
+        assert_eq!(
+            policy.sections,
+            vec![
+                RequestContextSection::WorkspaceInstructions,
+                RequestContextSection::ExecutiveCompanionContext,
+                RequestContextSection::RecentWorkspaces,
+                RequestContextSection::MemoryFiles(MemoryScope::WorkspaceProject),
+            ]
+        );
+    }
+}

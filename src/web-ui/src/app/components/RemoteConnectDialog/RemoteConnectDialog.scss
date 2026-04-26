@@ -1,0 +1,687 @@
+@use '../../../component-library/styles/tokens' as *;
+
+.bitfun-remote-connect {
+  display: flex;
+  flex-direction: column;
+  min-height: min(336px, calc(100vh - 168px));
+}
+
+.bitfun-remote-connect-overlay {
+  animation: modal-overlay-fade 0.18s ease;
+
+  .modal--large {
+    width: min(540px, 100%);
+    max-width: min(540px, 100%);
+    min-height: min(398px, calc(100vh - 64px));
+    animation: bitfun-remote-connect-dialog-enter 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+.bitfun-remote-connect-modal__content {
+  display: flex;
+  flex-direction: column;
+}
+
+.bitfun-remote-connect__title-extra {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bitfun-remote-connect__disclaimer-trigger {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.15s ease, opacity 0.15s ease;
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-accent-500, #3b82f6) 55%, transparent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+// ==================== Group tabs (top level) ====================
+
+.bitfun-remote-connect__groups {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 16px 0;
+  gap: 0;
+}
+
+.bitfun-remote-connect__group-btn {
+  background: none;
+  border: none;
+  padding: 6px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  &:hover:not(.is-active):not(:disabled) {
+    color: var(--color-text-secondary);
+  }
+
+  &.is-active {
+    color: var(--color-text-primary);
+    font-weight: 600;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.bitfun-remote-connect__group-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.bitfun-remote-connect__dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success, #22c55e);
+  flex-shrink: 0;
+}
+
+// ==================== Sub-tabs (second level) ====================
+
+.bitfun-remote-connect__subtabs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px 0;
+  gap: 0;
+}
+
+.bitfun-remote-connect__subtab {
+  background: none;
+  border: none;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  &:hover:not(.is-active):not(:disabled) {
+    color: var(--color-text-secondary);
+  }
+
+  &.is-active {
+    color: var(--color-text-primary);
+    font-weight: 600;
+  }
+
+  &.is-connected {
+    color: var(--color-success, #22c55e);
+    font-weight: 600;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+.bitfun-remote-connect__subtab-divider {
+  width: 1px;
+  height: 12px;
+  background: var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.bitfun-remote-connect__dot-sm {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-success, #22c55e);
+  flex-shrink: 0;
+}
+
+// ==================== Body ====================
+
+.bitfun-remote-connect__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 18px 20px 20px;
+  gap: 12px;
+  min-height: 248px;
+  box-sizing: border-box;
+}
+
+// ==================== QR box ====================
+
+.bitfun-remote-connect__qr-box {
+  width: 200px;
+  height: 200px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+// ==================== Pairing code (bot) ====================
+
+.bitfun-remote-connect__pairing-code-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.bitfun-remote-connect__pairing-code {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 8px;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  color: var(--color-text-primary);
+  padding: 16px 24px;
+  border-radius: 10px;
+  border: 2px dashed var(--border-subtle);
+  background: var(--element-bg-subtle);
+  user-select: all;
+}
+
+// ==================== Status ====================
+
+.bitfun-remote-connect__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bitfun-remote-connect__peer-user-id {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+// ==================== Ngrok usage link ====================
+
+.bitfun-remote-connect__ngrok-usage-link {
+  text-align: center;
+  padding: 10px 0 2px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+// ==================== Connected ====================
+
+.bitfun-remote-connect__connected {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  gap: 12px;
+  min-height: 248px;
+  box-sizing: border-box;
+}
+
+// ==================== Hint text ====================
+
+.bitfun-remote-connect__hint,
+.bitfun-remote-connect__description {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin: 0;
+  width: 100%;
+  max-width: 420px;
+}
+
+.bitfun-remote-connect__hint {
+  text-align: center;
+}
+
+.bitfun-remote-connect__description {
+  text-align: left;
+}
+
+.bitfun-remote-connect__info-card {
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+  padding: 14px 16px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--element-bg-subtle) 84%, transparent);
+  box-sizing: border-box;
+}
+
+.bitfun-remote-connect__info-text,
+.bitfun-remote-connect__info-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.7;
+  margin: 0;
+  text-align: left;
+}
+
+.bitfun-remote-connect__info-meta-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  min-height: 50px;
+  box-sizing: border-box;
+
+  &--ready {
+    animation: bitfun-remote-connect-info-fade-in 0.18s ease-out;
+  }
+
+  &--placeholder {
+    visibility: hidden;
+  }
+
+  &--skeleton {
+    justify-content: center;
+  }
+}
+
+.bitfun-remote-connect__info-meta-skeleton-line {
+  background: var(--element-bg-subtle);
+  border-radius: 4px;
+  height: 10px;
+  animation: bitfun-remote-connect-skeleton-pulse 1.1s ease-in-out infinite;
+
+  &--long {
+    width: 78%;
+  }
+
+  &--medium {
+    width: 66%;
+  }
+}
+
+.bitfun-remote-connect__description-link,
+.bitfun-remote-connect__step-link {
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  cursor: pointer;
+  text-underline-offset: 2px;
+  transition: color 0.15s ease, opacity 0.15s ease;
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-accent-500, #3b82f6) 55%, transparent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+.bitfun-remote-connect__error {
+  font-size: 12px;
+  color: var(--color-danger);
+  text-align: center;
+  margin: 0;
+}
+
+.bitfun-remote-connect__error-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.bitfun-remote-connect__error-action {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:hover {
+    opacity: 0.85;
+  }
+}
+
+// ==================== Input ====================
+
+.bitfun-remote-connect__field {
+  width: 100%;
+  max-width: 280px;
+
+  .bitfun-input-label {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-bottom: 0;
+  }
+
+  .bitfun-input-container {
+    min-height: 32px;
+  }
+
+  &--inline {
+    max-width: 360px;
+
+    .bitfun-input-container {
+      gap: 12px;
+    }
+  }
+}
+
+.bitfun-remote-connect__field-prefix {
+  min-width: 96px;
+  color: var(--color-text-secondary);
+  text-align: left;
+  flex-shrink: 0;
+}
+
+// ==================== Buttons ====================
+
+.bitfun-remote-connect__btn {
+  padding: 8px 24px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &--connect {
+    background: var(--color-accent-600, #2563eb);
+    color: #fff;
+    border: 1px solid color-mix(in srgb, var(--color-accent-700, #1d4ed8) 35%, transparent);
+
+    &:hover:not(:disabled) {
+      background: var(--color-accent-700, #1d4ed8);
+    }
+
+    &:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--color-accent-500, #3b82f6) 55%, transparent);
+      outline-offset: 1px;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  &--disconnect,
+  &--cancel {
+    background: var(--element-bg-subtle);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--border-subtle);
+
+    &:hover {
+      color: var(--color-text-primary);
+      border-color: var(--color-text-muted);
+    }
+  }
+}
+
+// ==================== Bot guide ====================
+
+.bitfun-remote-connect__bot-guide {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 188px;
+  box-sizing: border-box;
+
+  .bitfun-remote-connect__field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 auto;
+
+    .bitfun-input-label {
+      text-align: center;
+    }
+  }
+
+  .bitfun-remote-connect__field--inline {
+    align-items: stretch;
+  }
+}
+
+.bitfun-remote-connect__steps {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.bitfun-remote-connect__step {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin: 0;
+  text-align: left;
+  width: 100%;
+}
+
+// ==================== Bot mode selector ====================
+
+.bitfun-remote-connect__mode-selector {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  background: $element-bg-base;
+  border: 1px solid $border-subtle;
+  border-radius: 20px;
+}
+
+.bitfun-remote-connect__mode-btn {
+  padding: 5px 14px;
+  font-size: var(--font-size-xs);
+  font-weight: $font-weight-medium;
+  color: $color-text-muted;
+  background: transparent;
+  border: none;
+  border-radius: 17px;
+  cursor: pointer;
+  transition: all $motion-fast $easing-standard;
+
+  &:hover:not(.is-active) {
+    color: $color-text-primary;
+    background: $element-bg-subtle;
+  }
+
+  &.is-active {
+    color: #fff;
+    background: $color-success;
+    font-weight: $font-weight-semibold;
+    box-shadow: 0 1px 4px rgba(110, 184, 140, 0.35);
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba($color-success, 0.5);
+    outline-offset: 1px;
+  }
+}
+
+.bitfun-remote-connect__weixin-qr {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.bitfun-remote-connect__weixin-qr-img {
+  display: block;
+  max-width: 220px;
+  height: auto;
+  margin: 0 auto 8px;
+  border-radius: 8px;
+}
+
+.bitfun-remote-connect__weixin-qr-svg-wrap {
+  display: inline-block;
+  margin: 0 auto 8px;
+  padding: 10px;
+  background: #fff;
+  border-radius: 8px;
+  box-sizing: border-box;
+
+  svg {
+    display: block;
+    vertical-align: top;
+  }
+}
+
+// ==================== Initial load skeleton ====================
+
+.bitfun-remote-connect__skeleton {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  flex: 1 1 auto;
+}
+
+.bitfun-remote-connect__skeleton-body {
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
+}
+
+.bitfun-remote-connect__skeleton-bone {
+  background: var(--element-bg-subtle);
+  border-radius: 6px;
+  animation: bitfun-remote-connect-skeleton-pulse 1.1s ease-in-out infinite;
+}
+
+.bitfun-remote-connect__skeleton-pill {
+  @extend .bitfun-remote-connect__skeleton-bone;
+
+  &--group {
+    width: 108px;
+    height: 30px;
+    border-radius: 6px;
+  }
+
+  &--subtab {
+    width: 72px;
+    height: 22px;
+    border-radius: 4px;
+  }
+}
+
+.bitfun-remote-connect__skeleton-card {
+  @extend .bitfun-remote-connect__skeleton-bone;
+  width: 100%;
+  min-height: 96px;
+  border-radius: 8px;
+}
+
+.bitfun-remote-connect__skeleton-line {
+  @extend .bitfun-remote-connect__skeleton-bone;
+  height: 10px;
+  width: 100%;
+  border-radius: 4px;
+
+  &--short {
+    width: 42%;
+  }
+
+  &--medium {
+    width: 72%;
+  }
+}
+
+@keyframes bitfun-remote-connect-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.52;
+  }
+}
+
+@keyframes bitfun-remote-connect-dialog-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bitfun-remote-connect-info-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bitfun-remote-connect-overlay .modal--large {
+    animation: none;
+  }
+
+  .bitfun-remote-connect__info-meta-group--ready,
+  .bitfun-remote-connect__info-meta-skeleton-line {
+    animation: none;
+  }
+
+  .bitfun-remote-connect__skeleton-bone {
+    animation: none;
+    opacity: 0.88;
+  }
+}

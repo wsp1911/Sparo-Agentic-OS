@@ -1,0 +1,126 @@
+/**
+ * FloatingFileTree styles — floating rounded-rect file tree panel.
+ *
+ * ⚠️  CURRENTLY DISABLED — kept for future use.
+ * Uncomment and activate together with FloatingFileTree.tsx.
+ *
+ * Design:
+ *   - position: fixed, draggable via header
+ *   - Rounded rectangle (border-radius: 12px)
+ *   - 280px wide × up to 60vh tall
+ *   - Elevated card shadow, matches app dark/light theme
+ */
+
+/*
+@use '../../../component-library/styles/tokens.scss' as *;
+
+.floating-file-tree {
+  position: fixed;
+  z-index: $z-modal;
+  width: 280px;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-elevated, var(--color-bg-primary));
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.14),
+    0 20px 48px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+
+  :root[data-theme-type='dark'] & {
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.45),
+      0 20px 48px rgba(0, 0, 0, 0.60);
+  }
+
+  // ── Drag handle / header ─────────────────────────────
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-1;
+    height: 34px;
+    padding: 0 $size-gap-1 0 $size-gap-2;
+    flex-shrink: 0;
+    background: var(--color-bg-primary);
+    border-bottom: 1px solid var(--border-subtle);
+    cursor: grab;
+    user-select: none;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  &__grip {
+    color: var(--color-text-muted);
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+
+  &__title {
+    flex: 1;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: $size-radius-sm;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color $motion-fast $easing-standard,
+                background $motion-fast $easing-standard;
+
+    &:hover {
+      color: var(--color-text-primary);
+      background: var(--element-bg-soft);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-accent-500);
+      outline-offset: -1px;
+    }
+  }
+
+  // ── Body: file tree content ──────────────────────────
+
+  &__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    &::-webkit-scrollbar { width: 3px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb {
+      background: var(--border-subtle);
+      border-radius: 2px;
+    }
+  }
+
+  &__placeholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: $size-gap-4;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+  }
+}
+*/

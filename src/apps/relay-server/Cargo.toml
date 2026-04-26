@@ -1,0 +1,41 @@
+[package]
+name = "bitfun-relay-server"
+version = "0.1.0"
+authors = ["Sparo OS Team"]
+edition = "2021"
+description = "Sparo OS Relay Server - WebSocket relay for Remote Connect"
+
+[lib]
+name = "bitfun_relay_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "bitfun-relay-server"
+path = "src/main.rs"
+
+[dependencies]
+# Web framework
+axum = { version = "0.7", features = ["json", "ws"] }
+tower-http = { version = "0.6", features = ["cors", "fs"] }
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+futures-util = "0.3"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Utilities
+chrono = { version = "0.4", features = ["serde", "clock"] }
+dashmap = "5.5"
+rand = "0.8"
+base64 = { workspace = true }
+sha2 = "0.10"

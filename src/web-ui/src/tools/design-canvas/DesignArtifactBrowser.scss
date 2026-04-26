@@ -1,0 +1,246 @@
+.design-artifact-browser {
+  --artifact-radius: var(--size-radius-base, 8px);
+  --artifact-radius-sm: var(--size-radius-sm, 6px);
+  --artifact-surface: var(--color-bg-secondary, #18181a);
+  --artifact-raised: var(--color-bg-elevated, #18181a);
+  --artifact-subtle: var(--element-bg-subtle, rgba(255, 255, 255, 0.05));
+  --artifact-soft: var(--element-bg-soft, rgba(255, 255, 255, 0.07));
+  --artifact-border: var(--border-subtle, rgba(255, 255, 255, 0.1));
+
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--color-bg-primary, #121214);
+  color: var(--color-text-primary, #e8e8e8);
+  font-family: var(--font-family-sans, Inter, ui-sans-serif, system-ui, sans-serif);
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--size-gap-2, 8px);
+    padding: var(--size-gap-3, 12px);
+    border-bottom: 1px solid var(--artifact-border);
+    background: var(--artifact-raised);
+  }
+
+  &__search {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--size-gap-2, 8px);
+    min-height: 34px;
+    padding: 0 var(--size-gap-3, 12px);
+    border-radius: var(--artifact-radius);
+    background: var(--artifact-subtle);
+    border: 1px solid var(--artifact-border);
+    color: var(--color-text-muted, #a0a0a0);
+    flex: 1;
+    min-width: 0;
+    transition:
+      border-color var(--motion-fast, 0.15s) var(--easing-standard, ease),
+      background var(--motion-fast, 0.15s) var(--easing-standard, ease);
+
+    &:focus-within {
+      border-color: color-mix(in srgb, var(--color-accent-500, #60a5fa) 48%, transparent);
+      background: var(--artifact-soft);
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--color-text-primary, #e8e8e8);
+      font-size: var(--font-size-xs, 12px);
+      padding: 0;
+
+      &::placeholder {
+        color: var(--color-text-muted, #a0a0a0);
+      }
+    }
+  }
+
+  &__archived-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--size-gap-1, 4px);
+    min-height: 30px;
+    padding: 0 var(--size-gap-2, 8px);
+    border-radius: var(--artifact-radius-sm);
+    color: var(--color-text-muted, #a0a0a0);
+    font-size: var(--font-size-2xs, 11px);
+    white-space: nowrap;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--artifact-soft);
+      color: var(--color-text-primary, #e8e8e8);
+    }
+
+    input {
+      accent-color: var(--color-accent-500, #60a5fa);
+    }
+  }
+
+  &__refresh {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--size-gap-1, 4px);
+    min-height: 30px;
+    padding: 0 var(--size-gap-2, 8px);
+    border-radius: var(--artifact-radius-sm);
+    background: transparent;
+    border: 1px solid var(--artifact-border);
+    color: var(--color-text-secondary, #e5e5e5);
+    font-size: var(--font-size-2xs, 11px);
+    font-family: inherit;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--artifact-soft);
+      color: var(--color-text-primary, #e8e8e8);
+    }
+  }
+
+  &__empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--size-gap-2, 8px);
+    padding: var(--size-gap-8, 32px);
+    text-align: center;
+    color: var(--color-text-muted, #a0a0a0);
+    line-height: var(--line-height-base, 1.5);
+
+    svg {
+      color: var(--color-accent-500, #60a5fa);
+    }
+
+    &-hint {
+      max-width: 34ch;
+      font-size: var(--font-size-2xs, 11px);
+      color: var(--color-text-muted, #a0a0a0);
+    }
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: var(--size-gap-2, 8px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-gap-1, 4px);
+  }
+
+  &__item {
+    display: flex;
+    gap: var(--size-gap-3, 12px);
+    padding: var(--size-gap-3, 12px);
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: var(--artifact-radius);
+    background: transparent;
+    transition:
+      background var(--motion-fast, 0.15s) var(--easing-standard, ease),
+      border-color var(--motion-fast, 0.15s) var(--easing-standard, ease);
+
+    &--archived {
+      opacity: 0.58;
+    }
+
+    &:hover {
+      background: var(--artifact-subtle);
+      border-color: var(--artifact-border);
+    }
+  }
+
+  &__thumb {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--artifact-radius);
+    background: color-mix(in srgb, var(--color-accent-500, #60a5fa) 16%, transparent);
+    color: var(--color-accent-500, #60a5fa);
+    border: 1px solid color-mix(in srgb, var(--color-accent-500, #60a5fa) 26%, transparent);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      background: color-mix(in srgb, var(--color-accent-500, #60a5fa) 22%, transparent);
+    }
+  }
+
+  &__meta {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title {
+    font-size: var(--font-size-sm, 13px);
+    font-weight: var(--font-weight-semibold, 600);
+    color: var(--color-text-primary, #e8e8e8);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__subtitle {
+    display: flex;
+    gap: var(--size-gap-2, 8px);
+    flex-wrap: wrap;
+    margin-top: 3px;
+    font-size: var(--font-size-2xs, 11px);
+    color: var(--color-text-muted, #a0a0a0);
+
+    code {
+      font-family: var(--font-family-mono, monospace);
+      color: var(--color-text-secondary, #e5e5e5);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: var(--size-gap-1, 4px);
+  }
+
+  &__action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--artifact-radius-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--color-text-secondary, #e5e5e5);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--artifact-soft);
+      color: var(--color-text-primary, #e8e8e8);
+      border-color: var(--artifact-border);
+    }
+  }
+}
+
+@media (max-width: 720px) {
+  .design-artifact-browser {
+    &__toolbar {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    &__archived-toggle,
+    &__refresh {
+      align-self: flex-start;
+    }
+  }
+}

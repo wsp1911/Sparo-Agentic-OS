@@ -1,0 +1,288 @@
+/**
+ * FlowTextBlock styles
+ */
+
+.flow-text-block {
+  width: 100%;
+  /*
+   * Vertical rhythm of the flow chat is driven by per-flow-item margin-bottom (set
+   * here on `.flow-text-block`, on `.flow-thinking-item`, and on the tool wrappers).
+   * This single 0.6rem (~9.6px) value is the canonical "block gap" between any two
+   * sibling flow items (text → text, text → tool, tool → thinking, ...), as well as
+   * between the LAST item of one model round and the FIRST item of the next.
+   */
+  margin: 0 0 0.6rem 0;
+  font-size: var(--flowchat-font-size-base);
+  line-height: 1.65;
+
+  /*
+   * Markdown rendering inside a flow text block:
+   * — All headings (h1-h6) collapse to body font-size — only `font-weight` distinguishes
+   *   them, so the chat reads as a single typographic flow (no jumping font sizes).
+   * — Block siblings (p / ul / ol / blockquote / heading / pre) get a comfortable
+   *   ~0.7em gap from `--markdown-block-gap`, matching the "good case" mock the user
+   *   approved.
+   * — List items get a smaller ~0.45em gap so each `li` reads as its own bullet/number
+   *   line but the list still feels denser than paragraph→paragraph.
+   * — Loose-list `<li><p>` is collapsed (display: inline) so loose and tight lists
+   *   share the same vertical rhythm.
+   * — `ul > li::marker` is forced to body em (Safari < 17 ignores marker font-size, so
+   *   we also draw our own bullet via `::before`) — prevents bullet rows from being
+   *   ~20% taller than ordered-list / paragraph rows.
+   */
+  .markdown-renderer {
+    --markdown-block-gap: 0.7em;
+    font-size: var(--flowchat-font-size-base);
+    line-height: 1.65;
+    letter-spacing: 0.01em;
+
+    /* Headings: same size as body, just heavier weight. */
+    h1, h2, h3, h4, h5, h6 {
+      font-size: var(--flowchat-font-size-base) !important;
+      line-height: 1.65 !important;
+      font-weight: 600;
+      letter-spacing: normal;
+      border: none;
+      padding: 0;
+      color: var(--color-text-primary);
+    }
+
+    /* Body block elements share the same line-height + font-size as paragraphs. */
+    p,
+    ol,
+    ul,
+    li {
+      font-size: var(--flowchat-font-size-base);
+      line-height: 1.65;
+    }
+
+    /* List item gap (smaller than block gap, but visible). */
+    li + li {
+      margin-top: 0.45em;
+    }
+
+    /* Tight rhythm WITHIN a list item (heading line + description, etc.). */
+    li > * + * {
+      margin-top: 0.15em;
+    }
+
+    /* Loose-list <li><p>...</p></li>: collapse the inner <p> so the bullet line and
+     * the description read as one paragraph — avoids the markdown loose-mode blank
+     * line that breaks the visual list rhythm. */
+    li > p {
+      display: inline;
+    }
+
+    /* Pin list marker to body em so every list / paragraph line shares the exact same
+     * line box height. (Global Markdown.scss makes ul markers 1.2em + bold.) */
+    ul > li::marker,
+    ol > li::marker {
+      font-size: 1em !important;
+      font-weight: normal !important;
+    }
+
+    ul {
+      list-style: none;
+      padding-left: 1.25rem;
+    }
+
+    ul > li {
+      position: relative;
+    }
+
+    ul > li::before {
+      content: '';
+      position: absolute;
+      left: -0.85rem;
+      top: 0.65em;
+      width: 0.32em;
+      height: 0.32em;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.55;
+    }
+
+    /* Code fences keep mono font but match flow-chat sizing. */
+    pre {
+      font-size: var(--flowchat-font-size-sm);
+    }
+  }
+
+  /* Markdown.scss sets 0.875rem !important on fenced blocks — override with flow-chat scale. */
+  .markdown-renderer .code-block-wrapper pre[class*='language-'],
+  .markdown-renderer .code-block-wrapper pre code,
+  .markdown-renderer .code-block-wrapper pre[style],
+  .markdown-renderer .code-block-wrapper code[style],
+  .markdown-renderer pre code {
+    font-size: var(--flowchat-font-size-sm) !important;
+  }
+
+  .markdown-renderer .table-wrapper table {
+    font-size: var(--flowchat-font-size-sm);
+  }
+
+  /* Inline `code`: no chip background in chat (code blocks unchanged). */
+  .markdown-renderer .inline-code {
+    background: transparent;
+    border: none;
+    padding: 0.1em 0.2em;
+  }
+
+  .markdown-renderer .inline-code:hover {
+    background: transparent;
+    border: none;
+  }
+
+  /* Tighter code fence toolbar than global Markdown.scss (flow chat only). */
+  .markdown-renderer .code-block-toolbar {
+    min-height: 1.625rem;
+    padding: 0.2rem 0.45rem 0.2rem 0.6rem;
+  }
+
+  .markdown-renderer .code-block-lang {
+    font-size: var(--flowchat-font-size-xxs);
+    line-height: 1.2;
+  }
+
+  .markdown-renderer .code-block-wrapper .copy-button {
+    width: 26px;
+    height: 26px;
+    padding: 0.2rem;
+    transition:
+      transform 0.15s ease,
+      opacity 0.2s ease;
+  }
+
+  .markdown-renderer .code-block-wrapper .copy-button:hover {
+    background: transparent;
+    color: var(--color-text-muted);
+    transform: scale(1.08);
+  }
+
+  .markdown-renderer .code-block-wrapper .copy-button:active {
+    background: transparent;
+    color: var(--color-text-muted);
+    transform: scale(1.02);
+  }
+
+  .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover {
+    color: #22c55e;
+    transform: scale(1.08);
+  }
+
+  /* MermaidBlock.scss adds a heavy hover shadow; keep chat diagrams flat. */
+  .markdown-renderer .mermaid-block:hover {
+    box-shadow: none;
+  }
+
+  .text-content {
+    color: var(--color-text-primary);
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    
+    // Streaming output uses an ink seep effect
+    &--streaming {
+      -webkit-mask-image: linear-gradient(
+        90deg,
+        #000 0%,
+        #000 50%,
+        rgba(0, 0, 0, 0.7) 70%,
+        rgba(0, 0, 0, 0.4) 85%,
+        rgba(0, 0, 0, 0.15) 100%
+      );
+      mask-image: linear-gradient(
+        90deg,
+        #000 0%,
+        #000 50%,
+        rgba(0, 0, 0, 0.7) 70%,
+        rgba(0, 0, 0, 0.4) 85%,
+        rgba(0, 0, 0, 0.15) 100%
+      );
+      animation: ink-fade-pulse 2s ease-in-out infinite;
+    }
+  }
+  
+  &.streaming {
+  }
+}
+
+/* Light theme: copy button icon color (scoped to flow chat). */
+:root[data-theme='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button:hover,
+:root[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button:hover,
+[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button:hover,
+.light .flow-text-block .markdown-renderer .code-block-wrapper .copy-button:hover {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover,
+:root[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover,
+[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover,
+.light .flow-text-block .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover {
+  color: #1a7f37;
+}
+
+:root[data-theme='light'] .flow-text-block .markdown-renderer .inline-code,
+:root[data-theme-type='light'] .flow-text-block .markdown-renderer .inline-code,
+[data-theme-type='light'] .flow-text-block .markdown-renderer .inline-code,
+.light .flow-text-block .markdown-renderer .inline-code {
+  background: transparent;
+  border: none;
+}
+
+:root[data-theme='light'] .flow-text-block .markdown-renderer .inline-code:hover,
+:root[data-theme-type='light'] .flow-text-block .markdown-renderer .inline-code:hover,
+[data-theme-type='light'] .flow-text-block .markdown-renderer .inline-code:hover,
+.light .flow-text-block .markdown-renderer .inline-code:hover {
+  background: transparent;
+  border: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .flow-text-block .markdown-renderer .inline-code,
+  .flow-text-block .markdown-renderer .inline-code:hover {
+    background: transparent;
+    border: none;
+  }
+}
+
+/* Ink seep pulse animation */
+@keyframes ink-fade-pulse {
+  0%, 100% {
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 50%,
+      rgba(0, 0, 0, 0.7) 70%,
+      rgba(0, 0, 0, 0.4) 85%,
+      rgba(0, 0, 0, 0.15) 100%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 50%,
+      rgba(0, 0, 0, 0.7) 70%,
+      rgba(0, 0, 0, 0.4) 85%,
+      rgba(0, 0, 0, 0.15) 100%
+    );
+  }
+  50% {
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 55%,
+      rgba(0, 0, 0, 0.75) 75%,
+      rgba(0, 0, 0, 0.5) 90%,
+      rgba(0, 0, 0, 0.25) 100%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 55%,
+      rgba(0, 0, 0, 0.75) 75%,
+      rgba(0, 0, 0, 0.5) 90%,
+      rgba(0, 0, 0, 0.25) 100%
+    );
+  }
+}
+

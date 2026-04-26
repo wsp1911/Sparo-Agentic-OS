@@ -1,0 +1,103 @@
+{
+  "title": "常规",
+  "subtitle": "日志、终端、启动与通知",
+  "launchAtLogin": {
+    "sections": {
+      "title": "登录时启动",
+      "hint": "登录本用户后是否自动运行 Sparo OS"
+    },
+    "toggleLabel": "开机自动启动",
+    "toggleDescription": "登录系统后自动启动 Sparo OS；具体表现因操作系统而异。",
+    "messages": {
+      "loading": "加载中…",
+      "loadFailed": "无法读取开机启动设置",
+      "saveFailed": "无法更新开机启动设置"
+    }
+  },
+  "logging": {
+    "sections": {
+      "logging": "日志",
+      "loggingHint": "日志级别与本次启动日志目录",
+      "level": "日志级别",
+      "path": "本次启动日志路径"
+    },
+    "level": {
+      "description": "实时控制日志输出级别，修改后立即生效。"
+    },
+    "path": {
+      "description": "本次启动写入日志文件所在的目录。"
+    },
+    "levels": {
+      "trace": "Trace",
+      "debug": "Debug",
+      "info": "Info",
+      "warn": "Warn",
+      "error": "Error",
+      "off": "Off"
+    },
+    "actions": {
+      "refreshTooltip": "刷新运行时状态",
+      "openFolder": "打开文件夹",
+      "openFolderTooltip": "在文件管理器中打开日志文件夹"
+    },
+    "messages": {
+      "loading": "加载中...",
+      "loadFailed": "加载日志配置失败",
+      "saveFailed": "保存日志级别失败",
+      "levelUpdated": "日志级别已更新",
+      "refreshed": "运行时状态已刷新",
+      "openedFolder": "日志文件夹已打开",
+      "openFailed": "打开日志文件夹失败",
+      "pathUnavailable": "日志文件夹路径不可用"
+    }
+  },
+  "terminal": {
+    "sections": {
+      "terminal": "终端",
+      "terminalHint": "默认 Shell 与新建终端行为",
+      "defaultTerminal": "默认终端"
+    },
+    "controls": {
+      "refreshTooltip": "刷新可用终端列表",
+      "autoDetect": "自动检测 (推荐)",
+      "description": "新建终端时使用的默认 Shell 类型",
+      "placeholder": "选择默认终端",
+      "noShells": "未检测到可用的终端"
+    },
+    "warnings": {
+      "cmd": "CMD 不支持 Shell 集成，AI 命令将通过 PowerShell 执行。",
+      "gitBash": "Git Bash 安装 oh-my-zsh 后可能导致 Shell 集成失效，如遇异常建议切换至 PowerShell。"
+    },
+    "recommendations": {
+      "pwsh": {
+        "prefix": "推荐安装使用",
+        "name": "PowerShell Core",
+        "suffix": "以获得更好的跨平台体验和现代化功能",
+        "link": "前往下载"
+      }
+    },
+    "messages": {
+      "loading": "加载中...",
+      "loadFailed": "加载配置失败",
+      "updated": "默认终端已更新",
+      "saveFailed": "保存配置失败",
+      "refreshed": "已刷新可用终端列表"
+    }
+  },
+  "notifications": {
+    "title": "通知",
+    "hint": "Toast 弹窗通知偏好设置",
+    "dialogCompletion": {
+      "label": "任务完成通知",
+      "description": "当 AI 任务完成且窗口不在焦点时，弹出 Toast 通知"
+    },
+    "startupTips": {
+      "label": "启动时显示使用技巧",
+      "description": "每次启动时随机展示一条使用技巧卡片，帮助发现更多功能"
+    },
+    "messages": {
+      "saveSuccess": "通知设置已保存",
+      "saveFailed": "保存通知设置失败"
+    }
+  }
+}

@@ -1,0 +1,247 @@
+/**
+ * RemoteControlButton — icon button + popover for remote control interactions.
+ */
+
+@use '../../../component-library/styles/tokens.scss' as *;
+
+// ── Icon button ────────────────────────────────────────────────────────────
+
+.rc-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: $size-radius-sm;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color $motion-fast $easing-standard,
+              background $motion-fast $easing-standard;
+
+  &:hover,
+  &.is-open {
+    color: var(--color-text-primary);
+    background: var(--element-bg-soft);
+  }
+
+  &:active {
+    background: var(--element-bg-medium);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-accent-500);
+    outline-offset: -1px;
+  }
+
+  // When relay or bot is connected, tint the icon slightly
+  &.is-connected {
+    color: var(--color-text-secondary);
+  }
+
+  // ── Status dot (top-right overlay on icon) ────────────────────────────
+
+  &__dot {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    // Ring to separate dot from icon
+    box-shadow: 0 0 0 1.5px var(--color-bg-primary);
+    pointer-events: none;
+
+    &--connected {
+      background: var(--color-success, #22c55e);
+    }
+
+    &--waiting {
+      background: var(--color-warning, #f59e0b);
+      animation: rc-dot-pulse 1.4s ease-in-out infinite;
+    }
+  }
+}
+
+// ── Popover ────────────────────────────────────────────────────────────────
+
+.rc-popover {
+  position: fixed;
+  z-index: $z-popover;
+  width: 224px;
+  background: var(--color-bg-elevated, #1e1e22);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: $size-radius-base;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32), 0 2px 6px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+
+  &__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: $z-overlay;
+  }
+
+  // ── Header ──────────────────────────────────────────────────────────────
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-2;
+    padding: 10px $size-gap-3;
+    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+
+    svg {
+      flex-shrink: 0;
+      color: var(--color-text-muted);
+    }
+  }
+
+  &__title {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.01em;
+  }
+
+  // ── Body ────────────────────────────────────────────────────────────────
+
+  &__body {
+    padding: $size-gap-2 $size-gap-3;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__section {
+    padding: 4px 0;
+
+    & + & {
+      border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+      margin-top: 2px;
+      padding-top: 8px;
+    }
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-2;
+  }
+
+  &__dot {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+
+    &--connected {
+      background: var(--color-success, #22c55e);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-success, #22c55e) 20%, transparent);
+    }
+
+    &--waiting {
+      background: var(--color-warning, #f59e0b);
+      animation: rc-dot-pulse 1.4s ease-in-out infinite;
+    }
+
+    &--idle {
+      background: var(--color-text-muted);
+      opacity: 0.35;
+    }
+  }
+
+  &__row-label {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--color-text-primary);
+    line-height: 1.4;
+
+    &--muted {
+      color: var(--color-text-muted);
+      font-weight: 400;
+    }
+  }
+
+  &__meta {
+    // Indent to align with label (gap + dot width = 7px + 8px)
+    padding-left: calc(7px + #{$size-gap-2});
+    margin: 3px 0 0;
+    font-size: var(--font-size-xxs);
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    word-break: break-all;
+  }
+
+  // ── Footer ──────────────────────────────────────────────────────────────
+
+  &__footer {
+    display: flex;
+    flex-direction: column;
+    gap: $size-gap-1;
+    padding: $size-gap-2 $size-gap-3;
+    border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  }
+
+  &__action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    width: 100%;
+    padding: 0 $size-gap-3;
+    border: none;
+    border-radius: $size-radius-sm;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background $motion-fast $easing-standard,
+                color $motion-fast $easing-standard;
+
+    &--secondary {
+      background: var(--element-bg-soft);
+      color: var(--color-text-secondary);
+
+      &:hover {
+        background: var(--element-bg-medium);
+        color: var(--color-text-primary);
+      }
+    }
+
+    &--danger {
+      background: color-mix(in srgb, var(--color-error, #ef4444) 10%, transparent);
+      color: var(--color-error, #ef4444);
+
+      &:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--color-error, #ef4444) 18%, transparent);
+      }
+
+      &:focus-visible {
+        outline: 2px solid color-mix(in srgb, var(--color-error, #ef4444) 60%, transparent);
+        outline-offset: -1px;
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
+// ── Keyframes ──────────────────────────────────────────────────────────────
+
+@keyframes rc-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.85); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rc-btn__dot--waiting,
+  .rc-popover__dot--waiting {
+    animation: none;
+  }
+}

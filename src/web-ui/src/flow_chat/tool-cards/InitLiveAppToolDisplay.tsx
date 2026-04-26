@@ -1,0 +1,183 @@
+/**
+ * InitLiveAppToolDisplay — InitLiveApp tool result; layout aligned with GitToolDisplay (BaseToolCard).
+ */
+import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { AppWindow, ExternalLink } from 'lucide-react';
+import { CubeLoading } from '../../component-library';
+import type { ToolCardProps } from '../types/flow-chat';
+import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
+import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { useOverlayManager } from '@/app/hooks/useOverlayManager';
+import type { OverlaySceneId } from '@/app/overlay/types';
+import './InitLiveAppToolDisplay.scss';
+
+export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem }) => {
+  const { t } = useTranslation('flow-chat');
+  const { status, toolResult, partialParams, isParamsStreaming, toolCall } = toolItem;
+  const { openOverlay } = useOverlayManager();
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const toolId = toolItem.id ?? toolCall?.id;
+  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
+    toolId,
+    toolName: toolItem.toolName,
+  });
+
+  const name = useMemo(() => {
+    if (isParamsStreaming) return (partialParams?.name as string | undefined) || '';
+    return (toolCall?.input as Record<string, unknown> | undefined)?.name as string | undefined || '';
+  }, [isParamsStreaming, partialParams, toolCall?.input]);
+
+  const appId = toolResult?.result?.app_id as string | undefined;
+  const path = toolResult?.result?.path as string | undefined;
+  const success = toolResult?.success === true;
+  const isLoading = status === 'running' || status === 'streaming' || status === 'preparing';
+  const isFailed = status === 'error' || (status === 'completed' && toolResult != null && toolResult.success === false);
+
+  const hasExpandableDetails =
+    isFailed || (status === 'completed' && success && Boolean(appId));
+
+  const toggleExpanded = useCallback(() => {
+    applyExpandedState(isExpanded, !isExpanded, setIsExpanded);
+  }, [applyExpandedState, isExpanded]);
+
+  const handleCardClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (!hasExpandableDetails) return;
+      const target = e.target as HTMLElement;
+      if (target.closest('.init-live-app-action-buttons')) return;
+      toggleExpanded();
+    },
+    [hasExpandableDetails, toggleExpanded]
+  );
+
+  const getErrorMessage = () => {
+    if (toolResult && 'error' in toolResult && toolResult.error) {
+      return String(toolResult.error);
+    }
+    return t('toolCards.initLiveApp.createFailed');
+  };
+
+  const commandText = useMemo(() => {
+    if (isLoading) {
+      return name || t('toolCards.initLiveApp.creatingShort');
+    }
+    if (isFailed) {
+      return name || t('toolCards.initLiveApp.untitled');
+    }
+    return name || appId || t('toolCards.initLiveApp.untitled');
+  }, [appId, isFailed, isLoading, name, t]);
+
+  const renderStatusIcon = () => {
+    if (isLoading) {
+      return <CubeLoading size="small" />;
+    }
+    return null;
+  };
+
+  const renderHeader = () => (
+    <ToolCardHeader
+      icon={<AppWindow size={16} />}
+      iconClassName="init-live-app-icon"
+      action={`${t('toolCards.initLiveApp.title')}:`}
+      content={
+        <span className="init-live-app-tool-info">
+          <span className="operation-tag">
+            {isLoading
+              ? t('toolCards.initLiveApp.operationInit')
+              : isFailed
+                ? t('toolCards.initLiveApp.operationInit')
+                : t('toolCards.initLiveApp.skeletonReady')}
+          </span>
+          <span className="command-text">{commandText}</span>
+        </span>
+      }
+      extra={
+        <>
+          {success && appId && status === 'completed' && (
+            <span className="output-summary" title={appId}>
+              {appId}
+            </span>
+          )}
+          {isFailed && (
+            <div className="error-indicator">
+              <span className="error-text">{t('toolCards.initLiveApp.failed')}</span>
+            </div>
+          )}
+        </>
+      }
+      statusIcon={renderStatusIcon()}
+    />
+  );
+
+  const renderExpandedSuccess = () => {
+    if (!appId) return null;
+    return (
+      <div className="init-live-app-result-container">
+        <div className="init-live-app-result-rows">
+          <div className="init-live-app-result-row">
+            <span className="init-live-app-result-label">{t('toolCards.initLiveApp.labelAppId')}</span>
+            <span className="init-live-app-result-value" title={appId}>
+              {appId}
+            </span>
+          </div>
+          {path ? (
+            <div className="init-live-app-result-row">
+              <span className="init-live-app-result-label">{t('toolCards.initLiveApp.labelPath')}</span>
+              <span className="init-live-app-result-value" title={path}>
+                {path}
+              </span>
+            </div>
+          ) : null}
+        </div>
+        <div className="init-live-app-result-footer init-live-app-action-buttons">
+          <button
+            type="button"
+            className="init-live-app-open-btn"
+            onClick={() => openOverlay(`live-app:${appId}` as OverlaySceneId)}
+            title={t('toolCards.initLiveApp.openInLiveAppTitle')}
+          >
+            <ExternalLink size={12} />
+            <span>{t('toolCards.initLiveApp.openInLiveApp')}</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderExpandedError = () => (
+    <div className="error-content">
+      <div className="error-message">{getErrorMessage()}</div>
+      {name ? (
+        <div className="error-meta">
+          <span className="error-operation">{t('toolCards.initLiveApp.nameLabel', { name })}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const renderDetailsWhenExpanded = (): React.ReactNode => {
+    if (isFailed) {
+      return renderExpandedError();
+    }
+    if (success && appId) {
+      return renderExpandedSuccess();
+    }
+    return null;
+  };
+
+  return (
+    <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
+      <BaseToolCard
+        status={status}
+        isExpanded={isExpanded}
+        onClick={hasExpandableDetails ? handleCardClick : undefined}
+        className="init-live-app-tool-display"
+        header={renderHeader()}
+        expandedContent={isExpanded ? renderDetailsWhenExpanded() : null}
+        headerExpandAffordance={hasExpandableDetails}
+      />
+    </div>
+  );
+};

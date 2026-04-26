@@ -1,0 +1,503 @@
+//! System prompts module providing main dialogue and agent dialogue prompts
+use super::bitfun_self_provider::build_bitfun_self_prompt;
+use super::request_context::{RequestContextPolicy, RequestContextSection};
+use crate::service::bootstrap::build_workspace_persona_prompt;
+use crate::service::config::get_app_language_code;
+use crate::service::config::global::GlobalConfigManager;
+use crate::service::filesystem::get_formatted_directory_listing;
+use crate::service::instructions::build_instruction_files_context;
+use crate::service::memory_store::{
+    build_global_workspace_overviews_context, build_memory_files_context_for_target,
+    build_memory_prompt_for_target, memory_store_dir_path_for_target, MemoryScope,
+    MemoryStoreTarget,
+};
+use crate::service::workspace::get_global_workspace_service;
+use crate::util::errors::{BitFunError, BitFunResult};
+use log::{debug, warn};
+use std::path::Path;
+
+/// Placeholder constants
+const PLACEHOLDER_PERSONA: &str = "{PERSONA}";
+const PLACEHOLDER_ENV_INFO: &str = "{ENV_INFO}";
+const PLACEHOLDER_LANGUAGE_PREFERENCE: &str = "{LANGUAGE_PREFERENCE}";
+const PLACEHOLDER_AGENT_MEMORY: &str = "{AGENT_MEMORY}";
+const PLACEHOLDER_CLAW_WORKSPACE: &str = "{CLAW_WORKSPACE}";
+const PLACEHOLDER_VISUAL_MODE: &str = "{VISUAL_MODE}";
+const PLACEHOLDER_BITFUN_SELF: &str = "{BITFUN_SELF}";
+
+/// SSH remote host facts for system prompt (workspace tools run here, not on the local client).
+#[derive(Debug, Clone)]
+pub struct RemoteExecutionHints {
+    pub connection_display_name: String,
+    pub kernel_name: String,
+    pub hostname: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PromptBuilderContext {
+    pub workspace_path: String,
+    pub model_name: Option<String>,
+    pub memory_scope: MemoryScope,
+    /// When set, file/shell tools target this remote environment; OS and path instructions follow it.
+    pub remote_execution: Option<RemoteExecutionHints>,
+    /// Pre-built tree text for `{PROJECT_LAYOUT}` when the workspace is not on the local disk.
+    pub remote_project_layout: Option<String>,
+    /// When `Some(false)`, system prompt append Computer use text-only guidance (no screenshot tool output).
+    pub supports_image_understanding: Option<bool>,
+}
+
+impl PromptBuilderContext {
+    pub fn new(workspace_path: impl Into<String>, model_name: Option<String>) -> Self {
+        Self {
+            workspace_path: workspace_path.into().replace("\\", "/"),
+            model_name,
+            memory_scope: MemoryScope::WorkspaceProject,
+            remote_execution: None,
+            remote_project_layout: None,
+            supports_image_understanding: None,
+        }
+    }
+
+    pub fn with_memory_scope(mut self, memory_scope: MemoryScope) -> Self {
+        self.memory_scope = memory_scope;
+        self
+    }
+
+    pub fn with_supports_image_understanding(mut self, supports: bool) -> Self {
+        self.supports_image_understanding = Some(supports);
+        self
+    }
+
+    pub fn with_remote_prompt_overlay(
+        mut self,
+        execution: RemoteExecutionHints,
+        project_layout: Option<String>,
+    ) -> Self {
+        self.remote_execution = Some(execution);
+        self.remote_project_layout = project_layout;
+        self
+    }
+}
+
+pub struct PromptBuilder {
+    pub context: PromptBuilderContext,
+    pub file_tree_max_entries: usize,
+}
+
+impl PromptBuilder {
+    pub fn new(context: PromptBuilderContext) -> Self {
+        Self {
+            context,
+            file_tree_max_entries: 200,
+        }
+    }
+
+    /// Provide complete environment information
+    pub fn get_env_info(&self) -> String {
+        let host_os = std::env::consts::OS;
+        let host_family = std::env::consts::FAMILY;
+        let host_arch = std::env::consts::ARCH;
+
+        let now = chrono::Local::now();
+        let current_date = now.format("%Y-%m-%d").to_string();
+
+        let computer_use_keys = match host_os {
+            "macos" => "Computer use / `key_chord`: the **local BitFun desktop** is **macOS** — use `command`, `option`, `control`, `shift` (not Win/Linux modifier names). **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for `osascript`, AppleScript, shell scripts) 2) Keyboard shortcuts: command+a/c/x/v (clipboard), command+space (Spotlight), command+tab (switch app) 3) UI control (AX/OCR/mouse) only when above fail.",
+            "windows" => "Computer use / `key_chord`: the **local BitFun desktop** is **Windows** — use `meta`/`super` for Windows key, `alt`, `control`, `shift`. **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for PowerShell, cmd, scripts) 2) Keyboard shortcuts: control+a/c/x/v (clipboard), meta (Start menu), Alt+Tab (switch) 3) UI control only when above fail.",
+            "linux" => "Computer use / `key_chord`: the **local BitFun desktop** is **Linux** — typically `control`, `alt`, `shift`, and sometimes `meta`/`super`. **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for shell scripts, system commands) 2) Keyboard shortcuts: control+a/c/x/v (clipboard) 3) UI control (AX/OCR/mouse) only when above fail.",
+            _ => "Computer use / `key_chord`: match modifier names to the **local BitFun desktop** OS below. **ACTION PRIORITY:** 1) Terminal/CLI/system commands first 2) Keyboard shortcuts second 3) UI control (mouse/OCR) last resort.",
+        };
+
+        if let Some(remote) = &self.context.remote_execution {
+            format!(
+                r#"# Environment Information
+<environment_details>
+- Workspace root (file tools, Glob, LS, Bash on workspace): {}
+- Execution environment: **Remote SSH** — connection "{}".
+- Remote host: {} (uname/kernel: {})
+- **Paths and shell:** POSIX on the remote server — use forward slashes and Unix shell syntax (bash/sh). Do **not** use PowerShell, `cmd.exe`, or Windows-style paths for workspace operations.
+- Local BitFun client OS: {} ({}) — applies to Computer use / UI automation on this machine only, not to workspace file or terminal tools.
+- Local client architecture: {}
+- Current Date: {}
+- {}
+</environment_details>
+
+"#,
+                self.context.workspace_path,
+                remote.connection_display_name.replace('"', "'"),
+                remote.hostname.replace('"', "'"),
+                remote.kernel_name.replace('"', "'"),
+                host_os,
+                host_family,
+                host_arch,
+                current_date,
+                computer_use_keys
+            )
+        } else {
+            format!(
+                r#"# Environment Information
+<environment_details>
+- Current Working Directory: {}
+- Operating System: {} ({})
+- Architecture: {}
+- Current Date: {}
+- {}
+</environment_details>
+
+"#,
+                self.context.workspace_path,
+                host_os,
+                host_family,
+                host_arch,
+                current_date,
+                computer_use_keys
+            )
+        }
+    }
+
+    /// Get workspace file list
+    pub fn get_project_layout(&self) -> String {
+        if let Some(remote_layout) = &self.context.remote_project_layout {
+            let mut project_layout = "# Workspace Layout\n<project_layout>\n".to_string();
+            project_layout.push_str(
+                "Below is a snapshot of the current workspace's file structure on the **remote** host.\n\n",
+            );
+            project_layout.push_str(remote_layout);
+            project_layout.push_str("\n</project_layout>\n\n");
+            return project_layout;
+        }
+
+        let formatted_listing = get_formatted_directory_listing(
+            &self.context.workspace_path,
+            self.file_tree_max_entries,
+        )
+        .unwrap_or_else(|e| crate::service::filesystem::FormattedDirectoryListing {
+            reached_limit: false,
+            text: format!("Error listing directory: {}", e),
+        });
+        let mut project_layout = "# Workspace Layout\n<project_layout>\n".to_string();
+        if formatted_listing.reached_limit {
+            project_layout.push_str(&format!("Below is a snapshot of the current workspace's file structure (showing up to {} entries).\n\n", self.file_tree_max_entries));
+        } else {
+            project_layout
+                .push_str("Below is a snapshot of the current workspace's file structure.\n\n");
+        }
+        project_layout.push_str(&formatted_listing.text);
+        project_layout.push_str("\n</project_layout>\n\n");
+        project_layout
+    }
+
+    pub async fn build_request_context_reminder(
+        &self,
+        policy: &RequestContextPolicy,
+    ) -> Option<String> {
+        let mut sections = Vec::new();
+        let mut instruction_sections = Vec::new();
+        let mut routing_sections = Vec::new();
+        let mut override_sections = Vec::new();
+        let mut trailing_sections = Vec::new();
+
+        let workspace = Path::new(&self.context.workspace_path);
+        if self.context.remote_execution.is_none()
+            && policy.includes(RequestContextSection::WorkspaceInstructions)
+        {
+            match build_instruction_files_context(workspace).await {
+                Ok(Some(prompt)) => instruction_sections.push(prompt),
+                Ok(None) => {}
+                Err(e) => warn!(
+                    "Failed to build workspace instruction context: path={} error={}",
+                    workspace.display(),
+                    e
+                ),
+            }
+        }
+
+        if policy.includes(RequestContextSection::ExecutiveCompanionContext) {
+            sections.push(self.build_executive_companion_context());
+        }
+
+        if policy.includes(RequestContextSection::RecentWorkspaces) {
+            let recent_workspaces = self.build_recent_workspaces_context().await;
+            if !recent_workspaces.is_empty() {
+                routing_sections.push(recent_workspaces);
+            }
+        }
+
+        for memory_scope in policy.memory_scopes() {
+            let memory_target = match memory_scope {
+                MemoryScope::WorkspaceProject if self.context.remote_execution.is_some() => {
+                    continue;
+                }
+                MemoryScope::WorkspaceProject => MemoryStoreTarget::WorkspaceProject(workspace),
+                MemoryScope::GlobalAgenticOs => MemoryStoreTarget::GlobalAgenticOs,
+            };
+
+            match build_memory_files_context_for_target(memory_target).await {
+                Ok(Some(prompt)) => override_sections.push(prompt),
+                Ok(None) => {}
+                Err(e) => {
+                    let scope_label = memory_scope.as_label();
+                    warn!(
+                        "Failed to build {} memory context: workspace_path={} error={}",
+                        scope_label,
+                        workspace.display(),
+                        e
+                    );
+                }
+            }
+        }
+
+        if policy.includes(RequestContextSection::GlobalWorkspaceOverviews) {
+            let memory_target = MemoryStoreTarget::GlobalAgenticOs;
+            match build_global_workspace_overviews_context(&memory_store_dir_path_for_target(
+                memory_target,
+            ))
+            .await
+            {
+                Ok(Some(prompt)) => routing_sections.push(prompt),
+                Ok(None) => {}
+                Err(e) => warn!(
+                    "Failed to build global workspace overviews context: workspace_path={} error={}",
+                    workspace.display(),
+                    e
+                ),
+            }
+        }
+
+        if policy.includes(RequestContextSection::ProjectLayout) {
+            trailing_sections.push(self.get_project_layout());
+        }
+
+        sections.extend(instruction_sections);
+        sections.extend(routing_sections);
+
+        if policy.has_override_sections() && !override_sections.is_empty() {
+            sections.push("Codebase and user instructions are shown below. Be sure to adhere to these instructions. IMPORTANT: These instructions OVERRIDE any default behavior and you MUST follow them exactly as written.".to_string());
+            sections.extend(override_sections);
+        }
+
+        sections.extend(trailing_sections);
+
+        if sections.is_empty() {
+            None
+        } else {
+            Some(sections.join("\n\n"))
+        }
+    }
+
+    pub fn build_executive_companion_context(&self) -> String {
+        r#"# Executive Companion Context
+Use this operating context to behave as the top-level Agentic OS assistant, not as a narrow routing bot.
+
+- Current situation: infer the user's immediate situation from the latest message, visible conversation history, active tool/session results, workspace reminders, and loaded memories.
+- User work style: use global memories for durable preferences, collaboration rhythm, and feedback. Do not invent preferences that memory or the current conversation does not support.
+- Project/product vision: use relevant project memories and workspace overviews to understand why the work matters. Verify current code or files before acting on stale memories.
+- Active objective: keep one concise understanding of what the user is trying to accomplish now, then decide whether to think with them, decide, organize, delegate, track, or summarize.
+- Continuity: preserve the feel of a trusted long-term work partner, but only refer to shared history that is actually present in conversation or memory.
+
+"#
+        .to_string()
+    }
+
+    fn current_memory_target(&self) -> MemoryStoreTarget<'_> {
+        match self.context.memory_scope {
+            MemoryScope::WorkspaceProject => {
+                MemoryStoreTarget::WorkspaceProject(Path::new(&self.context.workspace_path))
+            }
+            MemoryScope::GlobalAgenticOs => MemoryStoreTarget::GlobalAgenticOs,
+        }
+    }
+
+    /// Get visual mode instruction from user config
+    ///
+    /// Reads `app.ai_experience.enable_visual_mode` from global config.
+    /// Returns a prompt snippet when enabled, or empty string when disabled.
+    async fn get_visual_mode_instruction(&self) -> String {
+        let enabled = match GlobalConfigManager::get_service().await {
+            Ok(service) => service
+                .get_config::<bool>(Some("app.ai_experience.enable_visual_mode"))
+                .await
+                .unwrap_or(false),
+            Err(e) => {
+                debug!("Failed to read visual mode config: {}", e);
+                false
+            }
+        };
+
+        if enabled {
+            r"# Visualizing complex logic as you explain
+Use Mermaid diagrams to visualize complex logic, workflows, architectures, and data flows whenever it helps clarify the explanation.
+Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
+".to_string()
+        } else {
+            String::new()
+        }
+    }
+
+    /// Get user language preference instruction
+    ///
+    /// Read app.language from global config, generate simple language instruction
+    /// Returns empty string if config cannot be read
+    /// Returns error if language code is unsupported
+    async fn get_language_preference(&self) -> BitFunResult<String> {
+        let language_code = get_app_language_code().await;
+        Self::format_language_instruction(&language_code)
+    }
+
+    /// Format language instruction based on language code
+    fn format_language_instruction(lang_code: &str) -> BitFunResult<String> {
+        let language = match lang_code {
+            "zh-CN" => "**Simplified Chinese**",
+            "en-US" => "**English**",
+            _ => {
+                return Err(BitFunError::config(format!(
+                    "Unknown language code: {}",
+                    lang_code
+                )));
+            }
+        };
+        Ok(format!("# Language Preference\nYou MUST respond in {} regardless of the user's input language. This is the system language setting and should be followed unless the user explicitly specifies a different language. This is crucial for smooth communication and user experience\n", language))
+    }
+
+    /// Build recently accessed workspaces as a request-context section.
+    pub async fn build_recent_workspaces_context(&self) -> String {
+        let ws_service = match get_global_workspace_service() {
+            Some(s) => s,
+            None => return String::new(),
+        };
+
+        let mut rows: Vec<String> = Vec::new();
+
+        // Recent project workspaces
+        let recent = ws_service.get_recent_workspaces().await;
+        for ws in &recent {
+            let last = ws.last_accessed.format("%Y-%m-%d %H:%M").to_string();
+            rows.push(format!("| {} | {} |", ws.root_path.display(), last));
+        }
+
+        if rows.is_empty() {
+            return String::new();
+        }
+
+        format!(
+            "# Accessed Workspaces\nThe entries below are recently accessed workspaces for reference. They are common routing candidates, not an exhaustive or exclusive list of workspaces you may use when creating agent sessions.\n\n| Path | Last Accessed |\n| --- | --- |\n{}\n\n",
+            rows.join("\n")
+        )
+    }
+
+    /// Get Claw-specific workspace boundary instruction
+    fn get_claw_workspace_instruction(&self) -> String {
+        format!(
+            "# Workspace
+Your dedicated operating space is `{}`.
+Prefer doing work inside this workspace and keep it well organized with clear structure, sensible filenames, and minimal clutter.
+Do not read from, modify, create, move, or delete files outside this workspace unless the user has explicitly granted permission for that external action.
+",
+            self.context.workspace_path
+        )
+    }
+
+    /// Build prompt from template, automatically fill content based on placeholders
+    ///
+    /// Supported placeholders:
+    /// - `{PERSONA}` - Workspace persona files (BOOTSTRAP.md, SOUL.md, USER.md, IDENTITY.md)
+    /// - `{LANGUAGE_PREFERENCE}` - User language preference (read from global config)
+    /// - `{ENV_INFO}` - Environment information
+    /// - `{AGENT_MEMORY}` - Agent memory instructions + auto-loaded memory index
+    /// - `{CLAW_WORKSPACE}` - Claw-specific workspace ownership and boundary rules
+    /// - `{VISUAL_MODE}` - Visual mode instruction (Mermaid diagrams, read from global config)
+    /// - `{BITFUN_SELF}` - BitFun app capabilities (scenes, settings, Live Apps) for ControlHub app domain
+    ///
+    /// If a placeholder is not in the template, corresponding content will not be added
+    pub async fn build_prompt_from_template(&self, template: &str) -> BitFunResult<String> {
+        let mut result = template.to_string();
+
+        // Replace {PERSONA}
+        if result.contains(PLACEHOLDER_PERSONA) {
+            let persona = if self.context.remote_execution.is_some() {
+                "# Workspace persona\nMarkdown persona files (e.g. BOOTSTRAP.md, SOUL.md) live on the **remote** workspace. Use Read or Glob under the workspace root above to load them.\n\n"
+                    .to_string()
+            } else {
+                let workspace = Path::new(&self.context.workspace_path);
+                match build_workspace_persona_prompt(workspace).await {
+                    Ok(prompt) => prompt.unwrap_or_default(),
+                    Err(e) => {
+                        warn!(
+                            "Failed to build workspace persona prompt: path={} error={}",
+                            workspace.display(),
+                            e
+                        );
+                        String::new()
+                    }
+                }
+            };
+            result = result.replace(PLACEHOLDER_PERSONA, &persona);
+        }
+
+        // Replace {LANGUAGE_PREFERENCE}
+        if result.contains(PLACEHOLDER_LANGUAGE_PREFERENCE) {
+            let language_preference = self.get_language_preference().await?;
+            result = result.replace(PLACEHOLDER_LANGUAGE_PREFERENCE, &language_preference);
+        }
+
+        // Replace {CLAW_WORKSPACE}
+        if result.contains(PLACEHOLDER_CLAW_WORKSPACE) {
+            let claw_workspace = self.get_claw_workspace_instruction();
+            result = result.replace(PLACEHOLDER_CLAW_WORKSPACE, &claw_workspace);
+        }
+
+        // Replace {ENV_INFO}
+        if result.contains(PLACEHOLDER_ENV_INFO) {
+            let env_info = self.get_env_info();
+            result = result.replace(PLACEHOLDER_ENV_INFO, &env_info);
+        }
+
+        // Replace {AGENT_MEMORY}
+        if result.contains(PLACEHOLDER_AGENT_MEMORY) {
+            let agent_memory = if self.context.remote_execution.is_some()
+                && matches!(self.context.memory_scope, MemoryScope::WorkspaceProject)
+            {
+                "# Auto memory\nPersistent memory under `.sparo_os/` is stored on the **remote** host for this workspace. Use file tools with POSIX paths under the workspace root if you need to read it.\n\n"
+                    .to_string()
+            } else {
+                match build_memory_prompt_for_target(self.current_memory_target()).await {
+                    Ok(prompt) => prompt,
+                    Err(e) => {
+                        warn!(
+                            "Failed to build {} agent memory prompt: workspace_path={} error={}",
+                            self.context.memory_scope.as_label(),
+                            self.context.workspace_path,
+                            e
+                        );
+                        String::new()
+                    }
+                }
+            };
+            result = result.replace(PLACEHOLDER_AGENT_MEMORY, &agent_memory);
+        }
+
+        // Replace {VISUAL_MODE}
+        if result.contains(PLACEHOLDER_VISUAL_MODE) {
+            let visual_mode = self.get_visual_mode_instruction().await;
+            result = result.replace(PLACEHOLDER_VISUAL_MODE, &visual_mode);
+        }
+
+        // Replace {BITFUN_SELF}
+        if result.contains(PLACEHOLDER_BITFUN_SELF) {
+            let bitfun_self = build_bitfun_self_prompt().await;
+            result = result.replace(PLACEHOLDER_BITFUN_SELF, &bitfun_self);
+        }
+
+        if self.context.supports_image_understanding == Some(false) {
+            result.push_str(
+                "\n\n# Computer use (text-only primary model)\n\n\
+The configured **primary model does not accept image inputs**. When using **`ComputerUse`** (or **`ControlHub`** with **`domain: \"browser\"`**):\n\
+- **Do not** use **`screenshot`** (desktop) and **avoid** `domain:\"browser\" action:\"screenshot\"` — the JPEG bytes will be unreadable.\n\
+- **ACTION PRIORITY:** 1) Terminal/CLI/system commands (`Bash` tool, or `ComputerUse` `run_script`) 2) Keyboard shortcuts (**`key_chord`**, **`type_text`**) 3) UI control: **`click_element`** (AX) → **`locate`** → **`move_to_text`** (use **`move_to_text_match_index`** when multiple OCR hits listed) → **`mouse_move`** (**`use_screen_coordinates`: true** with coordinates from tool JSON) → **`click`**. For browser work prefer `snapshot` → click by `@e*` ref over screenshots.\n\
+- **Never guess coordinates** — always use precise methods (AX, OCR, system coordinates from tool results, or browser snapshot refs).\n",
+            );
+        }
+
+        Ok(result.trim().to_string())
+    }
+}

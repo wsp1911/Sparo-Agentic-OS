@@ -1,0 +1,104 @@
+.design-artifact-index-card {
+  .design-artifact-index-card__header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .design-artifact-index-card__title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .design-artifact-index-card__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary, #e8e8e8);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .design-artifact-index-card__id {
+    font-size: 11px;
+    font-family: var(--font-mono, monospace);
+    color: var(--color-text-muted, #858585);
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--element-bg-base, rgba(255, 255, 255, 0.08));
+  }
+
+  .design-artifact-index-card__event {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--element-bg-soft, rgba(255, 255, 255, 0.06));
+    color: var(--color-text-muted, #858585);
+
+    &--created {
+      color: var(--color-success, #34d399);
+    }
+    &--snapshot-committed {
+      color: var(--color-accent-500, #60a5fa);
+    }
+    &--file-changed,
+    &--manifest-updated {
+      color: var(--color-warning, #f59e0b);
+    }
+  }
+
+  .design-artifact-index-card__subtitle {
+    font-size: 11px;
+    color: var(--color-text-muted, #858585);
+  }
+
+  .design-artifact-index-card__open-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-base, rgba(255, 255, 255, 0.16));
+    background: var(--element-bg-base, rgba(255, 255, 255, 0.08));
+    color: var(--color-text-secondary, #b0b0b0);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: var(--element-bg-medium, rgba(255, 255, 255, 0.14));
+      color: var(--color-text-primary, #e8e8e8);
+      border-color: var(--color-accent-500, #60a5fa);
+    }
+  }
+
+  .design-artifact-index-card__details {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--color-text-muted, #858585);
+  }
+
+  .design-artifact-index-card__stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+
+    code {
+      font-family: var(--font-mono, monospace);
+      color: var(--color-accent-500, #60a5fa);
+    }
+  }
+
+  .design-artifact-index-card__icon {
+    color: var(--color-accent-500, #60a5fa);
+  }
+}
