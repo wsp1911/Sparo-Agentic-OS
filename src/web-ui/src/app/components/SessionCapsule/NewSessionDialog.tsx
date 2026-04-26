@@ -108,6 +108,8 @@ function syncSessionModeStore(mode: 'agentic' | 'Cowork' | 'Design' | 'Claw'): v
   }
 }
 
+// Re-exported for other modules; HMR is fine without fast-refresh for this non-component.
+// eslint-disable-next-line react-refresh/only-export-components
 export async function launchSessionForChoice(params: {
   agentChoice: NewSessionAgentChoice;
   workspace: WorkspaceInfo;

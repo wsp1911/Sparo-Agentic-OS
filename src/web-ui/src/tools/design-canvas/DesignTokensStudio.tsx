@@ -151,7 +151,7 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
     [scopePath, workspacePath, artifactId]
   );
   const document = useDesignTokensStore((s) => s.byScope[scopeKey]);
-  const proposals = document?.proposals || [];
+  const proposals = useMemo(() => document?.proposals ?? [], [document]);
   const [selectedId, setSelectedId] = useState<string>(document?.committed_id || proposals[0]?.id || '');
   const [activePreviewMode, setActivePreviewMode] = useState<'native' | 'inverse'>('native');
 
@@ -202,6 +202,56 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
     setDraft(selected ? cloneProposal(selected) : null);
     setDraftError(null);
   };
+
+  const resolvedCanonical = useMemo(
+    () => (draftProposal ? resolveTokens(draftProposal) : ({} as Record<string, string>)),
+    [draftProposal],
+  );
+
+  const defaultTypeRamp = useMemo(
+    () =>
+      [
+        { role: 'display' as const, size: resolvedCanonical['--dt-font-display'] },
+        { role: 'headline' as const, size: resolvedCanonical['--dt-font-headline'] },
+        { role: 'title' as const, size: resolvedCanonical['--dt-font-title'] },
+        { role: 'body' as const, size: resolvedCanonical['--dt-font-body'] },
+        { role: 'caption' as const, size: resolvedCanonical['--dt-font-caption'] },
+      ],
+    [resolvedCanonical],
+  );
+
+  const defaultRadiusTiles = useMemo(
+    () =>
+      [
+        ['sm', resolvedCanonical['--dt-radius-sm']] as const,
+        ['md', resolvedCanonical['--dt-radius-md']] as const,
+        ['lg', resolvedCanonical['--dt-radius-lg']] as const,
+        ['full', resolvedCanonical['--dt-radius-full']] as const,
+      ],
+    [resolvedCanonical],
+  );
+
+  const defaultShadowTiles = useMemo(
+    () =>
+      [
+        ['sm', resolvedCanonical['--dt-shadow-sm']] as const,
+        ['md', resolvedCanonical['--dt-shadow-md']] as const,
+        ['lg', resolvedCanonical['--dt-shadow-lg']] as const,
+      ],
+    [resolvedCanonical],
+  );
+
+  const defaultSpacingRows = useMemo(
+    () =>
+      [
+        ['xs', resolvedCanonical['--dt-space-xs']] as const,
+        ['sm', resolvedCanonical['--dt-space-sm']] as const,
+        ['md', resolvedCanonical['--dt-space-md']] as const,
+        ['lg', resolvedCanonical['--dt-space-lg']] as const,
+        ['xl', resolvedCanonical['--dt-space-xl']] as const,
+      ],
+    [resolvedCanonical],
+  );
 
   if (!draftProposal) {
     return (
@@ -269,55 +319,6 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
   const realBorder = resolve('border');
   const paletteLuminance = parseLuminance(realBackground) ?? 0.5;
   const paletteIsLight = paletteLuminance > 0.5;
-
-  /** Canonical type ramp + xs/xl spacing — same as Proposal card / tokens CSS pipeline. */
-  const resolvedCanonical = useMemo(() => resolveTokens(draftProposal), [draftProposal]);
-
-  /** When a section has no authored tokens, show these schema defaults so the block is not visually empty. */
-  const defaultTypeRamp = useMemo(
-    () =>
-      [
-        { role: 'display' as const, size: resolvedCanonical['--dt-font-display'] },
-        { role: 'headline' as const, size: resolvedCanonical['--dt-font-headline'] },
-        { role: 'title' as const, size: resolvedCanonical['--dt-font-title'] },
-        { role: 'body' as const, size: resolvedCanonical['--dt-font-body'] },
-        { role: 'caption' as const, size: resolvedCanonical['--dt-font-caption'] },
-      ],
-    [resolvedCanonical]
-  );
-
-  const defaultRadiusTiles = useMemo(
-    () =>
-      [
-        ['sm', resolvedCanonical['--dt-radius-sm']] as const,
-        ['md', resolvedCanonical['--dt-radius-md']] as const,
-        ['lg', resolvedCanonical['--dt-radius-lg']] as const,
-        ['full', resolvedCanonical['--dt-radius-full']] as const,
-      ],
-    [resolvedCanonical]
-  );
-
-  const defaultShadowTiles = useMemo(
-    () =>
-      [
-        ['sm', resolvedCanonical['--dt-shadow-sm']] as const,
-        ['md', resolvedCanonical['--dt-shadow-md']] as const,
-        ['lg', resolvedCanonical['--dt-shadow-lg']] as const,
-      ],
-    [resolvedCanonical]
-  );
-
-  const defaultSpacingRows = useMemo(
-    () =>
-      [
-        ['xs', resolvedCanonical['--dt-space-xs']] as const,
-        ['sm', resolvedCanonical['--dt-space-sm']] as const,
-        ['md', resolvedCanonical['--dt-space-md']] as const,
-        ['lg', resolvedCanonical['--dt-space-lg']] as const,
-        ['xl', resolvedCanonical['--dt-space-xl']] as const,
-      ],
-    [resolvedCanonical]
-  );
 
   const sharedVars = {
     '--dt-primary': resolve('primary', 'accent', 'brand') || '#161616',

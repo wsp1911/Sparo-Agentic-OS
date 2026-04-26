@@ -225,26 +225,6 @@ function assembleDocument(
   return out;
 }
 
-function collectReferencedAssetPaths(entryPath: string, entryHtml: string): string[] {
-  const referenced = new Set<string>();
-  const collect = (regex: RegExp) => {
-    for (const match of entryHtml.matchAll(regex)) {
-      const raw = String(match[1] || '').trim();
-      if (!raw || /^[a-z]+:/i.test(raw) || raw.startsWith('//') || raw.startsWith('data:')) {
-        continue;
-      }
-      referenced.add(joinDocumentRelative(entryPath, raw));
-    }
-  };
-
-  collect(/<link\s+[^>]*?href=["']([^"']+)["']/gi);
-  collect(/<script\s+[^>]*?src=["']([^"']+)["']/gi);
-  collect(/<(?:img|source|image|video|audio|link)[^>]*?\s(?:src|href|xlink:href)=["']([^"']+)["']/gi);
-  collect(/url\((?:['"])?([^)'"]+)(?:['"])?\)/gi);
-
-  return Array.from(referenced).sort();
-}
-
 const PICKER_INSTRUMENT = `
   (function () {
     var pickerActive = false;
@@ -377,32 +357,6 @@ export const DesignArtifactFrame: React.FC<DesignArtifactFrameProps> = ({
   const iframeRef = frameRef ?? internalRef;
   const [isReady, setIsReady] = useState(false);
   const entryHtml = files[entry];
-  const relevantAssetPaths = useMemo(() => {
-    if (typeof entryHtml !== 'string' || !/\.(html?)$/i.test(entry)) {
-      return [];
-    }
-    return collectReferencedAssetPaths(entry, entryHtml);
-  }, [entry, entryHtml]);
-  const textDependencySignature = useMemo(() => {
-    if (typeof entryHtml !== 'string' || !/\.(html?)$/i.test(entry)) {
-      return '';
-    }
-    return [
-      entry,
-      entryHtml,
-      ...relevantAssetPaths
-        .filter((path) => Object.prototype.hasOwnProperty.call(files, path))
-        .map((path) => `${path}:${files[path] ?? ''}`),
-    ].join('\u0001');
-  }, [entry, entryHtml, files, relevantAssetPaths]);
-  const assetDependencySignature = useMemo(
-    () =>
-      relevantAssetPaths
-        .filter((path) => Object.prototype.hasOwnProperty.call(assets ?? {}, path))
-        .map((path) => `${path}:${(assets ?? {})[path] ?? ''}`)
-        .join('\u0001'),
-    [assets, relevantAssetPaths]
-  );
 
   const doc = useMemo(() => {
     if (typeof entryHtml !== 'string' || !/\.(html?)$/i.test(entry)) {
@@ -411,13 +365,13 @@ export const DesignArtifactFrame: React.FC<DesignArtifactFrameProps> = ({
     const assembled = assembleDocument(entry, entryHtml, files, assets ?? {});
     const inject = `
       <style data-design-picker-style>${PICKER_STYLE}</style>
-      <script data-design-picker-script>${PICKER_INSTRUMENT}<\/script>
+      <script data-design-picker-script>${PICKER_INSTRUMENT}</script>
     `;
     if (/<\/head>/i.test(assembled)) {
       return assembled.replace(/<\/head>/i, `${inject}</head>`);
     }
     return `<!doctype html><html><head><meta charset="utf-8">${inject}</head><body>${assembled}</body></html>`;
-    }, [assetDependencySignature, entry, entryHtml, textDependencySignature]);
+    }, [entry, entryHtml, files, assets]);
 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
@@ -452,7 +406,7 @@ export const DesignArtifactFrame: React.FC<DesignArtifactFrameProps> = ({
       { type: 'bitfun-design-artifact:picker', active: pickerActive },
       '*'
     );
-  }, [pickerActive, isReady]);
+  }, [pickerActive, isReady, iframeRef]);
 
   const width = VIEWPORT_WIDTHS[viewport] ?? null;
 

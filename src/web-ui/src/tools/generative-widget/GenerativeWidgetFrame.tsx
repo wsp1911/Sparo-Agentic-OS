@@ -115,6 +115,7 @@ const THEME_VAR_NAMES = [
   '--font-mono',
 ] as const;
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function readWidgetThemePayload(): WidgetThemePayload | null {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return null;

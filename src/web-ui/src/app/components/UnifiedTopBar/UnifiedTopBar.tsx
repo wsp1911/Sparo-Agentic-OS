@@ -318,7 +318,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
       return;
     }
     void openDispatcherSession();
-  }, [hasOverlay, closeOverlay, openDispatcherSession]);
+  }, [hasOverlay, closeOverlay]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const now = Date.now();

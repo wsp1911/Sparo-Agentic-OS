@@ -177,6 +177,84 @@ function formatLockAge(since: string | undefined, t: TFunction<'flow-chat'>): st
   return t('designCanvas.panel.lockAge.hours', { count: Math.round(diff / 3_600_000) });
 }
 
+// -------- Internal: lazy-load two artifact files for Diff --------
+
+interface DesignDiffLoaderProps {
+  fromPath: string;
+  toPath: string;
+  fromLabel: string;
+  toLabel: string;
+}
+
+const DesignDiffLoader: React.FC<DesignDiffLoaderProps> = ({
+  fromPath,
+  toPath,
+  fromLabel,
+  toLabel,
+}) => {
+  const { t } = useTranslation('flow-chat');
+  const [original, setOriginal] = useState('');
+  const [modified, setModified] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    Promise.all([
+      fromPath ? workspaceAPI.readFileContent(fromPath).catch(() => '') : Promise.resolve(''),
+      toPath ? workspaceAPI.readFileContent(toPath).catch(() => '') : Promise.resolve(''),
+    ])
+      .then(([from, to]) => {
+        if (cancelled) return;
+        setOriginal(from ?? '');
+        setModified(to ?? '');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(String(err?.message || err));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fromPath, toPath]);
+
+  if (loading) {
+    return (
+      <div className="design-canvas-panel__loading">
+        <Loader2 size={16} className="spin" /> {t('designCanvas.panel.diffLoading')}
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="design-canvas-panel__history-empty">
+        {t('designCanvas.panel.diffLoadFailed', { message: error })}
+      </div>
+    );
+  }
+
+  return (
+    <div className="design-canvas-panel__diff-editor">
+      <div className="design-canvas-panel__diff-caption">
+        <span>{fromLabel}</span>
+        <span>→</span>
+        <span>{toLabel}</span>
+      </div>
+      <DiffEditor
+        originalContent={original}
+        modifiedContent={modified}
+        readOnly
+        renderSideBySide
+      />
+    </div>
+  );
+};
+
 export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
   artifactId,
   workspacePath,
@@ -291,8 +369,9 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
   useEffect(() => {
     if (!manifest) return;
     ensureFileLoaded(manifest.entry);
-  }, [manifest?.id, manifest?.entry, ensureFileLoaded]);
+  }, [manifest, ensureFileLoaded]);
 
+  const entryHtmlContent = manifest ? filesCache[manifest.entry] : undefined;
   useEffect(() => {
     if (!manifest) return;
     const entryHtml = filesCache[manifest.entry];
@@ -313,7 +392,7 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
     for (const path of referenced) {
       if (known.has(path)) ensureFileLoaded(path);
     }
-  }, [manifest, filesCache[manifest?.entry || ''], ensureFileLoaded]);
+  }, [manifest, entryHtmlContent, filesCache, ensureFileLoaded]);
 
   // ---------- Picker + Inspector ----------
 
@@ -488,7 +567,7 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
     return () => {
       if (autoSnapshotTimer.current) window.clearTimeout(autoSnapshotTimer.current);
     };
-  }, [manifest?.updated_at, manifest?.id, isAgentLocked, isSnapshotting, effectiveWorkspacePath, t]);
+  }, [manifest, isAgentLocked, isSnapshotting, effectiveWorkspacePath, t]);
 
   // ---------- Snapshot ----------
 
@@ -1108,84 +1187,6 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
           )}
         </div>
       )}
-    </div>
-  );
-};
-
-// -------- Internal: lazy-load two artifact files for Diff --------
-
-interface DesignDiffLoaderProps {
-  fromPath: string;
-  toPath: string;
-  fromLabel: string;
-  toLabel: string;
-}
-
-const DesignDiffLoader: React.FC<DesignDiffLoaderProps> = ({
-  fromPath,
-  toPath,
-  fromLabel,
-  toLabel,
-}) => {
-  const { t } = useTranslation('flow-chat');
-  const [original, setOriginal] = useState('');
-  const [modified, setModified] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    Promise.all([
-      fromPath ? workspaceAPI.readFileContent(fromPath).catch(() => '') : Promise.resolve(''),
-      toPath ? workspaceAPI.readFileContent(toPath).catch(() => '') : Promise.resolve(''),
-    ])
-      .then(([from, to]) => {
-        if (cancelled) return;
-        setOriginal(from ?? '');
-        setModified(to ?? '');
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(String(err?.message || err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [fromPath, toPath]);
-
-  if (loading) {
-    return (
-      <div className="design-canvas-panel__loading">
-        <Loader2 size={16} className="spin" /> {t('designCanvas.panel.diffLoading')}
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="design-canvas-panel__history-empty">
-        {t('designCanvas.panel.diffLoadFailed', { message: error })}
-      </div>
-    );
-  }
-
-  return (
-    <div className="design-canvas-panel__diff-editor">
-      <div className="design-canvas-panel__diff-caption">
-        <span>{fromLabel}</span>
-        <span>→</span>
-        <span>{toLabel}</span>
-      </div>
-      <DiffEditor
-        originalContent={original}
-        modifiedContent={modified}
-        readOnly
-        renderSideBySide
-      />
     </div>
   );
 };

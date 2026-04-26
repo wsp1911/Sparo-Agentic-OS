@@ -125,7 +125,7 @@ const MemoryScene: React.FC = () => {
         if (current && nextRecords.some((record) => record.id === current)) return current;
         return nextRecords[0]?.id ?? null;
       });
-    } catch (error) {
+    } catch (_error) {
       notificationService.error(t('memoryLibrary.messages.loadFailed'));
     } finally {
       setIsLoading(false);

@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-//! BitFun Desktop - Tauri-based desktop application with TransportAdapter architecture
+//! Sparo OS - Tauri-based client application with TransportAdapter architecture
 
 pub mod api;
 pub mod computer_use;
@@ -75,7 +75,7 @@ pub async fn run() {
     let log_targets = logging::build_log_targets(&log_config);
     let session_log_dir = log_config.session_log_dir.clone();
 
-    eprintln!("=== BitFun Desktop Starting ===");
+    eprintln!("=== Sparo OS Starting ===");
 
     if let Err(e) = bitfun_core::service::config::initialize_global_config().await {
         log::error!("Failed to initialize global config service: {}", e);
@@ -143,7 +143,7 @@ pub async fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(
             tauri_plugin_autostart::Builder::new()
-                .app_name("BitFun")
+                .app_name("Sparo OS")
                 .build(),
         )
         .plugin(tauri_plugin_notification::init())
@@ -273,7 +273,7 @@ pub async fn run() {
 
             logging::spawn_log_cleanup_task();
 
-            log::info!("BitFun Desktop started successfully");
+            log::info!("Sparo OS started successfully");
             Ok(())
         })
         .on_window_event({
