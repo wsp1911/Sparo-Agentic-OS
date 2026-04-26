@@ -136,9 +136,10 @@ function spawnCommand(cmd, args, cwd = ROOT_DIR) {
 async function main() {
   const startTime = Date.now();
   const mode = process.argv[2] || 'web'; // web | desktop
-  const modeLabel = mode === 'desktop' ? 'Desktop' : 'Web';
-  
-  printHeader(`BitFun ${modeLabel} Development`);
+  const devTitle =
+    mode === 'desktop' ? 'Sparo OS Development' : 'Sparo OS Web Development';
+
+  printHeader(devTitle);
   printBlank();
 
   const totalSteps = mode === 'desktop' ? 4 : 3;

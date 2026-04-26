@@ -121,7 +121,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [currentWorkspace?.id, currentWorkspace?.rootPath, currentWorkspace?.workspaceKind]);
+  }, [currentWorkspace]);
 
   const getFilePath = useCallback((): string => {
     const params = partialParams || toolCall?.input;

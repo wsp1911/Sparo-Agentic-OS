@@ -56,53 +56,6 @@ import './AppsScene.scss';
 const log = createLogger('AppsScene');
 const TAB_KEYS: AppsTab[] = ['agent-app', 'live-app', 'bridge-app'];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Root
-// ─────────────────────────────────────────────────────────────────────────────
-
-const AppsScene: React.FC = () => {
-  const { page, selectedAppId, selectedAgentId, openHome, openAppDetail, openAgentDetail } = useAppsStore();
-  useLiveAppCatalogSync();
-
-  const {
-    availableTools, getAgentById, getAppById,
-    getModeConfig, getModeSkills, handleResetTools, handleSetSkills, handleSetTools,
-    loadAppsData,
-  } = useAppsData(useAppsStore((s) => s.searchQuery));
-
-  useGallerySceneAutoRefresh({ sceneId: 'apps', refetch: () => void loadAppsData() });
-
-  const selectedApp   = useMemo(() => getAppById(selectedAppId),    [getAppById, selectedAppId]);
-  const selectedAgent = useMemo(() => getAgentById(selectedAgentId), [getAgentById, selectedAgentId]);
-
-  if (page === 'agent-detail' && selectedAgent) {
-    return (
-      <AgentDetailView
-        agent={selectedAgent}
-        app={selectedApp}
-        availableTools={availableTools}
-        getModeConfig={getModeConfig}
-        getModeSkills={getModeSkills}
-        onBack={() => selectedApp?.kind === 'mode-app' ? openAppDetail(selectedApp.id) : openHome()}
-        handleSetTools={handleSetTools}
-        handleResetTools={handleResetTools}
-        handleSetSkills={handleSetSkills}
-      />
-    );
-  }
-  if (page === 'app-detail' && selectedApp?.kind === 'mode-app') {
-    return (
-      <ModeAppDetailView
-        app={selectedApp}
-        onBack={openHome}
-        onOpenAgent={(agentId) => openAgentDetail(agentId, selectedApp.id)}
-      />
-    );
-  }
-
-  return <AppsHomeView />;
-};
-
 const AppsListSkeleton: React.FC<{
   rowCount?: number;
   showActions?: boolean;
@@ -136,6 +89,168 @@ const AppsListSkeleton: React.FC<{
   </div>
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// App Carousel  (global featured banner, always on home)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AppCarousel: React.FC<{
+  apps: AppCardModel[];
+  onOpenApp: (app: AppCardModel) => void;
+}> = ({ apps, onOpenApp }) => {
+  const { t } = useTranslation('scenes/apps');
+  const [active, setActive] = useState(0);
+  const [hovered, setHovered] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const count = apps.length;
+
+  const go = useCallback((idx: number) => setActive(((idx % count) + count) % count), [count]);
+
+  useEffect(() => {
+    if (hovered || count <= 1) return;
+    timerRef.current = setTimeout(() => go(active + 1), 3200);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [active, hovered, go, count]);
+
+  const app = apps[active];
+  const gradient   = getCardGradient(app.id);
+  const rgb        = getCardColorRgb(app.id);
+  const accentColor = `rgb(${rgb})`;
+  const Icon = app.kind === 'mode-app' ? Cpu : Bot;
+
+  return (
+    <div
+      className="app-carousel"
+      style={{ '--slide-rgb': rgb, background: gradient } as React.CSSProperties}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <button type="button" className="app-carousel__card" onClick={() => onOpenApp(app)}>
+        <div className="app-carousel__left">
+          <span className="app-carousel__icon-wrap" style={{ background: `rgba(${rgb},0.18)`, color: accentColor }}>
+            <Icon size={28} strokeWidth={1.4} />
+          </span>
+          <div className="app-carousel__text">
+            <span className="app-carousel__name">{t(app.nameKey)}</span>
+            <span className="app-carousel__desc">{t(app.descriptionKey)}</span>
+          </div>
+        </div>
+        <span className="app-carousel__badge"
+          style={{ background: `rgba(${rgb},0.14)`, color: accentColor, borderColor: `rgba(${rgb},0.28)` }}>
+          {t(app.badgeKey)}
+        </span>
+      </button>
+
+      {count > 1 && (
+        <div className="app-carousel__controls">
+          <button type="button" className="app-carousel__arrow"
+            onClick={(e) => { e.stopPropagation(); go(active - 1); }} aria-label="上一个">
+            <ChevronLeft size={14} />
+          </button>
+          <div className="app-carousel__dots">
+            {apps.map((_, i) => (
+              <button key={i} type="button"
+                className={`app-carousel__dot${i === active ? ' is-active' : ''}`}
+                style={i === active ? { background: accentColor } : undefined}
+                onClick={(e) => { e.stopPropagation(); go(i); }}
+                aria-label={`切换到第 ${i + 1} 项`}
+              />
+            ))}
+          </div>
+          <button type="button" className="app-carousel__arrow"
+            onClick={(e) => { e.stopPropagation(); go(active + 1); }} aria-label="下一个">
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Agent App list row
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AgentAppRow: React.FC<{ app: AppCardModel; onOpen: (app: AppCardModel) => void }> = ({ app, onOpen }) => {
+  const { t } = useTranslation('scenes/apps');
+  const Icon = app.kind === 'mode-app' ? Cpu : Bot;
+
+  return (
+    <button type="button" className="apps-list-row" onClick={() => onOpen(app)}>
+      <span className="apps-list-row__icon apps-list-row__icon--agent"><Icon size={18} /></span>
+      <span className="apps-list-row__body">
+        <span className="apps-list-row__head">
+          <span className="apps-list-row__name">{t(app.nameKey)}</span>
+          <Badge variant={app.kind === 'mode-app' ? 'accent' : 'purple'}>{t(app.badgeKey)}</Badge>
+        </span>
+        <span className="apps-list-row__desc">{t(app.descriptionKey)}</span>
+        <span className="apps-list-row__meta">
+          {app.kind === 'mode-app'
+            ? t('page.containsAgents', { count: app.includedAgents.length })
+            : t('page.directAgentDetail')}
+        </span>
+      </span>
+      <span className="apps-list-row__chev"><ChevronRight size={14} /></span>
+    </button>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Live App list row
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LiveAppRow: React.FC<{
+  app: LiveAppMeta;
+  isRunning: boolean;
+  onOpenDetails: (app: LiveAppMeta) => void;
+  onOpen: (id: string) => void;
+  onStop: (id: string) => Promise<void>;
+  onDelete: (id: string) => void;
+}> = ({ app, isRunning, onOpenDetails, onOpen, onStop, onDelete }) => {
+  const { t } = useTranslation('scenes/apps');
+
+  return (
+    <div
+      className={`apps-list-row apps-list-row--live${isRunning ? ' is-running' : ''}`}
+      onClick={() => onOpenDetails(app)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && onOpenDetails(app)}
+    >
+      <span className="apps-list-row__icon apps-list-row__icon--live">
+        {renderLiveAppIcon(app.icon || 'box', 18)}
+      </span>
+      <span className="apps-list-row__body">
+        <span className="apps-list-row__head">
+          <span className="apps-list-row__name">{app.name}</span>
+          {isRunning && <span className="apps-list-row__run-dot" />}
+          <span className="apps-list-row__version">v{app.version}</span>
+        </span>
+        {app.description ? <span className="apps-list-row__desc">{app.description}</span> : null}
+      </span>
+      <div className="apps-list-row__actions" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          className="apps-list-row__action apps-list-row__action--primary"
+          onClick={() => onOpen(app.id)}
+          title={t('liveApp.card.start')}
+        >
+          <Play size={13} fill="currentColor" strokeWidth={0} />
+        </button>
+        {isRunning ? (
+          <button type="button" className="apps-list-row__action apps-list-row__action--stop"
+            onClick={() => void onStop(app.id)} title={t('liveApp.card.stop')}>
+            <Square size={12} />
+          </button>
+        ) : (
+          <button type="button" className="apps-list-row__action apps-list-row__action--danger"
+            onClick={() => onDelete(app.id)} title={t('liveApp.card.delete')}>
+            <Trash2 size={12} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Home view
@@ -431,166 +546,50 @@ const AppsHomeView: React.FC = () => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// App Carousel  (global featured banner, always on home)
+// Root
 // ─────────────────────────────────────────────────────────────────────────────
 
-const AppCarousel: React.FC<{
-  apps: AppCardModel[];
-  onOpenApp: (app: AppCardModel) => void;
-}> = ({ apps, onOpenApp }) => {
-  const { t } = useTranslation('scenes/apps');
-  const [active, setActive] = useState(0);
-  const [hovered, setHovered] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const count = apps.length;
+const AppsScene: React.FC = () => {
+  const { page, selectedAppId, selectedAgentId, openHome, openAppDetail, openAgentDetail } = useAppsStore();
+  useLiveAppCatalogSync();
 
-  const go = useCallback((idx: number) => setActive(((idx % count) + count) % count), [count]);
+  const {
+    availableTools, getAgentById, getAppById,
+    getModeConfig, getModeSkills, handleResetTools, handleSetSkills, handleSetTools,
+    loadAppsData,
+  } = useAppsData(useAppsStore((s) => s.searchQuery));
 
-  useEffect(() => {
-    if (hovered || count <= 1) return;
-    timerRef.current = setTimeout(() => go(active + 1), 3200);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [active, hovered, go, count]);
+  useGallerySceneAutoRefresh({ sceneId: 'apps', refetch: () => void loadAppsData() });
 
-  const app = apps[active];
-  const gradient   = getCardGradient(app.id);
-  const rgb        = getCardColorRgb(app.id);
-  const accentColor = `rgb(${rgb})`;
-  const Icon = app.kind === 'mode-app' ? Cpu : Bot;
+  const selectedApp   = useMemo(() => getAppById(selectedAppId),    [getAppById, selectedAppId]);
+  const selectedAgent = useMemo(() => getAgentById(selectedAgentId), [getAgentById, selectedAgentId]);
 
-  return (
-    <div
-      className="app-carousel"
-      style={{ '--slide-rgb': rgb, background: gradient } as React.CSSProperties}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <button type="button" className="app-carousel__card" onClick={() => onOpenApp(app)}>
-        <div className="app-carousel__left">
-          <span className="app-carousel__icon-wrap" style={{ background: `rgba(${rgb},0.18)`, color: accentColor }}>
-            <Icon size={28} strokeWidth={1.4} />
-          </span>
-          <div className="app-carousel__text">
-            <span className="app-carousel__name">{t(app.nameKey)}</span>
-            <span className="app-carousel__desc">{t(app.descriptionKey)}</span>
-          </div>
-        </div>
-        <span className="app-carousel__badge"
-          style={{ background: `rgba(${rgb},0.14)`, color: accentColor, borderColor: `rgba(${rgb},0.28)` }}>
-          {t(app.badgeKey)}
-        </span>
-      </button>
+  if (page === 'agent-detail' && selectedAgent) {
+    return (
+      <AgentDetailView
+        agent={selectedAgent}
+        app={selectedApp}
+        availableTools={availableTools}
+        getModeConfig={getModeConfig}
+        getModeSkills={getModeSkills}
+        onBack={() => selectedApp?.kind === 'mode-app' ? openAppDetail(selectedApp.id) : openHome()}
+        handleSetTools={handleSetTools}
+        handleResetTools={handleResetTools}
+        handleSetSkills={handleSetSkills}
+      />
+    );
+  }
+  if (page === 'app-detail' && selectedApp?.kind === 'mode-app') {
+    return (
+      <ModeAppDetailView
+        app={selectedApp}
+        onBack={openHome}
+        onOpenAgent={(agentId) => openAgentDetail(agentId, selectedApp.id)}
+      />
+    );
+  }
 
-      {count > 1 && (
-        <div className="app-carousel__controls">
-          <button type="button" className="app-carousel__arrow"
-            onClick={(e) => { e.stopPropagation(); go(active - 1); }} aria-label="上一个">
-            <ChevronLeft size={14} />
-          </button>
-          <div className="app-carousel__dots">
-            {apps.map((_, i) => (
-              <button key={i} type="button"
-                className={`app-carousel__dot${i === active ? ' is-active' : ''}`}
-                style={i === active ? { background: accentColor } : undefined}
-                onClick={(e) => { e.stopPropagation(); go(i); }}
-                aria-label={`切换到第 ${i + 1} 项`}
-              />
-            ))}
-          </div>
-          <button type="button" className="app-carousel__arrow"
-            onClick={(e) => { e.stopPropagation(); go(active + 1); }} aria-label="下一个">
-            <ChevronRight size={14} />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Agent App list row
-// ─────────────────────────────────────────────────────────────────────────────
-
-const AgentAppRow: React.FC<{ app: AppCardModel; onOpen: (app: AppCardModel) => void }> = ({ app, onOpen }) => {
-  const { t } = useTranslation('scenes/apps');
-  const Icon = app.kind === 'mode-app' ? Cpu : Bot;
-
-  return (
-    <button type="button" className="apps-list-row" onClick={() => onOpen(app)}>
-      <span className="apps-list-row__icon apps-list-row__icon--agent"><Icon size={18} /></span>
-      <span className="apps-list-row__body">
-        <span className="apps-list-row__head">
-          <span className="apps-list-row__name">{t(app.nameKey)}</span>
-          <Badge variant={app.kind === 'mode-app' ? 'accent' : 'purple'}>{t(app.badgeKey)}</Badge>
-        </span>
-        <span className="apps-list-row__desc">{t(app.descriptionKey)}</span>
-        <span className="apps-list-row__meta">
-          {app.kind === 'mode-app'
-            ? t('page.containsAgents', { count: app.includedAgents.length })
-            : t('page.directAgentDetail')}
-        </span>
-      </span>
-      <span className="apps-list-row__chev"><ChevronRight size={14} /></span>
-    </button>
-  );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Live App list row
-// ─────────────────────────────────────────────────────────────────────────────
-
-const LiveAppRow: React.FC<{
-  app: LiveAppMeta;
-  isRunning: boolean;
-  onOpenDetails: (app: LiveAppMeta) => void;
-  onOpen: (id: string) => void;
-  onStop: (id: string) => Promise<void>;
-  onDelete: (id: string) => void;
-}> = ({ app, isRunning, onOpenDetails, onOpen, onStop, onDelete }) => {
-  const { t } = useTranslation('scenes/apps');
-
-  return (
-    <div
-      className={`apps-list-row apps-list-row--live${isRunning ? ' is-running' : ''}`}
-      onClick={() => onOpenDetails(app)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && onOpenDetails(app)}
-    >
-      <span className="apps-list-row__icon apps-list-row__icon--live">
-        {renderLiveAppIcon(app.icon || 'box', 18)}
-      </span>
-      <span className="apps-list-row__body">
-        <span className="apps-list-row__head">
-          <span className="apps-list-row__name">{app.name}</span>
-          {isRunning && <span className="apps-list-row__run-dot" />}
-          <span className="apps-list-row__version">v{app.version}</span>
-        </span>
-        {app.description ? <span className="apps-list-row__desc">{app.description}</span> : null}
-      </span>
-      <div className="apps-list-row__actions" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="apps-list-row__action apps-list-row__action--primary"
-          onClick={() => onOpen(app.id)}
-          title={t('liveApp.card.start')}
-        >
-          <Play size={13} fill="currentColor" strokeWidth={0} />
-        </button>
-        {isRunning ? (
-          <button type="button" className="apps-list-row__action apps-list-row__action--stop"
-            onClick={() => void onStop(app.id)} title={t('liveApp.card.stop')}>
-            <Square size={12} />
-          </button>
-        ) : (
-          <button type="button" className="apps-list-row__action apps-list-row__action--danger"
-            onClick={() => onDelete(app.id)} title={t('liveApp.card.delete')}>
-            <Trash2 size={12} />
-          </button>
-        )}
-      </div>
-    </div>
-  );
+  return <AppsHomeView />;
 };
 
 export default AppsScene;
