@@ -97,13 +97,14 @@ export function deriveSessionRelationshipFromMetadata(
   metadata?: Pick<SessionMetadata, 'customMetadata'> | null
 ): Pick<Session, 'sessionKind' | 'parentSessionId' | 'btwOrigin'> {
   const customMetadata = metadata?.customMetadata;
-  const sessionKind = normalizeSessionKind(customMetadata?.kind);
+  const rawSessionKind = normalizeSessionKind(customMetadata?.kind);
+  const sessionKind = rawSessionKind === 'btw' ? 'normal' : rawSessionKind;
 
   return normalizeSessionRelationship({
     sessionKind,
     parentSessionId: customMetadata?.parentSessionId ?? undefined,
     btwOrigin:
-      sessionKind === 'btw'
+      rawSessionKind === 'btw'
         ? {
             requestId: normalizeString(customMetadata?.parentRequestId),
             parentSessionId: normalizeString(customMetadata?.parentSessionId),
@@ -112,6 +113,18 @@ export function deriveSessionRelationshipFromMetadata(
           }
         : undefined,
   });
+}
+
+export function isLegacyPersistedBtwSession(
+  metadata?: Pick<SessionMetadata, 'customMetadata' | 'tags'> | null
+): boolean {
+  const kind = normalizeSessionKind(metadata?.customMetadata?.kind);
+  if (kind === 'btw') {
+    return true;
+  }
+
+  const tags = metadata?.tags;
+  return Array.isArray(tags) && tags.includes('btw');
 }
 
 export function deriveLastFinishedAtFromMetadata(

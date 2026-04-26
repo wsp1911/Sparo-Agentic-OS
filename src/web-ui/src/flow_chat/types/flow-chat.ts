@@ -253,6 +253,12 @@ export interface Session {
     parentTurnIndex?: number;
   };
 
+  /**
+   * Runtime-only session that should stay in memory but never be persisted or
+   * shown in primary session navigation.
+   */
+  isTransient?: boolean;
+
   /** Session-scoped background work that should be visible in the UI without becoming transcript history. */
   backgroundActivities?: Record<string, SessionBackgroundActivity>;
 }

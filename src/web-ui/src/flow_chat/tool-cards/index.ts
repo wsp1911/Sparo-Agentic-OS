@@ -42,7 +42,6 @@ import { InitLiveAppDisplay } from './InitLiveAppToolDisplay';
 import { GenerativeWidgetToolCard } from './GenerativeWidgetToolCard';
 import { DesignArtifactIndexCard } from './DesignArtifactIndexCard';
 import { DesignTokensProposalCard } from './DesignTokensProposalCard';
-import { BtwMarkerCard } from './BtwMarkerCard';
 import { SessionControlToolCard } from './SessionControlToolCard';
 import { SessionMessageToolCard } from './SessionMessageToolCard';
 import { SessionHistoryDisplay } from './SessionHistoryDisplay';
@@ -213,18 +212,6 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     primaryColor: '#8b5cf6'
   },
 
-  // /btw in-stream marker (frontend-inserted tool item)
-  'BtwMarker': {
-    toolName: 'BtwMarker',
-    displayName: 'Side thread',
-    icon: 'BTW',
-    requiresConfirmation: false,
-    resultDisplayType: 'hidden',
-    description: 'Side thread marker (child session link)',
-    displayMode: 'compact',
-    primaryColor: '#7aa6ff'
-  },
-
   // GetFileDiff tool
   'GetFileDiff': {
     toolName: 'GetFileDiff',
@@ -390,9 +377,6 @@ export const TOOL_CARD_COMPONENTS = {
 
   // AskUserQuestion tool
   'AskUserQuestion': AskUserQuestionCard,
-
-  // /btw marker
-  'BtwMarker': BtwMarkerCard,
 
   // GetFileDiff tool
   'GetFileDiff': GetFileDiffDisplay,
