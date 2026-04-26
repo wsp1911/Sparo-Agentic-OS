@@ -1,0 +1,57 @@
+/**
+ * ShellScene — left-right layout (embedded ShellNav + terminal pane).
+ * Mirrors .bitfun-settings-scene spacing; nav width is user-resizable.
+ */
+
+@use '../../../component-library/styles/tokens.scss' as *;
+@use '../../layout/pane-resizer.scss';
+
+.bitfun-shell-scene {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+
+  &--dragging {
+    user-select: none;
+    cursor: col-resize;
+
+    * {
+      pointer-events: none;
+    }
+
+    .bitfun-pane-resizer {
+      pointer-events: auto;
+    }
+
+    .bitfun-shell-scene__nav,
+    .bitfun-shell-scene__content {
+      transition: none;
+    }
+  }
+
+  &__nav {
+    flex-shrink: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--color-bg-scene, var(--color-bg-primary));
+  }
+
+  &__content {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-scene, var(--color-bg-primary));
+  }
+
+  &__loading {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+  }
+}

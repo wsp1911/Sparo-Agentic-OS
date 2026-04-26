@@ -1,0 +1,29 @@
+{
+  "title": "Memory",
+  "subtitle": "Configure background auto-memory extraction behavior",
+  "autoMemory": {
+    "global": {
+      "sectionTitle": "Global memory",
+      "sectionDescription": "Controls background extraction for agentic_os memory.",
+      "enabled": "Enable global auto memory",
+      "enabledDesc": "",
+      "extractEveryEligibleTurns": "How often to update global memory",
+      "extractEveryEligibleTurnsDesc": "Update agentic_os memory once every N eligible conversations."
+    },
+    "workspace": {
+      "sectionTitle": "Workspace memory",
+      "sectionDescription": "Controls background extraction for normal agent workspace memory.",
+      "enabled": "Enable workspace auto memory",
+      "enabledDesc": "",
+      "extractEveryEligibleTurns": "How often to update workspace memory",
+      "extractEveryEligibleTurnsDesc": "Update workspace memory once every N eligible conversations."
+    }
+  },
+  "loading": {
+    "text": "Loading configuration..."
+  },
+  "messages": {
+    "saveSuccess": "Settings saved",
+    "saveFailed": "Save failed"
+  }
+}

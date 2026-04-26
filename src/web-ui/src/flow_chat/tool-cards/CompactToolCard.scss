@@ -1,0 +1,404 @@
+/**
+ * Compact tool card styles
+ * Simple gray transparent background style
+ */
+
+@use './_tool-card-common.scss';
+@use '../../component-library/styles/_extended-mixins' as mixins;
+
+/* ========== Card wrapper ========== */
+.compact-tool-card-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: var(--flowchat-font-size-base);
+  line-height: 1.65;
+
+  &.compact-tool-card-wrapper--expanded {
+    margin: 4px 0;
+    border: 1px solid var(--border-base);
+    border-radius: 8px;
+    background: var(--color-bg-flowchat);
+    overflow: hidden;
+    box-shadow:
+      0 1px 4px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.02);
+
+    &:hover {
+      border-color: var(--border-medium);
+    }
+
+    > .compact-tool-card {
+      padding: 8px 10px !important;
+    }
+  }
+
+  &.compact-tool-card-wrapper--expanded.requires-confirmation {
+    border-color: var(--color-warning, #f59e0b);
+    box-shadow:
+      0 0 0 1px rgba(245, 158, 11, 0.14),
+      0 0 12px rgba(245, 158, 11, 0.16);
+  }
+}
+
+/* Tool item wrapper around .compact-tool-card-wrapper (see ModelRoundItem / FlowItemRenderer).
+ * Canonical 0.6rem (~9.6px) bottom margin matches `.flow-text-block` and
+ * `.flow-thinking-item`, giving every flow item the same visual gap to its sibling.
+ * The explicit `line-height` pins the wrapper's strut so WebKit (Tauri/macOS) doesn't
+ * inherit a different line-height from ancestors. */
+.flowchat-flow-item,
+.flowchat-tool-wrapper {
+  margin: 0 0 0.6rem 0;
+  font-size: var(--flowchat-font-size-base);
+  line-height: 1.65;
+}
+
+.flow-tool-card-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.flow-tool-card-note {
+  margin-left: 1.5rem;
+  color: var(--color-text-secondary);
+  font-size: 0.82em;
+  line-height: 1.45;
+  opacity: 0.84;
+}
+
+/* ========== Loading state: A (border via text fade) + E (text fade) ========== */
+
+/* Hide left spinner/cube */
+.compact-tool-card-wrapper--loading-shimmer .compact-card-status-icon:has(.cube-loading),
+.compact-tool-card-wrapper--loading-shimmer .compact-card-status-icon:has(svg.animate-spin) {
+  display: none !important;
+}
+
+/* E — status icon + action + content breathe */
+.compact-tool-card-wrapper--loading-shimmer .compact-card-status-icon,
+.compact-tool-card-wrapper--loading-shimmer .compact-card-action,
+.compact-tool-card-wrapper--loading-shimmer .compact-card-content {
+  animation: tool-card-text-fade 1.6s ease-in-out infinite;
+}
+
+/* ========== Card body - transparent, no border ========== */
+.compact-tool-card {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 8px 0 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+
+  &.clickable:hover {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    
+    .compact-card-status-icon {
+      color: var(--color-success);
+      transform: scale(1.05);
+    }
+    
+    .compact-card-action,
+    .compact-card-content,
+    .compact-card-extra {
+      color: var(--color-text-primary);
+    }
+    
+    .compact-card-right-icon {
+      color: var(--color-success);
+      transform: scale(1.05);
+    }
+  }
+
+  &.clickable:active {
+    background: transparent !important;
+    
+    .compact-card-status-icon {
+      transform: scale(1.0);
+    }
+  }
+
+  &:not(.clickable):hover {
+    .compact-card-action,
+    .compact-card-content {
+      color: var(--color-text-primary);
+    }
+    
+    .compact-card-status-icon {
+      opacity: 0.95;
+    }
+  }
+}
+
+/* ========== Header element styles ========== */
+
+/*
+ * WebKit (Tauri on macOS) baseline quirk fix:
+ * — Use `display: flex` (not `inline-flex`) so children don't carry an inline
+ *   baseline that WebKit aligns to their bottom margin edge (which forces the
+ *   row line-box to grow to fit the SVG's full height ABOVE its baseline).
+ * — Force inner SVGs to `display: block` to drop the inline descender slot.
+ * — Pin icon wrappers to `line-height: 1` so the wrapper height === SVG height,
+ *   then let the parent flex `align-items: center` vertically center them inside
+ *   the 23px text rhythm. This way the row height is driven solely by the text
+ *   spans (line-height 1.65 × 14px = 23.1px), not by icon wrappers.
+ */
+.compact-card-status-icon {
+  font-size: var(--flowchat-font-size-base);
+  line-height: 1;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  > svg {
+    display: block;
+  }
+}
+
+.compact-card-action {
+  font-size: var(--flowchat-font-size-base);
+  line-height: 1.65;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.compact-card-content {
+  flex: 1;
+  font-size: var(--flowchat-font-size-base);
+  line-height: 1.65;
+  color: var(--color-text-muted);
+  min-width: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  .read-file-meta {
+    color: inherit;
+    opacity: 0.85;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+.compact-card-extra {
+  font-size: var(--flowchat-font-size-base);
+  line-height: 1.65;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+
+  > svg {
+    display: block;
+  }
+}
+
+.compact-card-right-icon {
+  font-size: var(--flowchat-font-size-base);
+  line-height: 1;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  > svg {
+    display: block;
+  }
+}
+
+/* ========== Status-specific styles ========== */
+
+.compact-tool-card.status-completed {
+  .compact-card-status-icon {
+    color: var(--color-text-muted);
+
+    .icon-check-done {
+      color: var(--color-success);
+    }
+  }
+}
+
+.compact-tool-card.status-running,
+.compact-tool-card.status-streaming {
+  .compact-card-status-icon {
+    color: var(--color-accent-600);
+  }
+}
+
+.compact-tool-card.status-error {
+  .compact-card-status-icon {
+    color: var(--color-error);
+  }
+}
+
+/* ========== Expanded content area ========== */
+.compact-tool-card-expanded {
+  position: relative;
+  margin: 0;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  animation: expandDown 0.2s ease-out;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+/* ========== Common expanded content styles ========== */
+
+.compact-detail-info-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.compact-detail-inline-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.compact-detail-inline-label {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.compact-detail-inline-value {
+  color: var(--color-text-secondary);
+  font-family: var(--tool-card-font-mono);
+}
+
+.compact-detail-inline-separator {
+  color: var(--border-base);
+}
+
+.compact-expanded-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+
+}
+
+.compact-expanded-result-item {
+  padding: 6px 0;
+  border-radius: 0;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    background: transparent;
+  }
+}
+
+.compact-expanded-result-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 4px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+    
+    .inline-icon {
+      color: var(--color-success);
+      transform: translateX(2px);
+    }
+  }
+
+  .inline-icon {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+.compact-expanded-result-snippet {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.65;
+  margin-bottom: 4px;
+  padding-left: 18px;
+}
+
+.compact-expanded-result-url {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-family: var(--tool-card-font-mono);
+  padding-left: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-result-content {
+  margin-top: 0;
+  
+  pre {
+    margin: 0;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--color-text-primary);
+    font-family: var(--tool-card-font-mono);
+    font-size: 11px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+    max-height: 400px;
+    overflow-y: auto;
+
+  }
+}
+
+/* ========== Expand animation ========== */
+@keyframes expandDown {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tool-card-text-fade {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+

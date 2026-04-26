@@ -1,0 +1,175 @@
+/**
+ * Turn list as a right-hand column that narrows the chat when open.
+ */
+
+@use '../../../component-library/styles/tokens' as *;
+
+.flowchat-turn-sidebar {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 0;
+  min-width: 0;
+  min-height: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid transparent;
+  background: color-mix(in srgb, var(--color-bg-elevated) 94%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    width $motion-base $easing-standard,
+    min-width $motion-base $easing-standard,
+    border-color $motion-base $easing-standard,
+    opacity $motion-base $easing-standard;
+
+  &--open {
+    width: min(360px, 42vw);
+    min-width: min(280px, 32vw);
+    border-left-color: var(--border-base);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  &__inner {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+  }
+
+  &__header {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: $size-gap-2;
+    padding: $size-gap-2 $size-gap-3;
+    border-bottom: 1px solid var(--border-base);
+    font-size: var(--flowchat-font-size-xs);
+    color: var(--color-text-secondary);
+  }
+
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__search-field {
+    flex: 1;
+    min-width: 0;
+
+    &.bitfun-input-wrapper {
+      gap: 0;
+    }
+
+    &.bitfun-input-wrapper--error .bitfun-input {
+      color: var(--color-error, #c77070);
+    }
+
+    .bitfun-input-container {
+      padding-right: 6px;
+    }
+  }
+
+  &__search-prefix-icon {
+    flex-shrink: 0;
+    color: var(--color-text-secondary);
+    opacity: 0.75;
+  }
+
+  &__search-count {
+    flex-shrink: 0;
+    font-size: var(--flowchat-font-size-xs);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    text-align: right;
+    padding-left: 2px;
+
+    &:empty {
+      display: none;
+    }
+  }
+
+  &__heading {
+    display: inline-flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.35em;
+    min-width: 0;
+  }
+
+  &__heading-text {
+    color: var(--color-text-secondary);
+  }
+
+  &__counter {
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  &__list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: $size-gap-1;
+    scrollbar-gutter: stable;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-2;
+    width: 100%;
+    padding: $size-gap-2;
+    margin-bottom: 2px;
+    border: 0;
+    border-radius: $size-radius-base;
+    background: transparent;
+    color: var(--color-text-primary);
+    min-height: 40px;
+    text-align: left;
+    cursor: pointer;
+    transition: background $motion-base $easing-standard;
+
+    &:hover {
+      background: color-mix(in srgb, var(--element-bg-soft) 88%, transparent);
+    }
+
+    &--active {
+      background: color-mix(in srgb, var(--accent-primary) 12%, var(--element-bg-soft));
+    }
+
+    &--search-match:not(&--active) {
+      background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+    }
+  }
+
+  &__badge {
+    flex: 0 0 auto;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--element-bg-soft) 82%, transparent);
+    color: var(--color-text-secondary);
+    font-size: var(--flowchat-font-size-xs);
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  &__title {
+    min-width: 0;
+    flex: 1;
+    font-size: var(--flowchat-font-size-sm);
+    color: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

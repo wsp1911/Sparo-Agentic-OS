@@ -1,0 +1,157 @@
+/**
+ * Shared vertical pane divider (SessionScene, ShellScene, …).
+ */
+
+@use '../../component-library/styles/tokens.scss' as *;
+
+.bitfun-pane-resizer {
+  width: 1px;
+  flex-shrink: 0;
+  position: relative;
+  cursor: col-resize;
+  user-select: none;
+  z-index: $z-sticky;
+  background: var(--border-subtle);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -6px;
+    right: -6px;
+    background: transparent;
+  }
+
+  transition: all $motion-base $easing-standard,
+              width $motion-base $easing-standard,
+              opacity $motion-base $easing-standard;
+
+  &--collapsed {
+    width: 0;
+    opacity: 0;
+    pointer-events: none;
+    cursor: default;
+    background: transparent;
+
+    &::before { display: none; }
+  }
+
+  &__line {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 1px;
+    height: 36px;
+    background: transparent;
+    border-radius: $size-radius-sm;
+    transition: all $motion-base $easing-standard;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &__handle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity $motion-base $easing-standard;
+    pointer-events: none;
+  }
+
+  &__icon {
+    color: rgba(128, 128, 128, 0.6);
+    transition: color $motion-base $easing-standard;
+  }
+
+  &:hover,
+  &--hovering {
+    .bitfun-pane-resizer__line {
+      background: linear-gradient(180deg,
+        transparent 0%,
+        rgba(88, 166, 255, 0.4) 20%,
+        rgba(88, 166, 255, 0.8) 50%,
+        rgba(88, 166, 255, 0.4) 80%,
+        transparent 100%
+      );
+      width: 2px;
+      height: 50px;
+      opacity: 1;
+    }
+    .bitfun-pane-resizer__handle { opacity: 1; }
+    .bitfun-pane-resizer__icon { color: rgba(88, 166, 255, 0.9); }
+  }
+
+  &--dragging {
+    .bitfun-pane-resizer__line {
+      background: linear-gradient(180deg,
+        transparent 0%,
+        rgba(88, 166, 255, 0.6) 20%,
+        rgba(88, 166, 255, 1) 50%,
+        rgba(88, 166, 255, 0.6) 80%,
+        transparent 100%
+      );
+      box-shadow: 0 0 12px rgba(88, 166, 255, 0.5);
+      width: 2px;
+      height: 60px;
+      opacity: 1;
+    }
+    .bitfun-pane-resizer__handle { opacity: 1; }
+    .bitfun-pane-resizer__icon { color: rgba(88, 166, 255, 1); }
+  }
+
+  &:focus {
+    outline: none;
+    .bitfun-pane-resizer__line {
+      background: linear-gradient(180deg,
+        transparent 0%,
+        rgba(88, 166, 255, 0.5) 20%,
+        rgba(88, 166, 255, 0.9) 50%,
+        rgba(88, 166, 255, 0.5) 80%,
+        transparent 100%
+      );
+      box-shadow: 0 0 8px rgba(88, 166, 255, 0.4);
+      width: 2px;
+      height: 55px;
+      opacity: 1;
+    }
+    .bitfun-pane-resizer__handle { opacity: 1; }
+  }
+
+  &:focus-visible {
+    .bitfun-pane-resizer__line {
+      outline: 2px solid rgba(88, 166, 255, 0.8);
+      outline-offset: 2px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bitfun-pane-resizer,
+  .bitfun-pane-resizer__line,
+  .bitfun-pane-resizer__handle,
+  .bitfun-pane-resizer__icon {
+    transition: none;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .bitfun-pane-resizer {
+    width: 8px;
+
+    &::before { left: -10px; right: -10px; }
+    &__line { width: 2px; opacity: 1; }
+    &__handle { opacity: 0.8; }
+  }
+}
+
+@media (prefers-contrast: high) {
+  .bitfun-pane-resizer {
+    &__line { background: currentColor; opacity: 1; }
+    &:hover &__line,
+    &--hovering &__line,
+    &--dragging &__line { background: currentColor; outline: 2px solid currentColor; }
+  }
+}

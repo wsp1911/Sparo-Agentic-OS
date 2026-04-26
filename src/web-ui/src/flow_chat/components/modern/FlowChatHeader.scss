@@ -1,0 +1,242 @@
+/* FlowChat header styling aligned with side panel headers. */
+
+@use '../../../component-library/styles/tokens' as *;
+
+.flowchat-header {
+  // Two columns: left (session badge) grows, right (controls) stays compact.
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: $size-gap-1;
+
+  // Float over content without occupying layout space.
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+  min-height: 40px;
+  height: auto;
+  padding: 4px $size-gap-3;
+  pointer-events: none;
+  transition: opacity $motion-base $easing-standard;
+  z-index: 10;
+
+  // Allow buttons/inputs inside to still receive pointer events.
+  > * {
+    pointer-events: auto;
+  }
+
+  &__btw-back {
+    flex: 0 0 auto;
+
+    &:not(:disabled):hover {
+      background: color-mix(in srgb, var(--element-bg-soft) 82%, transparent);
+    }
+  }
+
+  &__turn-nav {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  &__turn-nav-button {
+    flex: 0 0 auto;
+
+    &:not(:disabled):hover,
+    &--active {
+      background: color-mix(in srgb, var(--element-bg-soft) 82%, transparent);
+    }
+  }
+
+  // ==================== Actions ====================
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-1;
+    flex-shrink: 0;
+
+    &--left {
+      grid-column: 1;
+      justify-self: start;
+    }
+
+    &:not(&--left) {
+      grid-column: 2;
+      justify-self: end;
+    }
+  }
+
+  // ==================== Search (right-aligned strip; does not span full header) ====================
+  &__search-btn,
+  &__thinking-toggle {
+    flex: 0 0 auto;
+
+    &:not(:disabled):hover {
+      background: color-mix(in srgb, var(--element-bg-soft) 82%, transparent);
+    }
+  }
+
+  &__thinking-toggle {
+    color: var(--color-text-secondary);
+  }
+
+  &__search {
+    flex: 0 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    // Tight spacing between input, match count, and nav buttons.
+    gap: 2px;
+    overflow: hidden;
+
+    // Expand animation: animate max-width and opacity when appearing.
+    max-width: min(320px, 42vw);
+    opacity: 1;
+    transform-origin: right center;
+    animation: flowchat-search-expand $motion-base $easing-standard both;
+  }
+
+  @keyframes flowchat-search-expand {
+    from {
+      max-width: 0;
+      opacity: 0;
+    }
+    to {
+      max-width: min(320px, 42vw);
+      opacity: 1;
+    }
+  }
+
+  &__search-field {
+    flex: 1;
+    min-width: 0;
+
+    &.bitfun-input-wrapper {
+      gap: 0;
+    }
+
+    &.bitfun-input-wrapper--error .bitfun-input {
+      color: var(--color-error, #c77070);
+    }
+
+    // Tighten right padding since nav buttons live inside the suffix now.
+    .bitfun-input-container {
+      padding-right: 2px;
+    }
+
+    // Let the suffix span fill height so buttons align properly.
+    .bitfun-input-suffix {
+      padding: 0;
+      display: flex;
+      align-items: center;
+    }
+  }
+
+  &__search-prefix-icon {
+    flex-shrink: 0;
+    color: var(--color-text-secondary);
+    opacity: 0.75;
+  }
+
+  // Container for count + nav buttons rendered inside the Input suffix.
+  &__search-inline-controls {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding-left: 2px;
+    border-left: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+    margin-left: 2px;
+  }
+
+  &__search-count {
+    flex-shrink: 0;
+    font-size: var(--flowchat-font-size-xs);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    text-align: right;
+    padding: 0 3px;
+
+    &:empty {
+      display: none;
+    }
+  }
+
+  // Vertical nav control — two stacked arrow buttons as one compact rectangle.
+  &__search-nav {
+    display: flex;
+    flex-direction: column;
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+
+    &:hover {
+      border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+
+      .flowchat-header__search-nav-btn + .flowchat-header__search-nav-btn {
+        border-top: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+      }
+    }
+  }
+
+  &__search-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 10px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity $motion-base $easing-standard, background $motion-base $easing-standard;
+    line-height: 0;
+
+    &:hover:not(:disabled) {
+      opacity: 1;
+      background: var(--element-bg-soft, rgba(128, 128, 128, 0.1));
+    }
+
+    &:disabled {
+      opacity: 0.25;
+      cursor: default;
+    }
+  }
+
+  // Virtual item highlight when it contains a search match.
+  // Applied via VirtualItemRenderer on the .virtual-item-wrapper level.
+
+  &__git-branch {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+    min-width: 0;
+    max-width: 140px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: $size-radius-sm;
+    color: var(--color-text-secondary);
+    font-size: var(--flowchat-font-size-xs);
+    line-height: 1;
+    white-space: nowrap;
+
+    svg {
+      flex-shrink: 0;
+      display: block;
+      opacity: 0.8;
+    }
+
+    > span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
