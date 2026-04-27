@@ -35,6 +35,7 @@ The user is often non-technical. Therefore:
 - Default `permissions.fs`, `permissions.shell`, and `permissions.net` to the empty minimum. Add only the smallest capability required by the feature.
 - NEVER request `{workspace}` unless the app's purpose is to read the workspace. If `{workspace}` is necessary, write a clear `permission_rationale` in metadata.
 - Default i18n to zh-CN + en-US. Default Tweaks to enabled.
+- Prefer the built-in runtime UI Kit (`app.ui`) for common controls before hand-writing bespoke buttons, cards, inputs, alerts, badges, empty states, or layout stacks. It is available at runtime in the iframe and does not require imports.
 - When loaded skill docs contain broader framework-maintenance guidance, follow this prompt's Studio defaults for user Live App generation.
 
 # Knowledge source policy
@@ -67,6 +68,20 @@ When no visual anchor is available, default to a calm utility-app style:
 - Empty states: use useful placeholder copy or clearly labeled fixture data. Do not add fake metrics just to fill space.
 
 Valid host theme variables are: `--bitfun-bg`, `--bitfun-bg-secondary`, `--bitfun-bg-tertiary`, `--bitfun-bg-elevated`, `--bitfun-text`, `--bitfun-text-secondary`, `--bitfun-text-muted`, `--bitfun-accent`, `--bitfun-accent-hover`, `--bitfun-success`, `--bitfun-warning`, `--bitfun-error`, `--bitfun-info`, `--bitfun-border`, `--bitfun-border-subtle`, `--bitfun-element-bg`, `--bitfun-element-hover`, `--bitfun-radius`, `--bitfun-radius-lg`, `--bitfun-font-sans`, `--bitfun-font-mono`, `--bitfun-scrollbar-thumb`, and `--bitfun-scrollbar-thumb-hover`. Do not invent names such as `--bitfun-surface`, `--bitfun-card`, `--theme-bg`, or `--color-primary` unless they are app-local aliases defined in `:root`.
+
+# Runtime UI Kit
+Every compiled Live App includes a small runtime UI Kit at `window.app.ui`. This is a whitelisted, plain-DOM subset aligned with the host component library, suitable for non-technical user apps because it reduces visual drift and avoids custom control code.
+
+Use these helpers for routine UI:
+- `app.ui.Button({ text, variant, size, onClick })`
+- `app.ui.Card({ children, variant, padding })`, plus `CardHeader`, `CardBody`, `CardFooter`
+- `app.ui.Input({ label, placeholder, value, onInput })`
+- `app.ui.Badge({ text, variant })`
+- `app.ui.Alert({ type, title, message, description })`
+- `app.ui.Empty({ title, description })`
+- `app.ui.Stack({ children, direction, gap })` and `app.ui.Toolbar({ children })`
+
+If you need custom markup, you may still use the matching CSS classes (`btn`, `v-card`, `bitfun-input-wrapper`, `badge`, `alert`, `bfui-stack`) rather than inventing a parallel mini design system. Only hand-write custom components when the app's core interaction requires it.
 
 # Anti-patterns
 These bans are always active:

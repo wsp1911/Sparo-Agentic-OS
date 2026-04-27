@@ -5,7 +5,18 @@
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FolderOpen, ChevronDown, Check, Orbit } from 'lucide-react';
+import {
+  FolderOpen,
+  ChevronDown,
+  Check,
+  Orbit,
+  Sparkles,
+  AppWindow,
+  Palette,
+  Bug,
+  Gauge,
+  type LucideIcon,
+} from 'lucide-react';
 import { createLogger } from '@/shared/utils/logger';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import type { WorkspaceInfo } from '@/shared/types';
@@ -14,6 +25,20 @@ import { useAgentIdentityDocument } from '@/app/scenes/my-agent/useAgentIdentity
 import './WelcomePanel.css';
 
 const log = createLogger('WelcomePanel');
+
+type LiveAppPromptId = 'starter' | 'dashboard' | 'polish' | 'debug';
+
+interface LiveAppPrompt {
+  id: LiveAppPromptId;
+  icon: LucideIcon;
+}
+
+const LIVE_APP_PROMPTS: LiveAppPrompt[] = [
+  { id: 'starter', icon: AppWindow },
+  { id: 'dashboard', icon: Gauge },
+  { id: 'polish', icon: Palette },
+  { id: 'debug', icon: Bug },
+];
 
 interface WelcomePanelProps {
   onQuickAction?: (command: string) => void;
@@ -45,13 +70,15 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
   const isDesignSession = sessionModeLower === 'design';
   const isClawSession = sessionModeLower === 'claw';
   const isDispatcherSession = sessionModeLower === 'dispatcher';
+  const isLiveAppStudioSession = sessionModeLower === 'liveappstudio';
   // code sessions use mode='agentic'; cowork sessions use mode='cowork'
   const showPanda =
     sessionModeLower !== 'code' &&
     sessionModeLower !== 'agentic' &&
     sessionModeLower !== 'cowork' &&
     sessionModeLower !== 'design' &&
-    sessionModeLower !== 'dispatcher';
+    sessionModeLower !== 'dispatcher' &&
+    sessionModeLower !== 'liveappstudio';
 
   const { document: identityDoc } = useAgentIdentityDocument(isClawSession ? workspacePath : '');
   const assistantName = isClawSession ? (identityDoc.name || '') : '';
@@ -66,12 +93,14 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
           ? 'Claw'
           : isDispatcherSession
             ? 'Dispatcher'
-            : '';
+            : isLiveAppStudioSession
+              ? 'LiveAppStudio'
+              : '';
     if (hour >= 5 && hour < 12) return { title: t('welcome.greetingMorning'), subtitle: t(`welcome.subtitleMorning${s}`) };
     if (hour >= 12 && hour < 18) return { title: t('welcome.greetingAfternoon'), subtitle: t(`welcome.subtitleAfternoon${s}`) };
     if (hour >= 18 && hour < 23) return { title: t('welcome.greetingEvening'), subtitle: t(`welcome.subtitleEvening${s}`) };
     return { title: t('welcome.greetingNight'), subtitle: t(`welcome.subtitleNight${s}`) };
-  }, [t, isCoworkSession, isDesignSession, isClawSession, isDispatcherSession]);
+  }, [t, isCoworkSession, isDesignSession, isClawSession, isDispatcherSession, isLiveAppStudioSession]);
 
   const tagline = greeting.subtitle;
   const aiPartnerKey = isCoworkSession
@@ -82,7 +111,9 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
         ? 'welcome.aiPartnerClaw'
         : isDispatcherSession
           ? 'welcome.aiPartnerDispatcher'
-          : 'welcome.aiPartner';
+          : isLiveAppStudioSession
+            ? 'welcome.aiPartnerLiveAppStudio'
+            : 'welcome.aiPartner';
 
   const otherWorkspaces = useMemo(
     () => openedWorkspacesList.filter(ws => ws.id !== currentWorkspace?.id),
@@ -137,14 +168,21 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
             )}
             <div className="welcome-panel__greeting-text">
               <h1
-                className={`welcome-panel__heading${isDispatcherSession ? ' welcome-panel__heading--dispatcher' : ''}`}
+                className={`welcome-panel__heading${isDispatcherSession || isLiveAppStudioSession ? ' welcome-panel__heading--icon' : ''}`}
               >
                 {isDispatcherSession ? (
                   <>
-                    <span className="welcome-panel__dispatcher-icon" aria-hidden>
+                    <span className="welcome-panel__heading-icon" aria-hidden>
                       <Orbit size={30} strokeWidth={2} />
                     </span>
                     {greeting.title}
+                  </>
+                ) : isLiveAppStudioSession ? (
+                  <>
+                    <span className="welcome-panel__heading-icon welcome-panel__heading-icon--liveapp" aria-hidden>
+                      <Sparkles size={28} strokeWidth={2} />
+                    </span>
+                    {greeting.title}，{t(aiPartnerKey)}
                   </>
                 ) : (
                   <>
@@ -167,6 +205,8 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
               t('welcome.narrativeDispatcher')
             ) : isClawSession ? (
               t('welcome.narrativeClaw')
+            ) : isLiveAppStudioSession ? (
+              t('welcome.narrativeLiveAppStudio')
             ) : !hasWorkspace ? (
               <>
                 {t('welcome.noWorkspaceHint')}
@@ -249,6 +289,37 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
         {isCoworkSession && (
           <div className="welcome-panel__cowork">
             <CoworkExampleCards resetKey={0} onSelectPrompt={p => handleQuickActionClick(p)} />
+          </div>
+        )}
+
+        {isLiveAppStudioSession && (
+          <div className="welcome-panel__liveapp">
+            <div className="welcome-panel__liveapp-title">{t('welcome.liveAppPrompts.title')}</div>
+            <div className="welcome-panel__liveapp-grid">
+              {LIVE_APP_PROMPTS.map((prompt) => {
+                const Icon = prompt.icon;
+                return (
+                  <button
+                    key={prompt.id}
+                    type="button"
+                    className="welcome-panel__liveapp-card"
+                    onClick={() => handleQuickActionClick(t(`welcome.liveAppPrompts.items.${prompt.id}.prompt`))}
+                  >
+                    <span className="welcome-panel__liveapp-card-icon" aria-hidden>
+                      <Icon size={17} />
+                    </span>
+                    <span className="welcome-panel__liveapp-card-copy">
+                      <span className="welcome-panel__liveapp-card-title">
+                        {t(`welcome.liveAppPrompts.items.${prompt.id}.title`)}
+                      </span>
+                      <span className="welcome-panel__liveapp-card-desc">
+                        {t(`welcome.liveAppPrompts.items.${prompt.id}.description`)}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

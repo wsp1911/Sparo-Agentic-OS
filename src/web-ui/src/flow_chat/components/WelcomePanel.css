@@ -93,14 +93,14 @@
   letter-spacing: -0.02em;
 }
 
-/* Agentic OS (dispatcher): Orbit icon (larger than nav footer for heading scale) */
-.welcome-panel__heading--dispatcher {
+/* Agentic OS / Live App Studio heading icons */
+.welcome-panel__heading--icon {
   display: flex;
   align-items: center;
   gap: 14px;
 }
 
-.welcome-panel__dispatcher-icon {
+.welcome-panel__heading-icon {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
@@ -108,7 +108,11 @@
   color: inherit;
 }
 
-.welcome-panel__dispatcher-icon svg {
+.welcome-panel__heading-icon--liveapp {
+  color: var(--color-accent-500);
+}
+
+.welcome-panel__heading-icon svg {
   display: block;
 }
 
@@ -327,6 +331,82 @@
   width: 100%;
 }
 
+/* ── Live App Studio ── */
+
+.welcome-panel__liveapp {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.welcome-panel__liveapp-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.welcome-panel__liveapp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.welcome-panel__liveapp-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 84px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-elevated);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease, transform 0.14s ease;
+}
+
+.welcome-panel__liveapp-card:hover {
+  border-color: var(--color-accent-300);
+  background: var(--element-bg-soft);
+  transform: translateY(-1px);
+}
+
+.welcome-panel__liveapp-card-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  color: var(--color-accent-500);
+  background: var(--color-bg-primary);
+}
+
+.welcome-panel__liveapp-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.welcome-panel__liveapp-card-title {
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.25;
+  color: var(--color-text-primary);
+}
+
+.welcome-panel__liveapp-card-desc {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
 /* ── Animations ── */
 
 @keyframes wp-fadeIn {
@@ -353,6 +433,10 @@
   .welcome-panel__dropdown {
     min-width: min(240px, calc(100vw - 40px));
     max-width: min(300px, calc(100vw - 40px));
+  }
+
+  .welcome-panel__liveapp-grid {
+    grid-template-columns: 1fr;
   }
 }
 

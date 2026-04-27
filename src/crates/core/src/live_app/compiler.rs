@@ -4,6 +4,7 @@ use crate::live_app::bridge_builder::{
     build_bridge_script, build_csp_content, build_import_map, build_live_app_default_theme_css,
     scroll_boundary_script,
 };
+use crate::live_app::runtime_ui_kit::{build_runtime_ui_kit_css, build_runtime_ui_kit_script};
 use crate::live_app::types::{LiveAppPermissions, LiveAppSource};
 use crate::util::errors::{BitFunError, BitFunResult};
 
@@ -32,6 +33,7 @@ pub fn compile(
     );
     let scroll = scroll_boundary_script();
     let theme_default_style = build_live_app_default_theme_css();
+    let runtime_ui_kit_style = build_runtime_ui_kit_css();
     let import_map = build_import_map(&source.esm_dependencies);
     let style_tag = if source.css.is_empty() {
         String::new()
@@ -39,6 +41,7 @@ pub fn compile(
         format!("<style>\n{}\n</style>", source.css)
     };
     let bridge_script_tag = format!("<script>\n{}\n</script>", bridge);
+    let runtime_ui_kit_script = build_runtime_ui_kit_script();
     let user_script_tag = if source.ui_js.is_empty() {
         String::new()
     } else {
@@ -46,8 +49,15 @@ pub fn compile(
     };
 
     let head_content = format!(
-        "\n{}\n{}\n{}\n{}\n{}\n{}\n",
-        theme_default_style, csp_tag, scroll, import_map, bridge_script_tag, style_tag,
+        "\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n",
+        theme_default_style,
+        runtime_ui_kit_style,
+        csp_tag,
+        scroll,
+        import_map,
+        bridge_script_tag,
+        runtime_ui_kit_script,
+        style_tag,
     );
 
     let html = if source.html.trim().is_empty() {
@@ -166,5 +176,31 @@ mod tests {
         let out = inject_into_head(html, content).unwrap();
         assert!(out.contains("<!-- injected -->"));
         assert!(out.contains("<meta charset"));
+    }
+
+    #[test]
+    fn compile_injects_runtime_ui_kit() {
+        let source = LiveAppSource {
+            html: r#"<!DOCTYPE html><html><head></head><body><div id="app"></div></body></html>"#
+                .to_string(),
+            css: String::new(),
+            ui_js: String::new(),
+            esm_dependencies: Vec::new(),
+            worker_js: String::new(),
+            npm_dependencies: Vec::new(),
+        };
+        let html = compile(
+            &source,
+            &LiveAppPermissions::default(),
+            "app-id",
+            "/tmp/appdata",
+            "/tmp/workspace",
+            "dark",
+        )
+        .unwrap();
+
+        assert!(html.contains("bitfun-runtime-ui-kit"));
+        assert!(html.contains("window.app.ui = ui"));
+        assert!(html.contains("btn-primary"));
     }
 }

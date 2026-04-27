@@ -33,12 +33,27 @@ Default to no worker and minimal permissions. Enable broader capabilities only w
 - Use host theme variables first: `--bitfun-bg`, `--bitfun-text`, `--bitfun-border`, `--bitfun-accent`, with fallbacks.
 - Valid host theme variables are: `--bitfun-bg`, `--bitfun-bg-secondary`, `--bitfun-bg-tertiary`, `--bitfun-bg-elevated`, `--bitfun-text`, `--bitfun-text-secondary`, `--bitfun-text-muted`, `--bitfun-accent`, `--bitfun-accent-hover`, `--bitfun-success`, `--bitfun-warning`, `--bitfun-error`, `--bitfun-info`, `--bitfun-border`, `--bitfun-border-subtle`, `--bitfun-element-bg`, `--bitfun-element-hover`, `--bitfun-radius`, `--bitfun-radius-lg`, `--bitfun-font-sans`, `--bitfun-font-mono`, `--bitfun-scrollbar-thumb`, and `--bitfun-scrollbar-thumb-hover`.
 - Do not treat invented names like `--bitfun-surface`, `--bitfun-card`, `--theme-bg`, or `--color-primary` as host variables. They are allowed only as app-local aliases defined in `:root`.
+- Prefer the built-in runtime UI Kit at `app.ui` for common controls. It is available without imports and currently exposes: Button, Card, CardHeader, CardBody, CardFooter, Input, Badge, Alert, Empty, Stack, and Toolbar.
 - Keep one dominant neutral surface, one secondary surface, and one restrained accent.
 - Use `var(--bitfun-font-sans, system-ui, sans-serif)`.
 - Title: 18-22px. Section labels: 13-15px. Body: 13-14px. Caption: 11-12px.
 - Use one primary radius and one small radius consistently.
 - Hit targets should be at least 32px tall.
 - Empty states should explain what to do next. Do not add fake metrics or decorative charts just to fill space.
+
+## Runtime UI Kit
+
+Use `app.ui` when a generated app needs standard host-aligned controls:
+
+- `app.ui.Button({ text, variant, size, onClick })`
+- `app.ui.Card({ children, variant, padding })`, `CardHeader`, `CardBody`, `CardFooter`
+- `app.ui.Input({ label, placeholder, value, onInput })`
+- `app.ui.Badge({ text, variant })`
+- `app.ui.Alert({ type, title, message, description })`
+- `app.ui.Empty({ title, description })`
+- `app.ui.Stack({ children, direction, gap })`, `app.ui.Toolbar({ children })`
+
+For custom markup, reuse the matching runtime classes (`btn`, `v-card`, `bitfun-input-wrapper`, `badge`, `alert`, `bfui-stack`) before inventing new component styles.
 
 ## Always Avoid
 

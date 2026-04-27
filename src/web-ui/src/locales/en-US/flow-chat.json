@@ -249,6 +249,7 @@
       "Design": "Design mode: create HTML prototypes, visual artifacts, and polished design deliverables",
       "ComputerUse": "Dedicated desktop automation agent for perceiving and operating apps, browsers, and OS UI",
       "DeepResearch": "Deep research with parallel sub-agents: dispatches multiple agents to investigate concurrently, producing comprehensive sourced reports",
+      "LiveAppStudio": "Live App Studio: a dedicated agent for generating, debugging, and iterating Live Apps",
       "Team": "Virtual engineering team: CEO, Eng Manager, Designer, QA Lead, Security Officer, Release Engineer — orchestrated through a full sprint workflow"
     },
     "modeNames": {
@@ -260,6 +261,7 @@
       "Design": "Design",
       "ComputerUse": "Computer Use",
       "DeepResearch": "Deep Research",
+      "LiveAppStudio": "Live App Studio",
       "Team": "Team"
     },
     "backgroundActivities": {
@@ -1095,6 +1097,37 @@
     "subtitleEveningDispatcher": "Daytime ideas don't need daylight.",
     "subtitleNightDispatcher": "The serious ones work late.",
     "narrativeDispatcher": "Tell me what you want. I'll make it happen.",
+    "aiPartnerLiveAppStudio": "Live App Studio",
+    "subtitleMorningLiveAppStudio": "Turn an idea into a Live App you can run right away",
+    "subtitleAfternoonLiveAppStudio": "A good time to prototype the flow, data, and interactions",
+    "subtitleEveningLiveAppStudio": "Shape today's requirements into a useful small app",
+    "subtitleNightLiveAppStudio": "The idea is awake. Let's make a lightweight app that works",
+    "narrativeLiveAppStudio": "Describe the app you want to generate: who it is for, what data it should show, and which interactions it needs. I will build a runnable first version, then refine it with your feedback.",
+    "liveAppPrompts": {
+      "title": "What kind of Live App do you want to generate?",
+      "items": {
+        "starter": {
+          "title": "Start from an idea",
+          "description": "Turn a business scenario into a runnable app",
+          "prompt": "Generate a Live App for managing a small team's daily tasks, with a task list, owners, due dates, status filters, and a new task form."
+        },
+        "dashboard": {
+          "title": "Data dashboard",
+          "description": "Show metrics, trends, and filterable details",
+          "prompt": "Generate a Live App for a sales dashboard, with key metric cards, a trend chart, region filters, a customer details table, and an alerts area."
+        },
+        "polish": {
+          "title": "Polish the experience",
+          "description": "Improve layout, states, empty screens, and visual detail",
+          "prompt": "Generate a Live App for event registration management, focusing on form experience, registration states, empty states, mobile layout, and visual hierarchy."
+        },
+        "debug": {
+          "title": "Fix issues",
+          "description": "Find runtime errors and iterate quickly",
+          "prompt": "Check the current Live App for runtime issues, fix errors, slow interactions, or incorrect data display, and explain what changed."
+        }
+      }
+    },
     "featureIntro": "",
     "featureIntroCowork": "",
     "featureIntroDesign": "",
