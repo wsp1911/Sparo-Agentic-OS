@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Sparo OS](./image/Sparo_title_light.png)
+![Sparo OS](./image/readme_hero_CN.png)
 
 </div>
 <div align="center">

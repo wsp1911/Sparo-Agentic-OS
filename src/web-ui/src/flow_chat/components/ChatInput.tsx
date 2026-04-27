@@ -50,7 +50,8 @@ import { ChatInputPixelPet } from './ChatInputPixelPet';
 import './ChatInput.scss';
 
 const log = createLogger('ChatInput');
-const EXPLICIT_ASSISTANT_MODES = new Set(['Dispatcher', 'dispatcher']);
+const EXPLICIT_ASSISTANT_MODES = new Set(['Dispatcher', 'dispatcher', 'LiveAppStudio', 'liveappstudio']);
+const FIXED_AGENT_MODE_IDS = new Set(['cowork', 'design', 'dispatcher', 'liveappstudio']);
 
 export interface ChatInputProps {
   className?: string;
@@ -270,15 +271,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [tokenUsage, setTokenUsage] = React.useState({ current: 0, max: 128128 });
   const isAssistantWorkspace = workspace?.workspaceKind === WorkspaceKind.Assistant;
   const currentMode = modeState.current;
+  const currentModeLower = currentMode.toLowerCase();
   const activeSessionMode = effectiveTargetSessionId
     ? flowChatState.sessions.get(effectiveTargetSessionId)?.mode
     : undefined;
-  // Cowork, Design, and Dispatcher sessions have a fixed agent type and do not support mode switching.
+  // Fixed-purpose agent sessions do not support code-mode switching.
   const canSwitchModes =
     !isAssistantWorkspace &&
-    currentMode !== 'Cowork' &&
-    currentMode !== 'Design' &&
-    currentMode !== 'Dispatcher';
+    !FIXED_AGENT_MODE_IDS.has(currentModeLower);
 
   // Session-level mode policy: fixed-purpose sessions are not available as incremental mode switches.
   const switchableModes = useMemo(

@@ -249,6 +249,7 @@
       "Design": "设计模式：创建 HTML 原型、视觉稿和更完整的设计交付物",
       "ComputerUse": "独立电脑操作智能体：感知本机环境，操作应用、浏览器与系统界面",
       "DeepResearch": "深度研究：并行派发多个子 Agent 同时调研不同章节，快速生成高质量研究报告",
+      "LiveAppStudio": "灵动应用工坊：面向灵动应用生成、调试和迭代的专用 Agent",
       "Team": "虚拟工程团队：CEO、工程经理、设计师、QA 负责人、安全官、发布工程师 — 按完整冲刺流程协同工作"
     },
     "modeNames": {
@@ -260,6 +261,7 @@
       "Design": "Design",
       "ComputerUse": "Computer Use",
       "DeepResearch": "Deep Research",
+      "LiveAppStudio": "灵动应用工坊",
       "Team": "Team"
     },
     "openFolder": "打开文件夹…",
@@ -1079,6 +1081,37 @@
     "subtitleEveningDispatcher": "白天的想法，今晚来实现。",
     "subtitleNightDispatcher": "深夜出没的，都是认真的人。",
     "narrativeDispatcher": "说出你想要的，我来让它发生。",
+    "aiPartnerLiveAppStudio": "灵动应用工坊",
+    "subtitleMorningLiveAppStudio": "把一个想法变成能立即运行的灵动应用",
+    "subtitleAfternoonLiveAppStudio": "现在很适合搭一个交互原型，让数据、表单和流程先跑起来",
+    "subtitleEveningLiveAppStudio": "把白天的需求收束成一个可用的小应用",
+    "subtitleNightLiveAppStudio": "灵感正在线，做一个轻量但好用的实时应用",
+    "narrativeLiveAppStudio": "描述你想生成的应用：它服务谁、要展示哪些数据、需要哪些交互。我会先搭建可运行版本，再根据反馈继续打磨。",
+    "liveAppPrompts": {
+      "title": "想生成什么样的灵动应用？",
+      "items": {
+        "starter": {
+          "title": "从想法开始",
+          "description": "把一个业务场景变成可运行应用",
+          "prompt": "帮我生成一个灵动应用：用于管理一个小团队的每日任务，包含任务列表、负责人、截止时间、状态筛选和新增任务表单。"
+        },
+        "dashboard": {
+          "title": "数据看板",
+          "description": "展示指标、趋势和可筛选列表",
+          "prompt": "帮我生成一个灵动应用：销售数据看板，包含核心指标卡、趋势图、地区筛选、客户明细表和异常提醒区域。"
+        },
+        "polish": {
+          "title": "打磨体验",
+          "description": "优化布局、状态、空页面和视觉细节",
+          "prompt": "帮我生成一个灵动应用：活动报名管理工具，重点打磨表单体验、报名状态、空状态、移动端布局和视觉层次。"
+        },
+        "debug": {
+          "title": "修复问题",
+          "description": "定位运行时错误并快速迭代",
+          "prompt": "帮我检查当前灵动应用的运行问题，修复报错、交互卡顿或数据显示异常，并说明你改了什么。"
+        }
+      }
+    },
     "featureIntro": "",
     "featureIntroCowork": "",
     "featureIntroDesign": "",

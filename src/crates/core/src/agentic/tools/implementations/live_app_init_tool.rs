@@ -19,8 +19,9 @@ const SKELETON_HTML: &str = r#"<!DOCTYPE html>
 </body>
 </html>"#;
 
-const SKELETON_UI_JS: &str = r#"// ESM module — use import, not require. Example:
-// import React from 'react';
+const SKELETON_UI_JS: &str = r#"// ESM module — use import, not require.
+// Runtime UI Kit is available at app.ui for common controls:
+// const { Button, Card, CardBody, Input, Stack } = app.ui;
 // const files = await app.fs.readdir('.');
 // document.getElementById('app').textContent = JSON.stringify(files, null, 2);
 "#;
@@ -70,7 +71,7 @@ Input: name, description, icon, category. The tool creates the app directory and
 - manifest (meta.json), source/index.html, source/style.css, source/ui.js, source/worker.js,
   package.json, storage.json.
 
-Returns app_id and the app root directory. Use the root directory and file names above with Read/Write/Edit to implement the app. The Live App uses window.app (app.fs, app.call, app.dialog, etc.). When available, load the liveapp-dev skill for the packaged API and design baseline."#
+Returns app_id and the app root directory. Use the root directory and file names above with Read/Write/Edit to implement the app. The Live App uses window.app (app.fs, app.call, app.dialog, etc.) and includes a runtime UI Kit at app.ui for whitelisted primitives such as Button, Card, Input, Badge, Alert, Empty, Stack, and Toolbar. When available, load the liveapp-dev skill for the packaged API and design baseline."#
             .to_string())
     }
 

@@ -10,6 +10,7 @@ pub mod js_worker_pool;
 pub mod manager;
 pub mod permission_policy;
 pub mod runtime_detect;
+pub mod runtime_ui_kit;
 pub mod storage;
 pub mod types;
 
@@ -22,6 +23,7 @@ pub use manager::{
 };
 pub use permission_policy::resolve_policy;
 pub use runtime_detect::{DetectedRuntime, RuntimeKind};
+pub use runtime_ui_kit::RUNTIME_UI_KIT_COMPONENTS;
 pub use storage::LiveAppStorage;
 pub use types::{
     AiPermissions, EsmDep, FsPermissions, LiveApp, LiveAppAiContext, LiveAppMeta,
