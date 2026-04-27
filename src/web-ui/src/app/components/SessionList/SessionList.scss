@@ -189,6 +189,14 @@
       color: color-mix(in srgb, var(--color-accent-500, #8b5cf6) 78%, white);
     }
 
+    &.is-deepresearch {
+      color: color-mix(in srgb, var(--color-accent-500, #8b5cf6) 78%, white);
+    }
+
+    &.is-liveappstudio {
+      color: color-mix(in srgb, var(--color-accent-500, #7c8cef) 82%, white);
+    }
+
     &.is-running {
       color: var(--color-success, #6eb88c);
       transition: opacity $motion-fast $easing-standard;

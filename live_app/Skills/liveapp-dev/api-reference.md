@@ -6,7 +6,7 @@
 
 ## 能力边界（先看这一节）
 
-Live App **能且只能**用以下 API，没有任何"通用 BitFun 后端通道"。生成代码前请先确认你需要的能力在表内：
+Live App **能且只能**用以下 API，没有任何"通用 Sparo OS 后端通道"。生成代码前请先确认你需要的能力在表内：
 
 - `app.fs.*` —— 文件系统（受 `permissions.fs.read/write` 限制）
 - `app.shell.exec` —— 子进程命令行（受 `permissions.shell.allow` 命令名白名单限制）
@@ -19,10 +19,10 @@ Live App **能且只能**用以下 API，没有任何"通用 BitFun 后端通道
 - `app.call('xxx', ...)` + `worker.js` —— 自定义 Node 后端（仅 `node.enabled = true` 时）
 - `app.theme / locale / on*` —— 主题与 i18n
 
-**框架不暴露**的 BitFun 后端能力（截至当前版本）：WorkspaceService（结构化搜索 / 索引）、GitService（结构化 status/diff/blame）、TerminalService、Session/AgenticSystem、LSP / Snapshot / Mermaid / Skills / Browser / Computer Use / Config 等。需要这些能力时：
+**框架不暴露**的 Sparo OS 后端能力（截至当前版本）：WorkspaceService（结构化搜索 / 索引）、GitService（结构化 status/diff/blame）、TerminalService、Session/AgenticSystem、LSP / Snapshot / Mermaid / Skills / Browser / Computer Use / Config 等。需要这些能力时：
 
-1. 能用裸命令行解决就用 `app.shell.exec`（如 git → 在 `permissions.shell.allow` 加 `"git"`，参考 `builtin-coding-selfie`）；
-2. 只是要读 BitFun 工作区里的文件就用 `app.fs.*`（把 `{workspace}` 加到 `permissions.fs.read`）；
+1. 能用裸命令行解决就用 `app.shell.exec`（如 git → 在 `permissions.shell.allow` 加 `"git"`，参考 `live_app/Demo/git-graph`）；
+2. 只是要读 Sparo OS 工作区里的文件就用 `app.fs.*`（把 `{workspace}` 加到 `permissions.fs.read`）；
 3. 必须真正调用某个内部服务 → 暂不支持，请先记录到需求池，**不要**自己 hack 一个 worker 去模拟服务行为。
 
 ## 标准 Node.js API（通过 require() shim）
@@ -33,21 +33,23 @@ Live App **能且只能**用以下 API，没有任何"通用 BitFun 后端通道
 const fs = require('fs/promises');
 ```
 
-| 方法 | 签名 | 说明 |
-|------|------|------|
-| `readFile` | `(path, opts?) → Promise<string>` | opts: `{ encoding: 'utf-8' \| 'base64' }` |
-| `writeFile` | `(path, data, opts?) → Promise<void>` | opts: `{ encoding: 'utf-8' \| 'base64' }` |
-| `appendFile` | `(path, data) → Promise<void>` | |
-| `readdir` | `(path, opts?) → Promise<string[]>` | opts: `{ withFileTypes: boolean }` |
-| `mkdir` | `(path, opts?) → Promise<void>` | opts: `{ recursive: boolean }` |
-| `rmdir` | `(path, opts?) → Promise<void>` | opts: `{ recursive: boolean }` |
-| `rm` | `(path, opts?) → Promise<void>` | opts: `{ recursive: boolean, force: boolean }` |
-| `stat` | `(path) → Promise<Stats>` | Returns: `{ size, isFile, isDirectory, mtime, ctime }` |
-| `lstat` | `(path) → Promise<Stats>` | |
-| `access` | `(path) → Promise<void>` | throws if not accessible |
-| `copyFile` | `(src, dst) → Promise<void>` | |
-| `rename` | `(oldPath, newPath) → Promise<void>` | |
-| `unlink` | `(path) → Promise<void>` | |
+
+| 方法           | 签名                                    | 说明                                                     |
+| ------------ | ------------------------------------- | ------------------------------------------------------ |
+| `readFile`   | `(path, opts?) → Promise<string>`     | opts: `{ encoding: 'utf-8' | 'base64' }`               |
+| `writeFile`  | `(path, data, opts?) → Promise<void>` | opts: `{ encoding: 'utf-8' | 'base64' }`               |
+| `appendFile` | `(path, data) → Promise<void>`        |                                                        |
+| `readdir`    | `(path, opts?) → Promise<string[]>`   | opts: `{ withFileTypes: boolean }`                     |
+| `mkdir`      | `(path, opts?) → Promise<void>`       | opts: `{ recursive: boolean }`                         |
+| `rmdir`      | `(path, opts?) → Promise<void>`       | opts: `{ recursive: boolean }`                         |
+| `rm`         | `(path, opts?) → Promise<void>`       | opts: `{ recursive: boolean, force: boolean }`         |
+| `stat`       | `(path) → Promise<Stats>`             | Returns: `{ size, isFile, isDirectory, mtime, ctime }` |
+| `lstat`      | `(path) → Promise<Stats>`             |                                                        |
+| `access`     | `(path) → Promise<void>`              | throws if not accessible                               |
+| `copyFile`   | `(src, dst) → Promise<void>`          |                                                        |
+| `rename`     | `(oldPath, newPath) → Promise<void>`  |                                                        |
+| `unlink`     | `(path) → Promise<void>`              |                                                        |
+
 
 ### path（纯 JS，零延迟）
 
@@ -63,11 +65,14 @@ const path = require('path');
 const { exec } = require('child_process');
 ```
 
-| 方法 | 签名 | 说明 |
-|------|------|------|
-| `exec` | `(cmd, opts?, callback?) → Promise \| void` | opts: `{ cwd, timeout }` |
+
+| 方法     | 签名                                         | 说明                       |
+| ------ | ------------------------------------------ | ------------------------ |
+| `exec` | `(cmd, opts?, callback?) → Promise | void` | opts: `{ cwd, timeout }` |
+
 
 支持两种调用风格：
+
 - **Promise 风格**：`const result = await exec(cmd, opts)` → 返回 `{ stdout, stderr, exit_code }`
 - **Callback 风格**：`exec(cmd, opts, (err, stdout, stderr) => { ... })` → 无返回值
 
@@ -92,6 +97,7 @@ const crypto = require('crypto');
 ## 标准浏览器 API
 
 Live App 运行在 iframe 中，完整支持:
+
 - DOM、CSS（含 CSS 变量 `--bitfun-bg`, `--bitfun-text`, `--bitfun-accent` 等）
 - Canvas 2D / WebGL
 - Web Audio
@@ -118,17 +124,19 @@ app.mode         // 'hosted'
 
 需在 `permissions.fs` 中声明读写范围。
 
-| 方法 | 签名 | 说明 |
-|------|------|------|
-| `readFile` | `(path, opts?) → Promise<string>` | opts: `{ encoding: 'utf-8' \| 'base64' }` |
-| `writeFile` | `(path, data, opts?) → Promise<void>` | opts: `{ encoding: 'utf-8' \| 'base64' }` |
-| `appendFile` | `(path, data) → Promise<void>` | |
-| `readdir` | `(path, opts?) → Promise<string[]>` | opts: `{ withFileTypes: boolean }` |
-| `mkdir` | `(path, opts?) → Promise<void>` | opts: `{ recursive: boolean }` |
-| `rm` | `(path, opts?) → Promise<void>` | opts: `{ recursive: boolean, force: boolean }` |
-| `stat` | `(path) → Promise<Stats>` | `{ size, isFile, isDirectory, mtime, ctime }` |
-| `copyFile` | `(src, dst) → Promise<void>` | |
-| `rename` | `(oldPath, newPath) → Promise<void>` | |
+
+| 方法           | 签名                                    | 说明                                             |
+| ------------ | ------------------------------------- | ---------------------------------------------- |
+| `readFile`   | `(path, opts?) → Promise<string>`     | opts: `{ encoding: 'utf-8' | 'base64' }`       |
+| `writeFile`  | `(path, data, opts?) → Promise<void>` | opts: `{ encoding: 'utf-8' | 'base64' }`       |
+| `appendFile` | `(path, data) → Promise<void>`        |                                                |
+| `readdir`    | `(path, opts?) → Promise<string[]>`   | opts: `{ withFileTypes: boolean }`             |
+| `mkdir`      | `(path, opts?) → Promise<void>`       | opts: `{ recursive: boolean }`                 |
+| `rm`         | `(path, opts?) → Promise<void>`       | opts: `{ recursive: boolean, force: boolean }` |
+| `stat`       | `(path) → Promise<Stats>`             | `{ size, isFile, isDirectory, mtime, ctime }`  |
+| `copyFile`   | `(src, dst) → Promise<void>`          |                                                |
+| `rename`     | `(oldPath, newPath) → Promise<void>`  |                                                |
+
 
 ### `app.storage.*` — KV 持久化存储
 
@@ -314,7 +322,7 @@ const label = app.t({ 'zh-CN': '保存', 'en-US': 'Save' }, 'Save');
 3. 在 `ui.js` 中维护 `I18N` 字典，封装 `t(key)` 与 `applyStaticI18n()`，并 `app.onLocaleChange(...)` 时重新渲染动态内容。
 4. `app.storage` 持久化的字段保存语言无关的索引/键，避免存了翻译后字符串导致切换语言失效。
 
-参考实现：`builtin/assets/gomoku/ui.js`、`builtin/assets/regex-playground/ui.js`。
+参考实现：`builtin/assets/gomoku/ui.js`、`builtin/assets/divination/ui.js`。
 
 ## 自定义事件
 
@@ -403,6 +411,7 @@ const savePath = await app.dialog.save({
 推荐：所有"只是包一下 git/curl/系统命令"的开发者工具型小应用都使用此模式，避免 bundle 后宿主缺少 Bun/Node 时的运行时报错。
 
 路径变量:
+
 - `{appdata}` — `{user_data_dir}/liveapps/{app_id}/data/`，始终可读写
 - `{workspace}` — 当前打开的工作区路径
 - `{user-selected}` — 用户通过 app.dialog.open/save 选择的路径

@@ -15,6 +15,8 @@ import { useApp } from '../../hooks/useApp';
 import { useHeaderStore } from '../../stores/headerStore';
 import ChatPane from './ChatPane';
 import AuxPane, { type AuxPaneRef } from './AuxPane';
+import { useLiveAppStore } from '../apps/live-app/liveAppStore';
+import { useActiveSession } from '@/flow_chat/store/modernFlowChatStore';
 
 import {
   RIGHT_PANEL_CONFIG,
@@ -44,8 +46,13 @@ const SessionScene: React.FC<SessionSceneProps> = ({
   isActive = true,
 }) => {
   const { t } = useTranslation('flow-chat');
+  const { t: tCommon } = useTranslation('common');
   const { state, updateRightPanelWidth, toggleRightPanel } = useApp();
   const sessionMode = useHeaderStore((s) => s.sessionContext?.mode);
+  const activeSession = useActiveSession();
+  const studioAppId = useLiveAppStore((s) =>
+    activeSession?.sessionId ? s.sessionAppIds[activeSession.sessionId] : undefined
+  );
   const auxPaneRef = useRef<AuxPaneRef>(null);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -181,6 +188,29 @@ const SessionScene: React.FC<SessionSceneProps> = ({
   const isRightAsMain = state.layout.chatCollapsed;
   const isChatHidden = state.layout.centerPanelCollapsed || isRightAsMain;
   const isDispatcherSession = sessionMode?.toLowerCase() === 'dispatcher';
+  const isLiveAppStudioSession = activeSession?.mode === 'LiveAppStudio';
+
+  useEffect(() => {
+    if (!isLiveAppStudioSession || !activeSession?.sessionId) return;
+
+    const duplicateCheckKey = `live-app-studio:${activeSession.sessionId}`;
+    window.dispatchEvent(new CustomEvent('agent-create-tab', {
+      detail: {
+        type: 'live-app-studio',
+        title: tCommon('liveAppStudio.panel.title'),
+        data: {
+          sessionId: activeSession.sessionId,
+          appId: studioAppId,
+        },
+        metadata: {
+          liveAppStudioSessionId: activeSession.sessionId,
+        },
+        checkDuplicate: true,
+        duplicateCheckKey,
+        replaceExisting: true,
+      },
+    }));
+  }, [activeSession?.sessionId, isLiveAppStudioSession, studioAppId, tCommon]);
 
   const panelModeLabels = useMemo(() => ({
     collapsed:    t('layout.panelMode.collapsed'),

@@ -47,6 +47,7 @@
     "newCoworkWithIndex": "新建 Cowork 会话 {{count}}",
     "newDesignWithIndex": "新建 Design 会话 {{count}}",
     "newClawWithIndex": "新建 Claw 会话 {{count}}",
+    "newLiveAppStudioWithIndex": "灵动应用工坊 {{count}}",
     "dispatcher": "Agentic OS",
     "title": "会话",
     "chatWithAgent": "与{{name}}的对话",
@@ -526,6 +527,19 @@
       "labelAppId": "app_id",
       "labelPath": "path",
       "nameLabel": "应用：{{name}}"
+    },
+    "liveAppStudio": {
+      "title": "灵动应用",
+      "debugPanelTitle": "Live App Studio",
+      "recompile": "重新编译",
+      "probe": "诊断",
+      "matrix": "截图矩阵",
+      "syncing": "同步中",
+      "compiledSize": "{{size}}",
+      "probeSummary": "{{fatal}} 致命 · {{warning}} 警告 · {{noise}} 噪声",
+      "matrixRequested": "已请求截图矩阵",
+      "matrixStates": "{{count}} 个状态",
+      "openDebugPanel": "打开 Live App 调试面板"
     },
     "terminal": {
       "executeCommand": "执行命令:",

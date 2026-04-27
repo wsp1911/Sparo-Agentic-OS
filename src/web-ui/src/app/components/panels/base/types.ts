@@ -27,6 +27,7 @@ export type PanelContentType =
   | 'plan-viewer'
   | 'btw-session'
   | 'terminal'
+  | 'live-app-studio'
   | 'generative-widget'
   | 'design-artifact'
   | 'design-artifacts-browser'

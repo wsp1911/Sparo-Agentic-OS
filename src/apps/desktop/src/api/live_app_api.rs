@@ -4,7 +4,7 @@ use crate::api::app_state::AppState;
 use bitfun_core::infrastructure::events::{emit_global_event, BackendEvent};
 use bitfun_core::live_app::{
     InstallResult as CoreInstallResult, LiveApp, LiveAppAiContext, LiveAppMeta, LiveAppPermissions,
-    LiveAppSource,
+    LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppSource,
 };
 use bitfun_core::service::config::types::GlobalConfig;
 use bitfun_core::util::types::Message;
@@ -33,6 +33,7 @@ pub struct CreateLiveAppRequest {
     #[serde(default)]
     pub permissions: LiveAppPermissions,
     pub ai_context: Option<LiveAppAiContext>,
+    pub permission_rationale: Option<String>,
     #[serde(default)]
     pub workspace_path: Option<String>,
 }
@@ -104,6 +105,7 @@ pub struct UpdateLiveAppRequest {
     pub source: Option<LiveAppSourceDto>,
     pub permissions: Option<LiveAppPermissions>,
     pub ai_context: Option<LiveAppAiContext>,
+    pub permission_rationale: Option<String>,
     #[serde(default)]
     pub workspace_path: Option<String>,
 }
@@ -166,6 +168,30 @@ pub struct RecompileResult {
     pub success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub warnings: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppRuntimeIssueRequest {
+    pub app_id: String,
+    pub severity: Option<LiveAppRuntimeIssueSeverity>,
+    pub message: String,
+    pub source: Option<String>,
+    pub stack: Option<String>,
+    pub category: Option<String>,
+    pub timestamp_ms: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppCaptureMatrixRequest {
+    pub app_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppClearRuntimeIssuesRequest {
+    pub app_id: String,
 }
 
 fn live_app_payload(app: &LiveApp, reason: &str) -> Value {
@@ -310,6 +336,7 @@ pub async fn create_live_app(
             source,
             request.permissions,
             request.ai_context,
+            request.permission_rationale,
             workspace_root.as_deref(),
         )
         .await
@@ -337,6 +364,7 @@ pub async fn update_live_app(
             request.source.map(Into::into),
             request.permissions,
             request.ai_context,
+            request.permission_rationale,
             workspace_root.as_deref(),
         )
         .await
@@ -644,6 +672,96 @@ pub async fn live_app_sync_from_fs(
     maybe_stop_worker(&state, &app).await;
     emit_live_app_event("liveapp-updated", live_app_payload(&app, "sync-from-fs")).await;
     Ok(app)
+}
+
+#[tauri::command]
+pub async fn live_app_report_runtime_issue(
+    state: State<'_, AppState>,
+    request: LiveAppRuntimeIssueRequest,
+) -> Result<(), String> {
+    let issue = LiveAppRuntimeIssue {
+        app_id: request.app_id,
+        severity: request
+            .severity
+            .unwrap_or(LiveAppRuntimeIssueSeverity::Fatal),
+        message: request.message,
+        source: request.source,
+        stack: request.stack,
+        category: request.category,
+        timestamp_ms: request.timestamp_ms.unwrap_or_else(|| now_ms() as i64),
+    };
+    state
+        .live_app_manager
+        .record_runtime_issue(issue.clone())
+        .await;
+    emit_live_app_event("liveapp-runtime-error", json!(issue)).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn live_app_clear_runtime_issues(
+    state: State<'_, AppState>,
+    request: LiveAppClearRuntimeIssuesRequest,
+) -> Result<(), String> {
+    state
+        .live_app_manager
+        .clear_runtime_issues(&request.app_id)
+        .await;
+    emit_live_app_event(
+        "liveapp-runtime-errors-cleared",
+        json!({ "appId": request.app_id }),
+    )
+    .await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn live_app_capture_matrix(
+    state: State<'_, AppState>,
+    request: LiveAppCaptureMatrixRequest,
+) -> Result<Value, String> {
+    let app = state
+        .live_app_manager
+        .get(&request.app_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let timestamp = now_ms() as i64;
+    let review_dir = state
+        .live_app_manager
+        .path_manager()
+        .live_app_dir(&request.app_id)
+        .join("_review")
+        .join(timestamp.to_string());
+    tokio::fs::create_dir_all(&review_dir)
+        .await
+        .map_err(|e| e.to_string())?;
+    let states = vec![
+        json!({ "theme": "light", "locale": "zh-CN", "path": Value::Null, "status": "capture_requested" }),
+        json!({ "theme": "light", "locale": "en-US", "path": Value::Null, "status": "capture_requested" }),
+        json!({ "theme": "dark", "locale": "zh-CN", "path": Value::Null, "status": "capture_requested" }),
+        json!({ "theme": "dark", "locale": "en-US", "path": Value::Null, "status": "capture_requested" }),
+    ];
+    let manifest = json!({
+        "appId": app.id,
+        "appName": app.name,
+        "createdAt": timestamp,
+        "status": "capture_requested",
+        "screenshots": states,
+    });
+    let manifest_path = review_dir.join("manifest.json");
+    tokio::fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    let result = json!({
+        "manifestPath": manifest_path.to_string_lossy(),
+        "reviewDir": review_dir.to_string_lossy(),
+        "manifest": manifest,
+    });
+    emit_live_app_event("liveapp-screenshot-matrix-requested", result.clone()).await;
+    Ok(result)
 }
 
 // ============== AI commands ==============

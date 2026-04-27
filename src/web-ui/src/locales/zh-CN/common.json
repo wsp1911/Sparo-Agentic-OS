@@ -5,6 +5,35 @@
     "loading": "加载中...",
     "welcome": "欢迎使用 Sparo OS"
   },
+  "liveAppStudio": {
+    "entry": {
+      "title": "灵动应用工坊",
+      "description": "一句话造一个能运行、有品位的小工具。"
+    },
+    "panel": {
+      "title": "Live App Studio",
+      "reload": "刷新预览",
+      "openInApps": "在灵动应用中打开",
+      "emptyTitle": "Studio 正在为你打草稿",
+      "emptyDescription": "生成第一个可运行版本后，预览会自动出现在这里。",
+      "loading": "正在加载预览",
+      "loadFailed": "加载预览失败",
+      "retry": "重试"
+    },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "ok": "运行正常",
+      "empty": "暂无运行时错误",
+      "fatalCount": "{{count}} 个错误",
+      "warningCount": "{{count}} 个警告",
+      "sendToAi": "发送错误给 AI 修复",
+      "sendDisplay": "修复 Live App 运行时错误",
+      "sent": "已发送给 AI",
+      "clear": "清除错误",
+      "expand": "展开日志",
+      "collapse": "收起日志"
+    }
+  },
   "agents": {
     "general": {
       "name": "通用助手",
@@ -151,6 +180,33 @@
       "newSessionSectionAgent": "Agent",
       "newSessionSectionWorkspace": "工作路径"
     },
+    "liveAppStudio": {
+      "entry": {
+        "title": "灵动应用工坊",
+        "description": "一句话造一个能运行、有品位的小工具。"
+      },
+      "panel": {
+        "title": "Live App Studio",
+        "reload": "刷新预览",
+        "openInApps": "在灵动应用中打开",
+        "emptyTitle": "Studio 正在为你打草稿",
+        "emptyDescription": "生成第一个可运行版本后，预览会自动出现在这里。",
+        "loading": "正在加载预览",
+        "loadFailed": "加载预览失败",
+        "retry": "重试"
+      },
+      "diagnostics": {
+        "title": "Diagnostics",
+        "ok": "运行正常",
+        "empty": "暂无运行时错误",
+        "fatalCount": "{{count}} 个错误",
+        "warningCount": "{{count}} 个警告",
+        "sendToAi": "发送错误给 AI 修复",
+        "sendDisplay": "修复 Live App 运行时错误",
+        "sent": "已发送给 AI",
+        "clear": "清除错误"
+      }
+    },
     "badges": {
       "comingSoon": "即将上线"
     },
@@ -217,13 +273,16 @@
     },
     "sessions": {
       "newSession": "新建任务",
-      "newCodeSession": "新建 Code 任务",
-      "newCoworkSession": "新建 Cowork 任务",
-      "newDesignSession": "新建 Design 任务",
+      "newCodeSession": "Code 任务",
+      "newCoworkSession": "Cowork 任务",
+      "newDesignSession": "Design 任务",
       "newCodeSessionShort": "编码任务",
       "newCoworkSessionShort": "办公任务",
       "newDesignSessionShort": "设计任务",
-      "newClawSession": "新建 Claw 任务",
+      "newClawSession": "Claw 任务",
+      "newDeepResearchSession": "Deep Research 任务",
+      "newLiveAppStudioSession": "灵动应用任务",
+      "modeLiveAppStudio": "灵动应用工坊",
       "dispatcher": "打开 Agentic OS",
       "dispatcherShort": "Agentic OS",
       "modeCode": "Code",

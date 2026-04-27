@@ -47,6 +47,7 @@
     "newCoworkWithIndex": "New Cowork Session {{count}}",
     "newDesignWithIndex": "New Design Session {{count}}",
     "newClawWithIndex": "New Claw Session {{count}}",
+    "newLiveAppStudioWithIndex": "Live App Studio {{count}}",
     "dispatcher": "Agentic OS",
     "title": "Session",
     "chatWithAgent": "Chat with {{name}}",
@@ -536,6 +537,19 @@
       "labelAppId": "app_id",
       "labelPath": "path",
       "nameLabel": "App: {{name}}"
+    },
+    "liveAppStudio": {
+      "title": "Live App",
+      "debugPanelTitle": "Live App Studio",
+      "recompile": "Recompile",
+      "probe": "Probe",
+      "matrix": "Matrix",
+      "syncing": "Syncing",
+      "compiledSize": "{{size}}",
+      "probeSummary": "{{fatal}} fatal · {{warning}} warning · {{noise}} noise",
+      "matrixRequested": "Matrix requested",
+      "matrixStates": "{{count}} states",
+      "openDebugPanel": "Open Live App debug panel"
     },
     "terminal": {
       "executeCommand": "Execute command:",

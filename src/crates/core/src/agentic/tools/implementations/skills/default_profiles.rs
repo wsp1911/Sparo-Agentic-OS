@@ -51,12 +51,19 @@ const DESIGN_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     ],
 };
 
+/// Studio only needs the Live App domain skill; other built-ins clutter the Skill tool list.
+const LIVE_APP_STUDIO_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
+    default_enabled: false,
+    overridden_skills: &["liveapp-dev"],
+};
+
 fn builtin_profile_for_mode(mode_id: &str) -> BuiltinSkillProfile {
     match mode_id {
         "Plan" | "debug" => DISABLE_ALL_BUILTINS,
         "agentic" => AGENTIC_PROFILE,
         "Cowork" => COWORK_PROFILE,
         "Design" => DESIGN_PROFILE,
+        "LiveAppStudio" => LIVE_APP_STUDIO_PROFILE,
         _ => ENABLE_ALL_BUILTINS,
     }
 }
@@ -142,6 +149,17 @@ mod tests {
         assert!(!is_enabled_by_default_for_mode(&tdd, "Design"));
         assert!(!is_enabled_by_default_for_mode(&pdf, "Plan"));
         assert!(!is_enabled_by_default_for_mode(&tdd, "debug"));
+    }
+
+    #[test]
+    fn live_app_studio_enables_only_liveapp_dev_builtin() {
+        let liveapp = builtin_skill("liveapp-dev");
+        let pdf = builtin_skill("pdf");
+        let tdd = builtin_skill("test-driven-development");
+
+        assert!(is_enabled_by_default_for_mode(&liveapp, "LiveAppStudio"));
+        assert!(!is_enabled_by_default_for_mode(&pdf, "LiveAppStudio"));
+        assert!(!is_enabled_by_default_for_mode(&tdd, "LiveAppStudio"));
     }
 
     #[test]

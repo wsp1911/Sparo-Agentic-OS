@@ -4,11 +4,12 @@ use crate::live_app::compiler::compile;
 use crate::live_app::permission_policy::resolve_policy;
 use crate::live_app::storage::LiveAppStorage;
 use crate::live_app::types::{
-    LiveApp, LiveAppAiContext, LiveAppMeta, LiveAppPermissions, LiveAppRuntimeState, LiveAppSource,
+    LiveApp, LiveAppAiContext, LiveAppMeta, LiveAppPermissions, LiveAppRuntimeIssue,
+    LiveAppRuntimeState, LiveAppSource,
 };
-use crate::util::errors::BitFunResult;
+use crate::util::errors::{BitFunError, BitFunResult};
 use chrono::Utc;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use tokio::sync::RwLock;
@@ -26,12 +27,26 @@ pub fn try_get_global_live_app_manager() -> Option<Arc<LiveAppManager>> {
     GLOBAL_LIVE_APP_MANAGER.get().cloned()
 }
 
+fn permissions_include_workspace(permissions: &LiveAppPermissions) -> bool {
+    let Some(fs) = permissions.fs.as_ref() else {
+        return false;
+    };
+    fs.read
+        .as_ref()
+        .is_some_and(|paths| paths.iter().any(|path| path == "{workspace}"))
+        || fs
+            .write
+            .as_ref()
+            .is_some_and(|paths| paths.iter().any(|path| path == "{workspace}"))
+}
+
 /// Live App manager: create, read, update, delete, list, compile, rollback.
 pub struct LiveAppManager {
     storage: LiveAppStorage,
     path_manager: Arc<crate::infrastructure::PathManager>,
     /// User-granted paths per app (for resolve_policy).
     granted_paths: RwLock<HashMap<String, Vec<PathBuf>>>,
+    runtime_issues: RwLock<HashMap<String, VecDeque<LiveAppRuntimeIssue>>>,
 }
 
 impl LiveAppManager {
@@ -41,6 +56,7 @@ impl LiveAppManager {
             storage,
             path_manager,
             granted_paths: RwLock::new(HashMap::new()),
+            runtime_issues: RwLock::new(HashMap::new()),
         }
     }
 
@@ -157,6 +173,7 @@ impl LiveAppManager {
         source: LiveAppSource,
         permissions: LiveAppPermissions,
         ai_context: Option<LiveAppAiContext>,
+        permission_rationale: Option<String>,
         workspace_root: Option<&Path>,
     ) -> BitFunResult<LiveApp> {
         let id = Uuid::new_v4().to_string();
@@ -181,6 +198,7 @@ impl LiveAppManager {
             compiled_html,
             permissions,
             ai_context,
+            permission_rationale,
             runtime,
         };
 
@@ -201,6 +219,7 @@ impl LiveAppManager {
         source: Option<LiveAppSource>,
         permissions: Option<LiveAppPermissions>,
         ai_context: Option<LiveAppAiContext>,
+        permission_rationale: Option<String>,
         workspace_root: Option<&Path>,
     ) -> BitFunResult<LiveApp> {
         let mut app = self.storage.load(app_id).await?;
@@ -231,6 +250,22 @@ impl LiveAppManager {
         }
         if let Some(a) = ai_context {
             app.ai_context = Some(a);
+        }
+        if let Some(rationale) = permission_rationale {
+            app.permission_rationale = Some(rationale);
+        }
+        if permissions_changed && permissions_include_workspace(&app.permissions) {
+            let has_rationale = app
+                .permission_rationale
+                .as_deref()
+                .map(str::trim)
+                .is_some_and(|value| !value.is_empty());
+            if !has_rationale {
+                return Err(crate::util::errors::BitFunError::validation(
+                    "Live App permissions include {workspace}; meta.permission_rationale is required"
+                        .to_string(),
+                ));
+            }
         }
 
         app.version += 1;
@@ -310,6 +345,43 @@ impl LiveAppManager {
     pub async fn get_storage(&self, app_id: &str, key: &str) -> BitFunResult<serde_json::Value> {
         let storage = self.storage.load_app_storage(app_id).await?;
         Ok(storage.get(key).cloned().unwrap_or(serde_json::Value::Null))
+    }
+
+    pub async fn record_runtime_issue(&self, issue: LiveAppRuntimeIssue) {
+        const MAX_ISSUES_PER_APP: usize = 50;
+
+        let mut issues = self.runtime_issues.write().await;
+        let app_issues = issues.entry(issue.app_id.clone()).or_default();
+        app_issues.push_back(issue);
+        while app_issues.len() > MAX_ISSUES_PER_APP {
+            app_issues.pop_front();
+        }
+    }
+
+    pub async fn runtime_issues(
+        &self,
+        app_id: &str,
+        since_ms: Option<i64>,
+    ) -> Vec<LiveAppRuntimeIssue> {
+        let issues = self.runtime_issues.read().await;
+        issues
+            .get(app_id)
+            .map(|app_issues| {
+                app_issues
+                    .iter()
+                    .filter(|issue| {
+                        since_ms
+                            .map(|since| issue.timestamp_ms >= since)
+                            .unwrap_or(true)
+                    })
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn clear_runtime_issues(&self, app_id: &str) {
+        self.runtime_issues.write().await.remove(app_id);
     }
 
     /// Set app storage (KV) value.
@@ -392,6 +464,28 @@ impl LiveAppManager {
     ) -> BitFunResult<LiveApp> {
         let previous_app = self.storage.load(app_id).await?;
         let mut app = previous_app.clone();
+        let meta = self.storage.load_meta(app_id).await?;
+        app.name = meta.name;
+        app.description = meta.description;
+        app.icon = meta.icon;
+        app.category = meta.category;
+        app.tags = meta.tags;
+        app.permissions = meta.permissions;
+        app.ai_context = meta.ai_context;
+        app.permission_rationale = meta.permission_rationale;
+        if permissions_include_workspace(&app.permissions) {
+            let has_rationale = app
+                .permission_rationale
+                .as_deref()
+                .map(str::trim)
+                .is_some_and(|value| !value.is_empty());
+            if !has_rationale {
+                return Err(BitFunError::validation(
+                    "Live App permissions include {workspace}; meta.permission_rationale is required"
+                        .to_string(),
+                ));
+            }
+        }
         app.source = self.storage.load_source_only(app_id).await?;
         app.version += 1;
         app.updated_at = Utc::now().timestamp_millis();

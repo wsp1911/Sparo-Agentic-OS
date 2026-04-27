@@ -1439,6 +1439,7 @@ mod control_hub_tests {
     use crate::agentic::tools::implementations::computer_use_actions::{
         linux_clipboard_install_hints, ComputerUseActions,
     };
+    use crate::agentic::tools::restrictions::ToolRuntimeRestrictions;
 
     fn empty_context() -> ToolUseContext {
         ToolUseContext {
@@ -1450,6 +1451,7 @@ mod control_hub_tests {
             custom_data: std::collections::HashMap::new(),
             computer_use_host: None,
             cancellation_token: None,
+            runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
             workspace_services: None,
         }
     }

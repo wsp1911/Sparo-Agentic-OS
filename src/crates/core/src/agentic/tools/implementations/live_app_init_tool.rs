@@ -4,7 +4,8 @@ use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use crate::live_app::try_get_global_live_app_manager;
 use crate::live_app::types::{
-    FsPermissions, LiveAppPermissions, LiveAppSource, NetPermissions, ShellPermissions,
+    FsPermissions, LiveAppPermissions, LiveAppSource, NetPermissions, NodePermissions,
+    ShellPermissions,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
@@ -69,7 +70,7 @@ Input: name, description, icon, category. The tool creates the app directory and
 - manifest (meta.json), source/index.html, source/style.css, source/ui.js, source/worker.js,
   package.json, storage.json.
 
-Returns app_id and the app root directory. Use the root directory and file names above with Read/Write/Edit to implement the app. The Live App uses window.app (app.fs, app.call, app.dialog, etc.) — see the Live App API reference at LiveApp/Skills/liveapp-dev/api-reference.md in this repository."#
+Returns app_id and the app root directory. Use the root directory and file names above with Read/Write/Edit to implement the app. The Live App uses window.app (app.fs, app.call, app.dialog, etc.). When available, load the liveapp-dev skill for the packaged API and design baseline."#
             .to_string())
     }
 
@@ -89,7 +90,7 @@ Returns app_id and the app root directory. Use the root directory and file names
                 },
                 "icon": {
                     "type": "string",
-                    "description": "Emoji or icon identifier. Default '📦'."
+                    "description": "Lucide icon identifier, such as 'box' or 'sparkles'. Default 'box'."
                 },
                 "category": {
                     "type": "string",
@@ -128,7 +129,7 @@ Returns app_id and the app root directory. Use the root directory and file names
         let icon = input
             .get("icon")
             .and_then(|v| v.as_str())
-            .unwrap_or("📦")
+            .unwrap_or("box")
             .to_string();
         let category = input
             .get("category")
@@ -147,16 +148,20 @@ Returns app_id and the app root directory. Use the root directory and file names
 
         let permissions = LiveAppPermissions {
             fs: Some(FsPermissions {
-                read: Some(vec!["{appdata}".to_string(), "{workspace}".to_string()]),
+                read: Some(vec!["{appdata}".to_string()]),
                 write: Some(vec!["{appdata}".to_string()]),
             }),
             shell: Some(ShellPermissions {
                 allow: Some(Vec::new()),
             }),
             net: Some(NetPermissions {
-                allow: Some(vec!["*".to_string()]),
+                allow: Some(Vec::new()),
             }),
-            node: None,
+            node: Some(NodePermissions {
+                enabled: false,
+                max_memory_mb: None,
+                timeout_ms: None,
+            }),
             ai: None,
         };
 
@@ -169,6 +174,7 @@ Returns app_id and the app root directory. Use the root directory and file names
                 Vec::new(),
                 source,
                 permissions,
+                None,
                 None,
                 context.workspace_root(),
             )
@@ -191,7 +197,7 @@ Returns app_id and the app root directory. Use the root directory and file names
 
         let _ = emit_global_event(BackendEvent::Custom {
             event_name: "liveapp-created".to_string(),
-            payload: json!({ "id": app.id, "name": app.name }),
+            payload: json!({ "id": app.id, "name": app.name, "sessionId": context.session_id }),
         })
         .await;
 

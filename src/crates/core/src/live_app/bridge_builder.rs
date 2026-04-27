@@ -38,6 +38,43 @@ pub fn build_bridge_script(
 
   const _call = (method, params) => _rpc('worker.call', {{ method, params: params || {{}} }});
 
+  function _reportRuntimeIssue(issue) {{
+    try {{
+      window.parent.postMessage({{
+        method: 'bitfun/runtime-error',
+        params: {{
+          appId: {app_id_esc},
+          severity: issue && issue.severity ? issue.severity : 'fatal',
+          message: issue && issue.message ? String(issue.message) : 'Unknown runtime error',
+          source: issue && issue.source ? String(issue.source) : undefined,
+          stack: issue && issue.stack ? String(issue.stack) : undefined,
+          category: issue && issue.category ? String(issue.category) : 'runtime',
+          timestampMs: Date.now(),
+        }},
+      }}, '*');
+    }} catch (_) {{}}
+  }}
+
+  window.addEventListener('error', (event) => {{
+    _reportRuntimeIssue({{
+      severity: 'fatal',
+      message: event && event.message ? event.message : 'Uncaught error',
+      source: event && event.filename ? event.filename + ':' + event.lineno + ':' + event.colno : undefined,
+      stack: event && event.error && event.error.stack ? event.error.stack : undefined,
+      category: 'window.error',
+    }});
+  }});
+
+  window.addEventListener('unhandledrejection', (event) => {{
+    const reason = event && event.reason;
+    _reportRuntimeIssue({{
+      severity: 'fatal',
+      message: reason && reason.message ? reason.message : String(reason || 'Unhandled promise rejection'),
+      stack: reason && reason.stack ? reason.stack : undefined,
+      category: 'unhandledrejection',
+    }});
+  }});
+
   function _applyThemeVars(vars) {{
     if (!vars || typeof vars !== 'object') return;
     const root = document.documentElement.style;

@@ -1,7 +1,7 @@
 use super::{
     Agent, AgenticMode, ClawMode, CodeReviewAgent, ComputerUseMode, CoworkMode, DebugMode,
     DeepResearchAgent, DesignMode, DesignReviewAgent, DispatcherMode, ExploreAgent,
-    FileFinderAgent, GenerateDocAgent, InitAgent, PlanMode, TeamMode,
+    FileFinderAgent, GenerateDocAgent, InitAgent, LiveAppStudioMode, PlanMode, TeamMode,
 };
 use crate::agentic::agents::custom_subagents::{
     CustomSubagent, CustomSubagentKind, CustomSubagentLoader,
@@ -130,7 +130,7 @@ pub struct CustomSubagentDetail {
 fn default_model_id_for_builtin_agent(agent_type: &str) -> &'static str {
     match agent_type {
         "agentic" | "Cowork" | "ComputerUse" | "Plan" | "debug" | "Claw" | "DeepResearch"
-        | "Team" | "Design" | "Dispatcher" => "auto",
+        | "Team" | "Design" | "Dispatcher" | "LiveAppStudio" => "auto",
         _ => "primary",
     }
 }
@@ -300,6 +300,7 @@ impl AgentRegistry {
             Arc::new(DispatcherMode::new()),
             Arc::new(DeepResearchAgent::new()),
             Arc::new(TeamMode::new()),
+            Arc::new(LiveAppStudioMode::new()),
         ];
         for mode in modes {
             register(&mut agents, mode, AgentCategory::Mode, None);
@@ -466,8 +467,9 @@ impl AgentRegistry {
                     "agentic" => 0,
                     "Cowork" => 1,
                     "Design" => 2,
-                    "Plan" => 3,
-                    "debug" => 4,
+                    "LiveAppStudio" => 3,
+                    "Plan" => 4,
+                    "debug" => 5,
                     _ => 99,
                 }
             };
@@ -1087,6 +1089,7 @@ mod tests {
             "debug",
             "Claw",
             "Dispatcher",
+            "LiveAppStudio",
         ] {
             assert_eq!(default_model_id_for_builtin_agent(agent_type), "auto");
         }

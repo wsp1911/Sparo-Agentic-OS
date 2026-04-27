@@ -133,6 +133,29 @@ pub struct LiveAppRuntimeState {
     pub ui_recompile_required: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppRuntimeIssue {
+    pub app_id: String,
+    pub severity: LiveAppRuntimeIssueSeverity,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stack: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+    pub timestamp_ms: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LiveAppRuntimeIssueSeverity {
+    Fatal,
+    Warning,
+    Noise,
+}
+
 /// Full Live App entity (in-memory / API).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiveApp {
@@ -156,6 +179,8 @@ pub struct LiveApp {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_context: Option<LiveAppAiContext>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permission_rationale: Option<String>,
 
     #[serde(default)]
     pub runtime: LiveAppRuntimeState,
@@ -178,6 +203,8 @@ pub struct LiveAppMeta {
     pub permissions: LiveAppPermissions,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_context: Option<LiveAppAiContext>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permission_rationale: Option<String>,
     #[serde(default)]
     pub runtime: LiveAppRuntimeState,
 }
@@ -196,6 +223,7 @@ impl From<&LiveApp> for LiveAppMeta {
             updated_at: app.updated_at,
             permissions: app.permissions.clone(),
             ai_context: app.ai_context.clone(),
+            permission_rationale: app.permission_rationale.clone(),
             runtime: app.runtime.clone(),
         }
     }

@@ -96,6 +96,7 @@ export interface LiveAppMeta {
   created_at: number;
   updated_at: number;
   permissions: LiveAppPermissions;
+  permission_rationale?: string;
   runtime?: LiveAppRuntimeState;
 }
 
@@ -118,6 +119,7 @@ export interface CreateLiveAppRequest {
   source: LiveAppSource;
   permissions?: LiveAppPermissions;
   ai_context?: { original_prompt: string };
+  permission_rationale?: string;
 }
 
 export interface UpdateLiveAppRequest {
@@ -128,6 +130,7 @@ export interface UpdateLiveAppRequest {
   tags?: string[];
   source?: LiveAppSource;
   permissions?: LiveAppPermissions;
+  permission_rationale?: string;
 }
 
 export interface RuntimeStatus {
@@ -146,6 +149,16 @@ export interface InstallResult {
 export interface RecompileResult {
   success: boolean;
   warnings?: string[];
+}
+
+export interface LiveAppRuntimeIssueInput {
+  appId: string;
+  severity?: 'fatal' | 'warning' | 'noise';
+  message: string;
+  source?: string;
+  stack?: string;
+  category?: string;
+  timestampMs?: number;
 }
 
 // ─── API (Tauri commands `live_app_*` / `list_live_apps`, etc.) ─
@@ -283,6 +296,36 @@ export class LiveAppAPI {
       });
     } catch (error) {
       throw createTauriCommandError('live_app_sync_from_fs', error, { appId, workspacePath });
+    }
+  }
+
+  async reportRuntimeIssue(issue: LiveAppRuntimeIssueInput): Promise<void> {
+    try {
+      await api.invoke('live_app_report_runtime_issue', {
+        request: issue,
+      });
+    } catch (error) {
+      throw createTauriCommandError('live_app_report_runtime_issue', error, { appId: issue.appId });
+    }
+  }
+
+  async clearRuntimeIssues(appId: string): Promise<void> {
+    try {
+      await api.invoke('live_app_clear_runtime_issues', {
+        request: { appId },
+      });
+    } catch (error) {
+      throw createTauriCommandError('live_app_clear_runtime_issues', error, { appId });
+    }
+  }
+
+  async captureMatrix(appId: string): Promise<unknown> {
+    try {
+      return await api.invoke('live_app_capture_matrix', {
+        request: { appId },
+      });
+    } catch (error) {
+      throw createTauriCommandError('live_app_capture_matrix', error, { appId });
     }
   }
 

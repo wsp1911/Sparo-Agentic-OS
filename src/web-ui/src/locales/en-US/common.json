@@ -5,6 +5,35 @@
     "loading": "Loading...",
     "welcome": "Welcome to Sparo OS"
   },
+  "liveAppStudio": {
+    "entry": {
+      "title": "Live App Studio",
+      "description": "Build a tasteful, runnable little app from one sentence."
+    },
+    "panel": {
+      "title": "Live App Studio",
+      "reload": "Reload preview",
+      "openInApps": "Open in Live Apps",
+      "emptyTitle": "Studio is drafting for you",
+      "emptyDescription": "The first runnable version will appear here automatically.",
+      "loading": "Loading preview",
+      "loadFailed": "Failed to load preview",
+      "retry": "Retry"
+    },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "ok": "Runtime OK",
+      "empty": "No runtime errors yet",
+      "fatalCount": "{{count}} errors",
+      "warningCount": "{{count}} warnings",
+      "sendToAi": "Send errors to AI for repair",
+      "sendDisplay": "Fix Live App runtime errors",
+      "sent": "Sent to AI",
+      "clear": "Clear errors",
+      "expand": "Expand logs",
+      "collapse": "Collapse logs"
+    }
+  },
   "agents": {
     "general": {
       "name": "General Assistant",
@@ -151,6 +180,29 @@
       "newSessionSectionAgent": "Agent",
       "newSessionSectionWorkspace": "Workspace"
     },
+    "liveAppStudio": {
+      "entry": {
+        "title": "Live App Studio",
+        "description": "Build a tasteful, runnable little app from one sentence."
+      },
+      "panel": {
+        "title": "Live App Studio",
+        "reload": "Reload preview",
+        "openInApps": "Open in Live Apps",
+        "emptyTitle": "Studio is drafting for you",
+        "emptyDescription": "The first runnable version will appear here automatically.",
+        "loading": "Loading preview",
+        "loadFailed": "Failed to load preview",
+        "retry": "Retry"
+      },
+      "diagnostics": {
+        "title": "Diagnostics",
+        "ok": "Runtime OK",
+        "empty": "No runtime errors yet",
+        "fatalCount": "{{count}} errors",
+        "warningCount": "{{count}} warnings"
+      }
+    },
     "badges": {
       "comingSoon": "Soon"
     },
@@ -217,13 +269,16 @@
     },
     "sessions": {
       "newSession": "New task",
-      "newCodeSession": "New Code task",
-      "newCoworkSession": "New Cowork task",
-      "newDesignSession": "New Design task",
+      "newCodeSession": "Code task",
+      "newCoworkSession": "Cowork task",
+      "newDesignSession": "Design task",
       "newCodeSessionShort": "Code task",
       "newCoworkSessionShort": "Office task",
       "newDesignSessionShort": "Design task",
-      "newClawSession": "New Claw task",
+      "newClawSession": "Claw task",
+      "newDeepResearchSession": "Deep Research task",
+      "newLiveAppStudioSession": "Live App task",
+      "modeLiveAppStudio": "Live App Studio",
       "dispatcher": "Open Agentic OS",
       "dispatcherShort": "Agentic OS",
       "modeCode": "Code",

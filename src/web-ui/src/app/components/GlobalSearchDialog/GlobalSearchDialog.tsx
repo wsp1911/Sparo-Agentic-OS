@@ -128,6 +128,8 @@ const APP_TO_AGENT_CHOICE: Record<string, NewSessionAgentChoice> = {
   'cowork-app': 'Cowork',
   'design-app': 'Design',
   'claw-app': 'Claw',
+  'deep-research-app': 'DeepResearch',
+  'live-app-studio-app': 'LiveAppStudio',
 };
 
 const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }) => {

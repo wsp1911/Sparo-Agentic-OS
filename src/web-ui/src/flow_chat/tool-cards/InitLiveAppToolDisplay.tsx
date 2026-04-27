@@ -3,7 +3,7 @@
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppWindow, ExternalLink } from 'lucide-react';
+import { AppWindow, ChevronRight, ExternalLink } from 'lucide-react';
 import { CubeLoading } from '../../component-library';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
@@ -12,7 +12,7 @@ import { useOverlayManager } from '@/app/hooks/useOverlayManager';
 import type { OverlaySceneId } from '@/app/overlay/types';
 import './InitLiveAppToolDisplay.scss';
 
-export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem }) => {
+export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionId }) => {
   const { t } = useTranslation('flow-chat');
   const { status, toolResult, partialParams, isParamsStreaming, toolCall } = toolItem;
   const { openOverlay } = useOverlayManager();
@@ -34,13 +34,37 @@ export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem }) => {
   const success = toolResult?.success === true;
   const isLoading = status === 'running' || status === 'streaming' || status === 'preparing';
   const isFailed = status === 'error' || (status === 'completed' && toolResult != null && toolResult.success === false);
+  const canOpenDebugPanel = status === 'completed' && success && Boolean(appId);
 
   const hasExpandableDetails =
-    isFailed || (status === 'completed' && success && Boolean(appId));
+    isFailed || canOpenDebugPanel;
 
   const toggleExpanded = useCallback(() => {
     applyExpandedState(isExpanded, !isExpanded, setIsExpanded);
   }, [applyExpandedState, isExpanded]);
+
+  const handleOpenDebugPanel = useCallback(() => {
+    if (!canOpenDebugPanel || !appId) return;
+
+    const duplicateCheckKey = `live-app-studio:${sessionId ?? appId}`;
+    window.dispatchEvent(new CustomEvent('agent-create-tab', {
+      detail: {
+        type: 'live-app-studio',
+        title: t('toolCards.liveAppStudio.debugPanelTitle'),
+        data: {
+          sessionId: sessionId ?? null,
+          appId,
+        },
+        metadata: {
+          liveAppStudioSessionId: sessionId,
+          liveAppStudioAppId: appId,
+        },
+        checkDuplicate: true,
+        duplicateCheckKey,
+        replaceExisting: true,
+      },
+    }));
+  }, [appId, canOpenDebugPanel, sessionId, t]);
 
   const handleCardClick = useCallback(
     (e: React.MouseEvent) => {
@@ -99,6 +123,23 @@ export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem }) => {
             <span className="output-summary" title={appId}>
               {appId}
             </span>
+          )}
+          {canOpenDebugPanel && (
+            <div className="init-live-app-debug-rail">
+              <button
+                type="button"
+                className="init-live-app-debug-rail__hit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenDebugPanel();
+                }}
+                aria-label={t('toolCards.liveAppStudio.openDebugPanel')}
+                title={t('toolCards.liveAppStudio.openDebugPanel')}
+              />
+              <div className="init-live-app-debug-rail__visual" aria-hidden>
+                <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />
+              </div>
+            </div>
           )}
           {isFailed && (
             <div className="error-indicator">
@@ -177,6 +218,7 @@ export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem }) => {
         header={renderHeader()}
         expandedContent={isExpanded ? renderDetailsWhenExpanded() : null}
         headerExpandAffordance={hasExpandableDetails}
+        headerAffordanceKind="expand"
       />
     </div>
   );

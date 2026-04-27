@@ -147,6 +147,9 @@ impl ToolRegistry {
 
         // Live App tool (InitLiveApp)
         self.register_tool(Arc::new(InitLiveAppTool::new()));
+        self.register_tool(Arc::new(LiveAppRecompileTool::new()));
+        self.register_tool(Arc::new(LiveAppRuntimeProbeTool::new()));
+        self.register_tool(Arc::new(LiveAppScreenshotMatrixTool::new()));
 
         // ControlHub — unified browser/terminal/meta control entry point.
         // Local desktop and OS/system Computer Use is exposed as a dedicated tool.
