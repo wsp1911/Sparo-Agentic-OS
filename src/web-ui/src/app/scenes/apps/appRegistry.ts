@@ -27,7 +27,7 @@ export const APP_REGISTRY: readonly AppEntity[] = [
     nameKey: 'apps.coding.name',
     descriptionKey: 'apps.coding.description',
     badgeKey: 'apps.badges.modeApp',
-    agentIds: ['agentic', 'Plan', 'debug'],
+    agentIds: ['agentic', 'Plan', 'debug', 'Team'],
   },
   {
     id: 'cowork-app',
@@ -52,6 +52,22 @@ export const APP_REGISTRY: readonly AppEntity[] = [
     descriptionKey: 'apps.claw.description',
     badgeKey: 'apps.badges.standaloneAgentApp',
     agentId: 'Claw',
+  },
+  {
+    id: 'deep-research-app',
+    kind: 'standalone-agent-app',
+    nameKey: 'apps.deepResearch.name',
+    descriptionKey: 'apps.deepResearch.description',
+    badgeKey: 'apps.badges.standaloneAgentApp',
+    agentId: 'DeepResearch',
+  },
+  {
+    id: 'live-app-studio-app',
+    kind: 'standalone-agent-app',
+    nameKey: 'apps.liveAppStudio.name',
+    descriptionKey: 'apps.liveAppStudio.description',
+    badgeKey: 'apps.badges.standaloneAgentApp',
+    agentId: 'LiveAppStudio',
   },
 ] as const;
 

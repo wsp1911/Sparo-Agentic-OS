@@ -2,7 +2,7 @@ import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import type { Session } from '@/flow_chat/types/flow-chat';
 import { WorkspaceKind, isRemoteWorkspace, type WorkspaceInfo } from '@/shared/types';
 
-type SessionDisplayBucket = 'code' | 'cowork' | 'design' | 'claw';
+type SessionDisplayBucket = 'code' | 'cowork' | 'design' | 'claw' | 'liveappstudio';
 
 function normalizeAgentModeForWorkspace(mode: string | undefined, workspace: WorkspaceInfo): string {
   if (workspace.workspaceKind === WorkspaceKind.Assistant) {
@@ -27,6 +27,9 @@ function sessionDisplayBucket(sessionMode: string | undefined, workspace: Worksp
   }
   if (normalized === 'claw') {
     return 'claw';
+  }
+  if (normalized === 'liveappstudio') {
+    return 'liveappstudio';
   }
   return 'code';
 }
@@ -70,7 +73,7 @@ function isEmptyReusableSession(session: Session, workspace: WorkspaceInfo, buck
 
 /**
  * If the workspace already has a main session with no dialog turns for the same UI mode
- * (Code / Cowork / Design / Claw), return its id so callers can switch instead of creating another.
+ * (Code / Cowork / Design / Claw / LiveAppStudio), return its id so callers can switch instead of creating another.
  */
 export function findReusableEmptySessionId(
   workspace: WorkspaceInfo,
@@ -81,6 +84,33 @@ export function findReusableEmptySessionId(
   let best: { id: string; lastActiveAt: number } | null = null;
   for (const session of sessions.values()) {
     if (!isEmptyReusableSession(session, workspace, bucket)) {
+      continue;
+    }
+    if (!best || session.lastActiveAt > best.lastActiveAt) {
+      best = { id: session.sessionId, lastActiveAt: session.lastActiveAt };
+    }
+  }
+  return best?.id ?? null;
+}
+
+/**
+ * Reuses an in-memory empty Live App Studio session (any storage), or global agentic_os empty ones.
+ * Live App data lives under the app data dir; the chat session is not tied to a user-picked project path.
+ */
+export function findReusableEmptyLiveAppStudioSessionId(): string | null {
+  const sessions = flowChatStore.getState().sessions;
+  let best: { id: string; lastActiveAt: number } | null = null;
+  for (const session of sessions.values()) {
+    if (session.sessionKind !== 'normal') {
+      continue;
+    }
+    if (session.isHistorical) {
+      continue;
+    }
+    if (session.dialogTurns.length > 0) {
+      continue;
+    }
+    if (session.mode?.toLowerCase() !== 'liveappstudio') {
       continue;
     }
     if (!best || session.lastActiveAt > best.lastActiveAt) {

@@ -13,7 +13,10 @@ import {
 } from '@/infrastructure/contexts/WorkspaceContext';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
-import { findReusableEmptySessionId } from '@/app/utils/projectSessionWorkspace';
+import {
+  findReusableEmptyLiveAppStudioSessionId,
+  findReusableEmptySessionId,
+} from '@/app/utils/projectSessionWorkspace';
 import {
   clearDeferredNewSessionWorkspace,
   markDeferredNewSessionWorkspace,
@@ -31,7 +34,7 @@ const LS_AGENT = 'bitfun.newSessionDialog.agent';
 const LS_WORKSPACE = 'bitfun.newSessionDialog.workspaceId';
 const BROWSED_WORKSPACE_VALUE = '__browsed_workspace__';
 
-export type NewSessionAgentChoice = 'agentic' | 'Cowork' | 'Design' | 'Claw';
+export type NewSessionAgentChoice = 'agentic' | 'Cowork' | 'Design' | 'Claw' | 'DeepResearch' | 'LiveAppStudio';
 
 export interface NewSessionDialogProps {
   open: boolean;
@@ -45,6 +48,8 @@ function sessionModeToChoice(mode: string | undefined): NewSessionAgentChoice {
   if (m === 'cowork') return 'Cowork';
   if (m === 'design') return 'Design';
   if (m === 'claw') return 'Claw';
+  if (m === 'deepresearch') return 'DeepResearch';
+  if (m === 'liveappstudio') return 'LiveAppStudio';
   return 'agentic';
 }
 
@@ -88,17 +93,21 @@ function getBrowsedWorkspaceLabel(path: string): string {
   return `${name} (${path})`;
 }
 
-function resolveModeFromChoice(agentChoice: NewSessionAgentChoice): 'agentic' | 'Cowork' | 'Design' | 'Claw' {
+function resolveModeFromChoice(agentChoice: NewSessionAgentChoice): 'agentic' | 'Cowork' | 'Design' | 'Claw' | 'DeepResearch' | 'LiveAppStudio' {
   return agentChoice === 'agentic'
     ? 'agentic'
     : agentChoice === 'Cowork'
       ? 'Cowork'
       : agentChoice === 'Design'
         ? 'Design'
-        : 'Claw';
+        : agentChoice === 'Claw'
+          ? 'Claw'
+          : agentChoice === 'DeepResearch'
+            ? 'DeepResearch'
+            : 'LiveAppStudio';
 }
 
-function syncSessionModeStore(mode: 'agentic' | 'Cowork' | 'Design' | 'Claw'): void {
+function syncSessionModeStore(mode: 'agentic' | 'Cowork' | 'Design' | 'Claw' | 'DeepResearch' | 'LiveAppStudio'): void {
   if (mode === 'Cowork') {
     useSessionModeStore.getState().setMode('cowork');
   } else if (mode === 'Design') {
@@ -112,13 +121,32 @@ function syncSessionModeStore(mode: 'agentic' | 'Cowork' | 'Design' | 'Claw'): v
 // eslint-disable-next-line react-refresh/only-export-components
 export async function launchSessionForChoice(params: {
   agentChoice: NewSessionAgentChoice;
-  workspace: WorkspaceInfo;
+  /** Not used when `agentChoice` is `LiveAppStudio` (global `agentic_os` session). */
+  workspace: WorkspaceInfo | null;
   setActiveWorkspace: (workspaceId: string) => Promise<WorkspaceInfo>;
 }): Promise<void> {
   const { agentChoice, workspace, setActiveWorkspace } = params;
   const resolvedMode = resolveModeFromChoice(agentChoice);
 
   syncSessionModeStore(resolvedMode);
+
+  if (agentChoice === 'LiveAppStudio') {
+    const reusableId = findReusableEmptyLiveAppStudioSessionId();
+    if (reusableId) {
+      await openMainSession(reusableId);
+      return;
+    }
+    const newId = await flowChatManager.createChatSession(
+      { storageScope: 'agentic_os' },
+      'LiveAppStudio'
+    );
+    await openMainSession(newId);
+    return;
+  }
+
+  if (!workspace) {
+    throw new Error('Workspace is required for this session mode');
+  }
 
   const reusableId = findReusableEmptySessionId(workspace, resolvedMode);
   if (reusableId) {
@@ -168,7 +196,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
     let storedWs: string | null = null;
     try {
       const a = localStorage.getItem(LS_AGENT) as NewSessionAgentChoice | null;
-      if (a === 'agentic' || a === 'Cowork' || a === 'Design' || a === 'Claw') {
+      if (a === 'agentic' || a === 'Cowork' || a === 'Design' || a === 'Claw' || a === 'DeepResearch' || a === 'LiveAppStudio') {
         storedAgent = a;
       }
       const w = localStorage.getItem(LS_WORKSPACE);
@@ -218,19 +246,27 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
     () => [
       {
         value: 'agentic',
-        label: t('nav.sessions.modeCode'),
+        label: t('nav.sessions.newCodeSession'),
       },
       {
         value: 'Cowork',
-        label: t('nav.sessions.modeCowork'),
+        label: t('nav.sessions.newCoworkSession'),
       },
       {
         value: 'Design',
-        label: t('nav.sessions.modeDesign'),
+        label: t('nav.sessions.newDesignSession'),
       },
       {
         value: 'Claw',
         label: t('nav.sessions.newClawSession'),
+      },
+      {
+        value: 'DeepResearch',
+        label: t('nav.sessions.newDeepResearchSession'),
+      },
+      {
+        value: 'LiveAppStudio',
+        label: t('nav.sessions.newLiveAppStudioSession'),
       },
     ],
     [t]
@@ -264,6 +300,28 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
   }, [openedWorkspacesList, t]);
 
   const handleConfirm = useCallback(async () => {
+    if (agentChoice === 'LiveAppStudio') {
+      setSubmitting(true);
+      try {
+        await launchSessionForChoice({ agentChoice, workspace: null, setActiveWorkspace });
+        try {
+          localStorage.setItem(LS_AGENT, agentChoice);
+        } catch {
+          /* ignore */
+        }
+        onClose();
+      } catch (e) {
+        log.error('Create session from dialog failed', e);
+        notificationService.error(
+          e instanceof Error ? e.message : t('nav.workspaces.createSessionFailed'),
+          { duration: 4000 }
+        );
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     let workspace = openedWorkspacesList.find(w => w.id === workspaceId);
     const shouldOpenBrowsedWorkspace =
       workspaceId === BROWSED_WORKSPACE_VALUE && !!browsedWorkspacePath;
@@ -330,6 +388,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
       size="medium"
       contentInset
       contentClassName="new-session-dialog__modal-surface"
+      overlayClassName="new-session-dialog-overlay"
       showCloseButton
       closeOnOverlayClick={false}
     >
@@ -359,46 +418,52 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
             </div>
           </section>
 
-          <div className="new-session-dialog__divider" role="presentation" />
+          {agentChoice !== 'LiveAppStudio' && (
+            <>
+              <div className="new-session-dialog__divider" role="presentation" />
 
-          <section className="new-session-dialog__section" aria-labelledby="new-session-ws-heading">
-            <div className="new-session-dialog__section-head">
-              <span className="new-session-dialog__index" aria-hidden>
-                02
-              </span>
-              <h2 className="new-session-dialog__section-title" id="new-session-ws-heading">
-                {t('nav.sessionCapsule.newSessionSectionWorkspace')}
-              </h2>
-            </div>
-            <div className="new-session-dialog__control">
-              <Select
-                size="medium"
-                options={workspaceOptions}
-                value={workspaceId ?? ''}
-                onChange={v => {
-                  const selectedValue = String(v);
-                  setWorkspaceId(selectedValue);
-                  if (selectedValue !== BROWSED_WORKSPACE_VALUE) {
-                    setBrowsedWorkspacePath(null);
-                  }
-                }}
-                placeholder={t('nav.sessionCapsule.workspacePlaceholder')}
-                disabled={noWorkspaces}
-                searchable
-                emptyText={t('nav.sessionCapsule.noOpenWorkspace')}
-              />
-            </div>
-            <Button
-              type="button"
-              variant="dashed"
-              size="medium"
-              className="new-session-dialog__browse"
-              onClick={() => void handleBrowse()}
-            >
-              <FolderOpen size={16} aria-hidden />
-              {t('nav.sessionCapsule.browseWorkspace')}
-            </Button>
-          </section>
+              <section className="new-session-dialog__section" aria-labelledby="new-session-ws-heading">
+                <div className="new-session-dialog__section-head">
+                  <span className="new-session-dialog__index" aria-hidden>
+                    02
+                  </span>
+                  <h2 className="new-session-dialog__section-title" id="new-session-ws-heading">
+                    {t('nav.sessionCapsule.newSessionSectionWorkspace')}
+                  </h2>
+                </div>
+                <div className="new-session-dialog__workspace-row">
+                  <div className="new-session-dialog__workspace-select">
+                    <Select
+                      size="medium"
+                      options={workspaceOptions}
+                      value={workspaceId ?? ''}
+                      onChange={v => {
+                        const selectedValue = String(v);
+                        setWorkspaceId(selectedValue);
+                        if (selectedValue !== BROWSED_WORKSPACE_VALUE) {
+                          setBrowsedWorkspacePath(null);
+                        }
+                      }}
+                      placeholder={t('nav.sessionCapsule.workspacePlaceholder')}
+                      disabled={noWorkspaces}
+                      searchable
+                      emptyText={t('nav.sessionCapsule.noOpenWorkspace')}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="dashed"
+                    size="medium"
+                    className="new-session-dialog__browse"
+                    onClick={() => void handleBrowse()}
+                  >
+                    <FolderOpen size={16} aria-hidden />
+                    {t('nav.sessionCapsule.browseWorkspace')}
+                  </Button>
+                </div>
+              </section>
+            </>
+          )}
         </div>
 
         <footer className="new-session-dialog__actions">
@@ -411,7 +476,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
             size="medium"
             isLoading={submitting}
             onClick={() => void handleConfirm()}
-            disabled={!workspaceId || noWorkspaces}
+            disabled={submitting || (agentChoice !== 'LiveAppStudio' && (!workspaceId || noWorkspaces))}
           >
             {t('nav.sessionCapsule.confirmCreate')}
           </Button>

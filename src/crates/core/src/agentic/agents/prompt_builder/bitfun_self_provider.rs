@@ -1,11 +1,11 @@
-//! BitFun self-introspection prompt section.
+//! Sparo OS self-introspection prompt section.
 //!
 //! Builds the markdown block injected into the system prompt at
-//! the `{BITFUN_SELF}` placeholder. The goal is to make BitFun's own
+//! the `{BITFUN_SELF}` placeholder. The goal is to make Sparo OS's own
 //! capabilities (scenes, settings tabs, installed Live Apps) discoverable
 //! to the model with **zero tool calls**, so it never falls back to
 //! `Bash ls` against the user workspace when asked "what Live Apps do I
-//! have / what scenes are there / what can BitFun do".
+//! have / what scenes are there / what can Sparo OS do".
 //!
 //! Refresh strategy: regenerated every time a system prompt is built. The
 //! Live App manager's `list()` is a cheap in-memory + metadata read, so
@@ -14,17 +14,17 @@
 
 use std::fmt::Write as _;
 
-/// Build the BitFun self-introspection prompt block. Returns an empty
+/// Build the Sparo OS self-introspection prompt block. Returns an empty
 /// string if there is nothing useful to say (e.g. Live App subsystem not
 /// initialized AND no extra context to surface) — callers should treat
 /// `""` as "skip the section".
 pub async fn build_bitfun_self_prompt() -> String {
     let mut out = String::new();
-    out.push_str("# BitFun Self Capabilities (you are running INSIDE this app)\n");
+    out.push_str("# Sparo OS Self Capabilities (you are running INSIDE this app)\n");
     out.push_str(
-        "When the user asks \"what Live Apps are installed / what scenes are there / how do I use BitFun\", \
+        "When the user asks \"what Live Apps are installed / what scenes are there / how do I use Sparo OS\", \
 use ControlHub `domain: \"app\"` actions FIRST. Do NOT answer those questions by listing the workspace directory \
-— workspace folders belong to the user, not to BitFun's own catalog.\n\n",
+— workspace folders belong to the user, not to Sparo OS's own catalog.\n\n",
     );
 
     push_scene_catalog(&mut out);
@@ -36,7 +36,7 @@ use ControlHub `domain: \"app\"` actions FIRST. Do NOT answer those questions by
 - \"列一下 Live App / what Live Apps do I have\" → `ControlHub { domain: \"app\", action: \"list_live_apps\" }`.\n\
 - \"打开 Live App X\" → `ControlHub { domain: \"app\", action: \"execute_task\", params: { task: \"open_live_app\", params: { liveAppId: \"<id>\" } } }`.\n\
 - \"打开应用列表 / show the gallery\" → `ControlHub { domain: \"app\", action: \"execute_task\", params: { task: \"open_live_app_gallery\" } }`.\n\
-- \"BitFun 都能干啥 / 一次列出所有能力\" → `ControlHub { domain: \"app\", action: \"app_self_describe\" }`.\n",
+- \"Sparo OS 都能干啥 / 一次列出所有能力\" → `ControlHub { domain: \"app\", action: \"app_self_describe\" }`.\n",
     );
 
     out

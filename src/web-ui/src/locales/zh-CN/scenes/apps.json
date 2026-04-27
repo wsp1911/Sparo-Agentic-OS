@@ -33,7 +33,7 @@
     },
     "coding": {
       "name": "编程应用",
-      "description": "由 Agentic、Plan 与 Debug 组成的编程模式应用，覆盖实现、规划与排障。"
+      "description": "由 Agentic、Plan、Debug 与 Team 组成的编程模式应用，覆盖实现、规划、排障与虚拟工程团队协作。"
     },
     "cowork": {
       "name": "Cowork",
@@ -46,6 +46,14 @@
     "claw": {
       "name": "Claw",
       "description": "面向个人助理与持续协作场景的独立 Agent 应用，保留上下文与偏好。"
+    },
+    "deepResearch": {
+      "name": "Deep Research",
+      "description": "面向开放式调研的独立 Agent 应用，并行派发子 Agent 并汇总为带来源的完整研究报告。"
+    },
+    "liveAppStudio": {
+      "name": "灵动应用工坊",
+      "description": "面向 Live App 生成、调试与进化的独立 Agent 应用，一句话生成能运行且审美过关的小工具。"
     }
   },
   "appDetail": {

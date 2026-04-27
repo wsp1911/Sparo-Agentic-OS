@@ -43,13 +43,15 @@ import './SessionList.scss';
 const log = createLogger('SessionList');
 const AGENT_SCENE = 'session' as const;
 
-type SessionMode = 'code' | 'cowork' | 'design' | 'claw';
+type SessionMode = 'code' | 'cowork' | 'design' | 'claw' | 'deepresearch' | 'liveappstudio';
 
 const resolveSessionModeType = (session: Session): SessionMode => {
   const normalizedMode = session.mode?.toLowerCase();
   if (normalizedMode === 'cowork') return 'cowork';
   if (normalizedMode === 'design') return 'design';
   if (normalizedMode === 'claw') return 'claw';
+  if (normalizedMode === 'deepresearch') return 'deepresearch';
+  if (normalizedMode === 'liveappstudio') return 'liveappstudio';
   return 'code';
 };
 
@@ -309,6 +311,10 @@ const SessionList: React.FC<SessionListProps> = ({
             ? t('nav.sessions.newDesignSession')
           : mode === 'claw'
             ? t('nav.sessions.newClawSession')
+          : mode === 'deepresearch'
+            ? t('nav.sessions.newDeepResearchSession')
+            : mode === 'liveappstudio'
+              ? t('nav.sessions.modeLiveAppStudio')
             : t('nav.sessions.newCodeSession');
       return `${label} ${matched[1]}`;
     },
@@ -530,6 +536,8 @@ const SessionList: React.FC<SessionListProps> = ({
               ? Brush
             : sessionModeKey === 'claw'
               ? Sparkles
+            : sessionModeKey === 'deepresearch' || sessionModeKey === 'liveappstudio'
+              ? Sparkles
               : Code2;
         const isRunning = runningSessionIds.has(session.sessionId);
         const isRowActive = activeBtwSessionData?.childSessionId
@@ -569,6 +577,10 @@ const SessionList: React.FC<SessionListProps> = ({
                         ? 'is-design'
                       : sessionModeKey === 'claw'
                         ? 'is-claw'
+                      : sessionModeKey === 'deepresearch'
+                        ? 'is-deepresearch'
+                        : sessionModeKey === 'liveappstudio'
+                          ? 'is-liveappstudio'
                         : 'is-code',
                   ].join(' ')}
                 />

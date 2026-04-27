@@ -14,6 +14,7 @@ mod debug_mode;
 mod design_mode;
 mod design_review_agent;
 mod dispatcher_mode;
+mod live_app_studio_mode;
 mod plan_mode;
 mod team_mode;
 // Built-in subagents
@@ -43,6 +44,7 @@ pub use explore_agent::ExploreAgent;
 pub use file_finder_agent::FileFinderAgent;
 pub use generate_doc_agent::GenerateDocAgent;
 pub use init_agent::InitAgent;
+pub use live_app_studio_mode::LiveAppStudioMode;
 pub use plan_mode::PlanMode;
 pub use prompt_builder::{
     PromptBuilder, PromptBuilderContext, RemoteExecutionHints, RequestContextPolicy,

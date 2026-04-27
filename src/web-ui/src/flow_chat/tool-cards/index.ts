@@ -39,6 +39,7 @@ import { CreatePlanDisplay } from './CreatePlanDisplay';
 import { TerminalToolCard } from './TerminalToolCard';
 import { TerminalControlDisplay } from './TerminalControlDisplay';
 import { InitLiveAppDisplay } from './InitLiveAppToolDisplay';
+import { LiveAppStudioToolDisplay } from './LiveAppStudioToolDisplay';
 import { GenerativeWidgetToolCard } from './GenerativeWidgetToolCard';
 import { DesignArtifactIndexCard } from './DesignArtifactIndexCard';
 import { DesignTokensProposalCard } from './DesignTokensProposalCard';
@@ -328,6 +329,36 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     displayMode: 'standard',
     primaryColor: '#7c8cef'
   },
+  'LiveAppRecompile': {
+    toolName: 'LiveAppRecompile',
+    displayName: 'Recompile Live App',
+    icon: 'LAR',
+    requiresConfirmation: false,
+    resultDisplayType: 'summary',
+    description: 'Sync and recompile a Live App preview',
+    displayMode: 'compact',
+    primaryColor: '#7c8cef'
+  },
+  'LiveAppRuntimeProbe': {
+    toolName: 'LiveAppRuntimeProbe',
+    displayName: 'Probe Live App',
+    icon: 'LAP',
+    requiresConfirmation: false,
+    resultDisplayType: 'summary',
+    description: 'Read Live App runtime errors and warnings',
+    displayMode: 'compact',
+    primaryColor: '#f59e0b'
+  },
+  'LiveAppScreenshotMatrix': {
+    toolName: 'LiveAppScreenshotMatrix',
+    displayName: 'Live App Matrix',
+    icon: 'LAM',
+    requiresConfirmation: false,
+    resultDisplayType: 'summary',
+    description: 'Prepare a visual review matrix for a Live App',
+    displayMode: 'compact',
+    primaryColor: '#06b6d4'
+  },
   'GenerativeUI': {
     toolName: 'GenerativeUI',
     displayName: 'Generative UI',
@@ -416,6 +447,9 @@ export const TOOL_CARD_COMPONENTS = {
 
   // Live App
   'InitLiveApp': InitLiveAppDisplay,
+  'LiveAppRecompile': LiveAppStudioToolDisplay,
+  'LiveAppRuntimeProbe': LiveAppStudioToolDisplay,
+  'LiveAppScreenshotMatrix': LiveAppStudioToolDisplay,
 
   // Generative widget tool
   'GenerativeUI': GenerativeWidgetToolCard,

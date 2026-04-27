@@ -15,6 +15,7 @@ export function useLiveAppCatalogSync() {
   const setRunningWorkerIds = useLiveAppStore((state) => state.setRunningWorkerIds);
   const markWorkerRunning = useLiveAppStore((state) => state.markWorkerRunning);
   const markWorkerStopped = useLiveAppStore((state) => state.markWorkerStopped);
+  const bindSessionApp = useLiveAppStore((state) => state.bindSessionApp);
 
   const refreshApps = useCallback(async () => {
     setLoading(true);
@@ -41,7 +42,10 @@ export function useLiveAppCatalogSync() {
     void refreshApps();
     void refreshRunningWorkers();
 
-    const unlistenCreated = api.listen('liveapp-created', () => {
+    const unlistenCreated = api.listen<{ id?: string; sessionId?: string }>('liveapp-created', (payload) => {
+      if (payload?.id && payload?.sessionId) {
+        bindSessionApp(payload.sessionId, payload.id);
+      }
       void refreshApps();
     });
     const unlistenUpdated = api.listen('liveapp-updated', () => {
@@ -71,7 +75,7 @@ export function useLiveAppCatalogSync() {
       unlistenRestarted();
       unlistenStopped();
     };
-  }, [markWorkerRunning, markWorkerStopped, refreshApps, refreshRunningWorkers]);
+  }, [bindSessionApp, markWorkerRunning, markWorkerStopped, refreshApps, refreshRunningWorkers]);
 
   return {
     refreshApps,

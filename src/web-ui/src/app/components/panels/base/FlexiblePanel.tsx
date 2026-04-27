@@ -48,6 +48,10 @@ const BtwSessionPanel = React.lazy(() =>
   }))
 );
 
+const LiveAppStudioPanel = React.lazy(() =>
+  import('@/app/scenes/apps/live-app/components/LiveAppStudioPanel')
+);
+
 // CodePreview, ChartRenderer and CodeNode removed - visualization features disabled
 import { 
   FlexiblePanelProps
@@ -545,6 +549,17 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
           </React.Suspense>
         );
 
+      case 'live-app-studio': {
+        const studioData = content.data || {};
+        return (
+          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">Loading Live App Studio...</div>}>
+            <LiveAppStudioPanel
+              sessionId={studioData.sessionId ?? null}
+              appId={studioData.appId}
+            />
+          </React.Suspense>
+        );
+      }
 
       case 'generative-widget':
         return (

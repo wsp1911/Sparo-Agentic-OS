@@ -538,6 +538,16 @@
     color: var(--color-purple-500, #8b5cf6);
   }
 
+  &.is-deepresearch {
+    background: color-mix(in srgb, var(--color-accent-500, #8b5cf6) 22%, transparent);
+    color: var(--color-purple-500, #8b5cf6);
+  }
+
+  &.is-liveappstudio {
+    background: color-mix(in srgb, var(--color-accent-500, #7c8cef) 22%, transparent);
+    color: var(--color-accent-500, #7c8cef);
+  }
+
   &.is-live-app {
     background: color-mix(in srgb, var(--color-success, #6eb88c) 24%, transparent);
     color: var(--color-success, #6eb88c);

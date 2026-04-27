@@ -68,19 +68,26 @@ async function hydrateHistoricalSession(
   }
 }
 
-type SessionDisplayMode = 'code' | 'cowork' | 'design' | 'claw' | 'dispatcher';
+type SessionDisplayMode = 'code' | 'cowork' | 'design' | 'claw' | 'dispatcher' | 'liveappstudio';
 
 const isAssistantWorkspace = (workspace?: WorkspaceInfo | null): boolean => {
   return workspace?.workspaceKind === WorkspaceKind.Assistant;
 };
 
 // Modes that should pass through even in assistant workspaces instead of defaulting to 'claw'.
-const EXPLICIT_ASSISTANT_MODES = new Set(['Dispatcher', 'dispatcher']);
+const EXPLICIT_ASSISTANT_MODES = new Set([
+  'Dispatcher',
+  'dispatcher',
+  'LiveAppStudio',
+  'liveappstudio',
+]);
 
 const normalizeSessionDisplayMode = (
   mode?: string,
   workspace?: WorkspaceInfo | null
 ): SessionDisplayMode => {
+  const normalizedEarly = mode?.toLowerCase();
+  if (normalizedEarly === 'liveappstudio') return 'liveappstudio';
   if (isAssistantWorkspace(workspace) && (!mode || !EXPLICIT_ASSISTANT_MODES.has(mode))) return 'claw';
   if (!mode) return 'code';
   const normalizedMode = mode.toLowerCase();
@@ -232,8 +239,10 @@ export async function createChatSession(
   try {
     const workspacePath = resolveSessionWorkspacePath(context, config);
     const workspace = resolveSessionWorkspace(context, config);
+    const modeLower = mode?.toLowerCase() ?? '';
     const storageScope =
-      config.storageScope ?? (mode?.toLowerCase() === 'dispatcher' ? 'agentic_os' : 'workspace');
+      config.storageScope ??
+      (modeLower === 'dispatcher' || modeLower === 'liveappstudio' ? 'agentic_os' : 'workspace');
 
     if (!workspacePath && storageScope !== 'agentic_os') {
       throw new Error('Workspace path is required to create a session');
@@ -269,11 +278,13 @@ export async function createChatSession(
         ? i18nService.t('flow-chat:session.newCoworkWithIndex', { count: sameModeCount })
         : sessionMode === 'design'
           ? i18nService.t('flow-chat:session.newDesignWithIndex', { count: sameModeCount })
-        : sessionMode === 'claw'
-          ? i18nService.t('flow-chat:session.newClawWithIndex', { count: sameModeCount })
-          : sessionMode === 'dispatcher'
-            ? i18nService.t('flow-chat:session.dispatcher')
-            : i18nService.t('flow-chat:session.newCodeWithIndex', { count: sameModeCount });
+          : sessionMode === 'claw'
+            ? i18nService.t('flow-chat:session.newClawWithIndex', { count: sameModeCount })
+            : sessionMode === 'dispatcher'
+              ? i18nService.t('flow-chat:session.dispatcher')
+              : sessionMode === 'liveappstudio'
+                ? i18nService.t('flow-chat:session.newLiveAppStudioWithIndex', { count: sameModeCount })
+                : i18nService.t('flow-chat:session.newCodeWithIndex', { count: sameModeCount });
     
     const maxContextTokens = await getModelMaxTokens(config.modelName);
 

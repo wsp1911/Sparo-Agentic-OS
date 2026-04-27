@@ -21,6 +21,10 @@
 }
 
 .init-live-app-tool-display {
+  .tool-card-extra {
+    align-self: stretch;
+  }
+
   .init-live-app-icon {
     color: var(--color-text-secondary);
   }
@@ -67,6 +71,89 @@
     text-overflow: ellipsis;
     max-width: 200px;
     font-family: var(--tool-card-font-mono);
+  }
+
+  .init-live-app-debug-rail {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    flex-shrink: 0;
+    min-width: 40px;
+    padding: 0 0 0 8px;
+    margin-left: 2px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: calc(-1 * var(--tool-card-header-pad-x, 10px));
+      top: calc(-1 * var(--tool-card-header-pad-y, 10px));
+      bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
+      background-color: transparent;
+      border-radius: 0;
+      transition: background-color 0.15s ease;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    &:hover::before {
+      background-color: var(--tool-card-bg-hover, var(--color-bg-hover, rgba(255, 255, 255, 0.09)));
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: calc(-1 * var(--tool-card-header-pad-y, 10px));
+      bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
+      width: 0;
+      border-left: 1px solid var(--border-base);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    &:hover .init-live-app-debug-rail__visual {
+      color: var(--color-text-primary);
+    }
+  }
+
+  .init-live-app-debug-rail__hit {
+    position: absolute;
+    left: 0;
+    top: calc(-1 * var(--tool-card-header-pad-y, 10px));
+    right: calc(-1 * var(--tool-card-header-pad-x, 10px));
+    bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
+    z-index: 2;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    appearance: none;
+    font: inherit;
+
+    &:focus-visible {
+      outline: 2px solid var(--color-accent-500, #60a5fa);
+      outline-offset: -2px;
+    }
+  }
+
+  .init-live-app-debug-rail__visual {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+    pointer-events: none;
+
+    svg {
+      flex-shrink: 0;
+      stroke: currentColor;
+    }
   }
 
   .error-indicator {

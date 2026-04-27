@@ -1,0 +1,221 @@
+.live-app-studio-panel {
+  display: grid;
+  grid-template-rows: 36px minmax(0, 1fr) 160px;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.live-app-studio-panel.is-diagnostics-collapsed {
+  grid-template-rows: 36px minmax(0, 1fr) 32px;
+}
+
+.live-app-studio-panel__toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-secondary);
+}
+
+.live-app-studio-panel__title {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.live-app-studio-panel__title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-app-studio-panel__meta {
+  display: inline-flex;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+
+.live-app-studio-panel__meta span {
+  padding: 2px 6px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+}
+
+.live-app-studio-panel__preview {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.live-app-studio-panel__empty {
+  display: grid;
+  height: 100%;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.live-app-studio-panel__empty div {
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.live-app-studio-panel__empty p {
+  max-width: 260px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.live-app-studio-panel__empty.is-error {
+  color: var(--color-error);
+}
+
+.live-app-studio-panel__diagnostics {
+  min-height: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-secondary);
+}
+
+.live-app-studio-panel__diagnostics-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.live-app-studio-panel__diagnostics-header span:first-child {
+  flex: 1;
+}
+
+.live-app-studio-panel__diagnostics-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+}
+
+.live-app-studio-panel__diagnostics-toggle {
+  position: relative;
+  display: inline-flex;
+}
+
+.live-app-studio-panel__diagnostics-toggle > span {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border: 1px solid var(--color-bg-secondary);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.live-app-studio-panel__diagnostics-toggle .is-fatal-badge {
+  background: var(--color-error);
+}
+
+.live-app-studio-panel__diagnostics-toggle .is-warning-badge {
+  background: var(--color-warning);
+}
+
+.live-app-studio-panel__diagnostics-header .is-ok {
+  color: var(--color-success);
+}
+
+.live-app-studio-panel__diagnostics-header .is-fatal {
+  color: var(--color-error);
+}
+
+.live-app-studio-panel__diagnostics-header .is-warning {
+  color: var(--color-warning);
+}
+
+.live-app-studio-panel__diagnostics-list {
+  height: calc(100% - 32px);
+  overflow: auto;
+  padding: 8px 10px;
+}
+
+.live-app-studio-panel__diagnostics-empty {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.live-app-studio-panel__issue {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+}
+
+.live-app-studio-panel__issue span {
+  color: var(--color-text-secondary);
+}
+
+.live-app-studio-panel__issue-body {
+  min-width: 0;
+}
+
+.live-app-studio-panel__issue p {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-app-studio-panel__issue pre {
+  max-height: 96px;
+  margin: 4px 0 0;
+  overflow: auto;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.live-app-studio-panel__issue.is-fatal p {
+  color: var(--color-error);
+}
+
+.live-app-studio-panel__issue.is-warning p {
+  color: var(--color-warning);
+}
+
+.live-app-studio-panel__spin {
+  animation: live-app-studio-spin 0.9s linear infinite;
+}
+
+@keyframes live-app-studio-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

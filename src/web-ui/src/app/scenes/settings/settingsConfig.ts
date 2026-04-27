@@ -93,7 +93,6 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
         id: 'keyboard',
         labelKey: 'configCenter.tabs.keyboard',
         descriptionKey: 'configCenter.tabDescriptions.keyboard',
-        beta: true,
         keywords: [
           'keyboard',
           'shortcut',
@@ -102,7 +101,6 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
           'shortcut key',
           '快捷键',
           '键位',
-          'beta',
         ],
       },
     ],

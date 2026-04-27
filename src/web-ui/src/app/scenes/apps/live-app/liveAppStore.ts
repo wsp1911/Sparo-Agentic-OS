@@ -11,6 +11,8 @@ interface LiveAppState {
   openedAppIds: string[];
   /** App IDs whose JS workers are currently running. */
   runningWorkerIds: string[];
+  /** LiveAppStudio sessions currently associated with a generated app. */
+  sessionAppIds: Record<string, string>;
 
   setApps: (apps: LiveAppMeta[]) => void;
   setLoading: (loading: boolean) => void;
@@ -19,6 +21,7 @@ interface LiveAppState {
   setRunningWorkerIds: (ids: string[]) => void;
   markWorkerRunning: (id: string) => void;
   markWorkerStopped: (id: string) => void;
+  bindSessionApp: (sessionId: string, appId: string) => void;
 }
 
 export const useLiveAppStore = create<LiveAppState>((set) => ({
@@ -26,6 +29,7 @@ export const useLiveAppStore = create<LiveAppState>((set) => ({
   loading: false,
   openedAppIds: [],
   runningWorkerIds: [],
+  sessionAppIds: {},
 
   setApps: (apps) =>
     set((state) => {
@@ -54,5 +58,9 @@ export const useLiveAppStore = create<LiveAppState>((set) => ({
   markWorkerStopped: (id) =>
     set((state) => ({
       runningWorkerIds: state.runningWorkerIds.filter((value) => value !== id),
+    })),
+  bindSessionApp: (sessionId, appId) =>
+    set((state) => ({
+      sessionAppIds: { ...state.sessionAppIds, [sessionId]: appId },
     })),
 }));

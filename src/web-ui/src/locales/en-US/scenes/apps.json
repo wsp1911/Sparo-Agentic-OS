@@ -33,7 +33,7 @@
     },
     "coding": {
       "name": "Coding App",
-      "description": "A coding mode app built from Agentic, Plan, and Debug, covering implementation, planning, and troubleshooting."
+      "description": "A coding mode app built from Agentic, Plan, Debug, and Team, covering implementation, planning, troubleshooting, and virtual engineering-team workflows."
     },
     "cowork": {
       "name": "Cowork",
@@ -46,6 +46,14 @@
     "claw": {
       "name": "Claw",
       "description": "A standalone Agent app for persistent personal-assistant style collaboration with memory and preferences."
+    },
+    "deepResearch": {
+      "name": "Deep Research",
+      "description": "A standalone Agent app for open-ended research that dispatches parallel sub-agents and synthesizes comprehensive sourced reports."
+    },
+    "liveAppStudio": {
+      "name": "Live App Studio",
+      "description": "A standalone Agent app for generating, debugging, and evolving tasteful runnable Live Apps from one sentence."
     }
   },
   "appDetail": {

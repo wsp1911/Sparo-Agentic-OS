@@ -132,6 +132,7 @@ impl LiveAppStorage {
             compiled_html,
             permissions: meta.permissions,
             ai_context: meta.ai_context,
+            permission_rationale: meta.permission_rationale,
             runtime: meta.runtime,
         })
     }

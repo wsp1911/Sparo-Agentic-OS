@@ -35,6 +35,9 @@ export function enrichAgentCapabilities(agent: AgentWithCapabilities): AgentWith
   if (id === 'debug') {
     return { ...agent, iconKey: 'bug', capabilities: [{ category: '编码', level: 5 }, { category: '分析', level: 3 }] };
   }
+  if (id === 'team') {
+    return { ...agent, iconKey: 'cpu', capabilities: [{ category: '分析', level: 5 }, { category: '测试', level: 4 }] };
+  }
   if (id === 'cowork') {
     return { ...agent, iconKey: 'briefcase', capabilities: [{ category: '文档', level: 4 }, { category: '创意', level: 3 }] };
   }

@@ -40,10 +40,11 @@ const log = createLogger('FlowChatStore');
 
 /** Ensures Agentic OS (dispatcher) deletes use `agentic_os` storage even when metadata omitted `storageScope`. */
 function resolveSessionDeleteStorageScope(session: Session): SessionStorageScope {
+  const mode = session.mode?.toLowerCase();
   return (
     session.storageScope ??
     session.config?.storageScope ??
-    (session.mode?.toLowerCase() === 'dispatcher' ? 'agentic_os' : 'workspace')
+    (mode === 'dispatcher' || mode === 'liveappstudio' ? 'agentic_os' : 'workspace')
   );
 }
 

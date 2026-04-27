@@ -28,6 +28,39 @@ interface AiStreamPayload {
   data: Record<string, unknown>;
 }
 
+interface RuntimeIssuePayload {
+  appId?: string;
+  severity?: 'fatal' | 'warning' | 'noise';
+  message?: string;
+  source?: string;
+  stack?: string;
+  category?: string;
+  timestampMs?: number;
+}
+
+const NOOP_BRIDGE_METHODS = new Set([
+  // Emitted by the injected scroll-boundary script when iframe scrolling reaches an edge.
+  'bitfun/sandbox-wheel',
+]);
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return String(error);
+}
+
+function errorStack(error: unknown): string | undefined {
+  return error instanceof Error ? error.stack : undefined;
+}
+
 export function useLiveAppBridge(
   iframeRef: RefObject<HTMLIFrameElement>,
   app: LiveApp,
@@ -55,6 +88,12 @@ export function useLiveAppBridge(
 
       const { id, method, params = {} } = msg;
       const appId = appIdRef.current;
+      const bridgeContext = [
+        `appId: ${appId}`,
+        `method: ${method}`,
+        `params: ${safeStringify(params)}`,
+        `message: ${safeStringify(msg)}`,
+      ].join('\n');
       const reply = (result: unknown) =>
         iframeRef.current?.contentWindow?.postMessage({ jsonrpc: '2.0', id, result }, '*');
       const replyError = (message: string) =>
@@ -81,6 +120,24 @@ export function useLiveAppBridge(
             '*',
           );
         }
+        return;
+      }
+
+      if (method === 'bitfun/runtime-error') {
+        const issue = params as RuntimeIssuePayload;
+        void liveAppAPI.reportRuntimeIssue({
+          appId,
+          severity: issue.severity ?? 'fatal',
+          message: issue.message ?? 'Unknown runtime error',
+          source: issue.source,
+          stack: issue.stack,
+          category: issue.category ?? 'runtime',
+          timestampMs: issue.timestampMs ?? Date.now(),
+        }).catch(() => undefined);
+        return;
+      }
+
+      if (NOOP_BRIDGE_METHODS.has(method)) {
         return;
       }
 
@@ -155,9 +212,32 @@ export function useLiveAppBridge(
           return;
         }
 
-        replyError(`Unknown method: ${method}`);
+        const message = `Unknown method: ${method}`;
+        void liveAppAPI.reportRuntimeIssue({
+          appId,
+          severity: 'warning',
+          message,
+          source: `bridge:${method}`,
+          stack: `Unsupported Live App bridge call.\n${bridgeContext}`,
+          category: 'bridge:unknown-method',
+          timestampMs: Date.now(),
+        }).catch(() => undefined);
+        replyError(message);
       } catch (error) {
-        replyError(typeof error === 'string' ? error : String(error));
+        const message = `Bridge call failed: ${method}: ${errorMessage(error)}`;
+        void liveAppAPI.reportRuntimeIssue({
+          appId,
+          severity: 'fatal',
+          message,
+          source: `bridge:${method}`,
+          stack: [
+            errorStack(error),
+            bridgeContext,
+          ].filter(Boolean).join('\n\n'),
+          category: `bridge:${method}`,
+          timestampMs: Date.now(),
+        }).catch(() => undefined);
+        replyError(message);
       }
     };
     window.addEventListener('message', handler);

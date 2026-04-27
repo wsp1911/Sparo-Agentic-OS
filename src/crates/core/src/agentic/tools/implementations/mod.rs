@@ -27,6 +27,7 @@ pub mod get_file_diff_tool;
 pub mod glob_tool;
 pub mod grep_tool;
 pub mod live_app_init_tool;
+pub mod live_app_studio_tools;
 pub mod log_tool;
 pub mod ls_tool;
 pub mod mcp_tools;
@@ -65,6 +66,9 @@ pub use get_file_diff_tool::GetFileDiffTool;
 pub use glob_tool::GlobTool;
 pub use grep_tool::GrepTool;
 pub use live_app_init_tool::InitLiveAppTool;
+pub use live_app_studio_tools::{
+    LiveAppRecompileTool, LiveAppRuntimeProbeTool, LiveAppScreenshotMatrixTool,
+};
 pub use log_tool::LogTool;
 pub use ls_tool::LSTool;
 pub use mcp_tools::{

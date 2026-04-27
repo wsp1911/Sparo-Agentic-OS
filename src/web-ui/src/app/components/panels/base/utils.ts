@@ -17,6 +17,7 @@ import {
   Network,
   MessageSquareQuote,
   Palette,
+  AppWindow,
 } from 'lucide-react';
 import { PanelContentType, PanelContentConfig } from './types';
 
@@ -205,6 +206,14 @@ export const PANEL_CONTENT_CONFIGS: Record<PanelContentType, PanelContentConfig>
     type: 'terminal',
     displayName: 'Terminal',
     icon: Code,
+    supportsCopy: false,
+    supportsDownload: false,
+    showHeader: false
+  },
+  'live-app-studio': {
+    type: 'live-app-studio',
+    displayName: 'Live App Studio',
+    icon: AppWindow,
     supportsCopy: false,
     supportsDownload: false,
     showHeader: false

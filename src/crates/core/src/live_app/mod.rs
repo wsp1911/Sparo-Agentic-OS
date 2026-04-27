@@ -25,6 +25,6 @@ pub use runtime_detect::{DetectedRuntime, RuntimeKind};
 pub use storage::LiveAppStorage;
 pub use types::{
     AiPermissions, EsmDep, FsPermissions, LiveApp, LiveAppAiContext, LiveAppMeta,
-    LiveAppPermissions, LiveAppSource, NetPermissions, NodePermissions, NpmDep, PathScope,
-    ShellPermissions,
+    LiveAppPermissions, LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppSource,
+    NetPermissions, NodePermissions, NpmDep, PathScope, ShellPermissions,
 };
