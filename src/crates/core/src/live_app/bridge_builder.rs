@@ -1,11 +1,11 @@
-//! Bridge script builder — generate window.app Runtime Adapter (BitFun Hosted) for iframe.
+//! Bridge script builder - generates window.app Runtime Adapter (BitFun Hosted) for iframe.
 
 use crate::live_app::types::{EsmDep, LiveAppPermissions};
 use serde_json;
 
 /// Build the Runtime Adapter script (JS) to inject into the iframe.
 /// Exposes window.app with call(), fs.*, shell.*, net.*, os.*, storage.*, dialog.*,
-/// ai.*, clipboard.*, lifecycle, events.
+/// ai.*, agentic.*, clipboard.*, lifecycle, events.
 pub fn build_bridge_script(
     app_id: &str,
     app_data_dir: &str,
@@ -177,7 +177,7 @@ pub fn build_bridge_script(
       message: (opts) => _rpc('dialog.message', opts || {{}}),
     }},
 
-    // AI namespace — proxies to host application AI client (no API key exposure).
+    // AI namespace - proxies to host application AI client (no API key exposure).
     _aiStreams: {{}},
     ai: {{
       complete: (prompt, opts) => _rpc('ai.complete', {{ prompt, ...(opts || {{}}) }}),
@@ -205,7 +205,21 @@ pub fn build_bridge_script(
       getModels: () => _rpc('ai.getModels', {{}}),
     }},
 
-    // Clipboard namespace — proxies to host navigator.clipboard (bypasses sandbox restriction).
+    // Agentic namespace - proxies to host-managed Sparo OS Agentic sessions.
+    agentic: {{
+      createSession: (opts) => _rpc('agentic.createSession', opts || {{}}),
+      sendMessage: (sessionId, prompt, opts) => _rpc('agentic.sendMessage', {{ sessionId, prompt, ...(opts || {{}}) }}),
+      cancelTurn: (sessionId, turnId) => _rpc('agentic.cancelTurn', {{ sessionId, turnId }}),
+      listSessions: () => _rpc('agentic.listSessions', {{}}),
+      restoreSession: (sessionId) => _rpc('agentic.restoreSession', {{ sessionId }}),
+      deleteSession: (sessionId) => _rpc('agentic.deleteSession', {{ sessionId }}),
+      confirmTool: (sessionId, toolId, opts) => _rpc('agentic.confirmTool', {{ sessionId, toolId, ...(opts || {{}}) }}),
+      rejectTool: (sessionId, toolId, opts) => _rpc('agentic.rejectTool', {{ sessionId, toolId, ...(opts || {{}}) }}),
+      openSession: (sessionId) => _rpc('agentic.openSession', {{ sessionId }}),
+      onEvent: (fn) => app.on('agentic:event', fn),
+      offEvent: (fn) => app.off('agentic:event', fn),
+    }},
+    // Clipboard namespace - proxies to host navigator.clipboard (bypasses sandbox restriction).
     clipboard: {{
       writeText: (text) => _rpc('clipboard.writeText', {{ text }}),
       readText:  () => _rpc('clipboard.readText', {{}}),
@@ -219,8 +233,8 @@ pub fn build_bridge_script(
     onLocaleChange: (fn) => app._lifecycleHandlers.localeChange.push(fn),
 
     /// Pick the best-matching string from an i18n table for the current locale.
-    /// Resolution: current → en-US → zh-CN → first value → fallback.
-    /// Usage: app.t({{'en-US':'Hello','zh-CN':'你好'}}, 'Hello')
+    /// Resolution: current -> en-US -> zh-CN -> first value -> fallback.
+    /// Usage: app.t({{'en-US':'Hello','zh-CN':'Hello'}}, 'Hello')
     t: (table, fallback) => {{
       if (!table || typeof table !== 'object') return fallback != null ? fallback : '';
       if (table[_locale]) return table[_locale];
@@ -332,7 +346,7 @@ pub fn build_import_map(deps: &[EsmDep]) -> String {
     format!(r#"<script type="importmap">{}</script>"#, json)
 }
 
-/// Build CSP meta content from permissions (net.allow → connect-src).
+/// Build CSP meta content from permissions (net.allow 鈫?connect-src).
 pub fn build_csp_content(permissions: &LiveAppPermissions) -> String {
     let net_allow = permissions
         .net

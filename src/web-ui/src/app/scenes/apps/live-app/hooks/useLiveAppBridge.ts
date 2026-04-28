@@ -13,6 +13,8 @@ import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { useI18n } from '@/infrastructure/i18n';
 import { buildLiveAppThemeVars } from '../buildLiveAppThemeVars';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
+import { openMainSession } from '@/flow_chat/services/openBtwSession';
+import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 
 interface JSONRPC {
   jsonrpc?: string;
@@ -26,6 +28,12 @@ interface AiStreamPayload {
   streamId: string;
   type: 'chunk' | 'done' | 'error';
   data: Record<string, unknown>;
+}
+
+interface AgenticEventPayload {
+  sessionId?: string;
+  turnId?: string;
+  [key: string]: unknown;
 }
 
 interface RuntimeIssuePayload {
@@ -85,6 +93,7 @@ export function useLiveAppBridge(
   localeRef.current = currentLanguage;
   const workspacePathRef = useRef(workspacePath);
   workspacePathRef.current = workspacePath;
+  const agenticSessionIdsRef = useRef<Set<string>>(new Set());
 
   const appIdRef = useRef(app.id);
   useLayoutEffect(() => {
@@ -229,6 +238,100 @@ export function useLiveAppBridge(
           return;
         }
 
+        if (method === 'agentic.createSession') {
+          const result = await liveAppAPI.agenticCreateSession(appId, {
+            sessionName: params.sessionName as string | undefined,
+            name: params.name as string | undefined,
+            agentType: params.agentType as string | undefined,
+            model: params.model as string | undefined,
+            workspacePath: params.workspacePath as string | undefined,
+          });
+          agenticSessionIdsRef.current.add(result.sessionId);
+          flowChatStore.addExternalSession(
+            result.sessionId,
+            result.sessionName,
+            result.agentType,
+            result.workspacePath,
+          );
+          reply(result);
+          return;
+        }
+        if (method === 'agentic.sendMessage') {
+          const result = await liveAppAPI.agenticSendMessage(
+            appId,
+            (params.sessionId as string) ?? '',
+            (params.prompt as string) ?? '',
+            {
+              originalPrompt: params.originalPrompt as string | undefined,
+              agentType: params.agentType as string | undefined,
+              turnId: params.turnId as string | undefined,
+            },
+          );
+          agenticSessionIdsRef.current.add(result.sessionId);
+          reply(result);
+          return;
+        }
+        if (method === 'agentic.cancelTurn') {
+          await liveAppAPI.agenticCancelTurn(appId, (params.sessionId as string) ?? '', (params.turnId as string) ?? '');
+          reply(null);
+          return;
+        }
+        if (method === 'agentic.listSessions') {
+          const sessions = await liveAppAPI.agenticListSessions(appId);
+          sessions.forEach((session) => agenticSessionIdsRef.current.add(session.sessionId));
+          reply(sessions);
+          return;
+        }
+        if (method === 'agentic.restoreSession') {
+          const result = await liveAppAPI.agenticRestoreSession(appId, (params.sessionId as string) ?? '');
+          agenticSessionIdsRef.current.add(result.sessionId);
+          flowChatStore.addExternalSession(
+            result.sessionId,
+            result.sessionName,
+            result.agentType,
+            result.workspacePath,
+          );
+          reply(result);
+          return;
+        }
+        if (method === 'agentic.deleteSession') {
+          const sessionId = (params.sessionId as string) ?? '';
+          await liveAppAPI.agenticDeleteSession(appId, sessionId);
+          agenticSessionIdsRef.current.delete(sessionId);
+          reply(null);
+          return;
+        }
+        if (method === 'agentic.confirmTool') {
+          await liveAppAPI.agenticConfirmTool(
+            appId,
+            (params.sessionId as string) ?? '',
+            (params.toolId as string) ?? '',
+            params.updatedInput,
+          );
+          reply(null);
+          return;
+        }
+        if (method === 'agentic.rejectTool') {
+          await liveAppAPI.agenticRejectTool(
+            appId,
+            (params.sessionId as string) ?? '',
+            (params.toolId as string) ?? '',
+            params.reason as string | undefined,
+          );
+          reply(null);
+          return;
+        }
+        if (method === 'agentic.openSession') {
+          const sessionId = (params.sessionId as string) ?? '';
+          if (!agenticSessionIdsRef.current.has(sessionId)) {
+            await liveAppAPI.agenticRestoreSession(appId, sessionId);
+            agenticSessionIdsRef.current.add(sessionId);
+          }
+          await openMainSession(sessionId);
+          reply(null);
+          return;
+        }
+
         if (method === 'clipboard.writeText') {
           await navigator.clipboard.writeText((params.text as string) ?? '');
           reply(null);
@@ -340,4 +443,45 @@ export function useLiveAppBridge(
       unlisten();
     };
   }, [app.id, iframeRef]);
+
+  useEffect(() => {
+    const eventNames = [
+      'agentic://session-created',
+      'agentic://session-state-changed',
+      'agentic://dialog-turn-started',
+      'agentic://model-round-started',
+      'agentic://text-chunk',
+      'agentic://tool-event',
+      'agentic://dialog-turn-completed',
+      'agentic://dialog-turn-failed',
+      'agentic://dialog-turn-cancelled',
+      'agentic://token-usage-updated',
+      'agentic://context-compression-started',
+      'agentic://context-compression-completed',
+      'agentic://context-compression-failed',
+    ];
+
+    const unlisteners = eventNames.map((eventName) =>
+      api.listen<AgenticEventPayload>(eventName, (payload) => {
+        const sessionId = payload.sessionId;
+        if (!sessionId || !agenticSessionIdsRef.current.has(sessionId)) return;
+        if (!iframeRef.current?.contentWindow) return;
+        iframeRef.current.contentWindow.postMessage(
+          {
+            type: 'bitfun:event',
+            event: 'agentic:event',
+            payload: {
+              sourceEvent: eventName,
+              ...payload,
+            },
+          },
+          '*',
+        );
+      }),
+    );
+
+    return () => {
+      unlisteners.forEach((unlisten) => unlisten());
+    };
+  }, [iframeRef]);
 }

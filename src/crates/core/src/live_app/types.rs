@@ -49,6 +49,8 @@ pub struct LiveAppPermissions {
     pub node: Option<NodePermissions>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai: Option<AiPermissions>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agentic: Option<AgenticPermissions>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -105,6 +107,26 @@ pub struct AiPermissions {
     /// Maximum number of AI requests per minute (per app).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rate_limit_per_minute: Option<u32>,
+}
+
+/// Agentic permissions — controls access to host-managed Sparo OS Agentic sessions.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AgenticPermissions {
+    /// Whether Agentic session access is enabled for this Live App.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Allowed agent/mode ids (e.g. ["agentic", "Plan", "LiveAppStudio"]). Empty or absent means all registered agents are allowed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allowed_agents: Option<Vec<String>>,
+    /// Whether this Live App may bind Agentic sessions to an explicit workspace path.
+    #[serde(default)]
+    pub allow_workspace: bool,
+    /// Maximum number of Agentic sessions this Live App can create in one storage root.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_sessions: Option<u32>,
+    /// Whether sessions created by this Live App may use tools. Defaults to true when Agentic is enabled.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_tools: Option<bool>,
 }
 
 /// AI context for iteration (stored in meta, not in compiled HTML).

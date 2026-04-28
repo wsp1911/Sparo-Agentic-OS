@@ -164,6 +164,7 @@ Returns app_id and the app root directory. Use the root directory and file names
                 timeout_ms: None,
             }),
             ai: None,
+            agentic: None,
         };
 
         let app = manager
