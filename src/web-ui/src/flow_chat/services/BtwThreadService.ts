@@ -204,6 +204,7 @@ export function createTransientBtwSession(params: {
   parentSessionId: string;
   workspacePath?: string;
   childSessionName: string;
+  modelId?: string;
 }): { childSessionId: string } {
   const parentSession = requireSession(params.parentSessionId);
   const workspacePath = params.workspacePath || parentSession.workspacePath;
@@ -213,6 +214,7 @@ export function createTransientBtwSession(params: {
 
   const childSessionId = safeUuid('btw_session');
   const childSessionName = params.childSessionName.trim() || 'Side thread';
+  const inheritedModelId = params.modelId?.trim() || parentSession.config.modelName?.trim() || 'auto';
 
   flowChatStore.addExternalSession(
     childSessionId,
@@ -230,6 +232,7 @@ export function createTransientBtwSession(params: {
     parentSession.remoteConnectionId,
     parentSession.remoteSshHost
   );
+  flowChatStore.updateSessionModelName(childSessionId, inheritedModelId);
 
   return { childSessionId };
 }
@@ -259,7 +262,7 @@ export async function sendMessageToTransientBtwSession(params: {
     childSessionId: params.childSessionId,
     childSessionName: params.childSessionName || childSession.title || 'Side thread',
     question,
-    modelId: params.modelId ?? childSession.config.modelName ?? 'fast',
+    modelId: params.modelId ?? childSession.config.modelName ?? 'auto',
   });
   if (params.modelId?.trim()) {
     flowChatStore.updateSessionModelName(params.childSessionId, params.modelId.trim());
@@ -285,6 +288,7 @@ export async function startBtwThread(params: {
     parentSessionId: params.parentSessionId,
     workspacePath: params.workspacePath,
     childSessionName,
+    modelId: params.modelId,
   });
 
   try {

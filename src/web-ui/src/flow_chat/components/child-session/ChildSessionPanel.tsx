@@ -2,12 +2,17 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next';
 import path from 'path-browserify';
 import { Link2, CornerUpLeft } from 'lucide-react';
-import { FlowChatContext } from '../modern/FlowChatContext';
+import {
+  FlowChatContext,
+  FlowChatStaticContext,
+  FlowChatViewContext,
+} from '../modern/FlowChatContext';
 import { VirtualItemRenderer } from '../modern/VirtualItemRenderer';
 import { ProcessingIndicator } from '../modern/ProcessingIndicator';
 import { flowChatStore } from '../../store/FlowChatStore';
 import type { FlowChatConfig, FlowChatState, Session } from '../../types/flow-chat';
 import { sessionToVirtualItems } from '../../store/modernFlowChatStore';
+import { useExploreGroupState } from '../modern/useExploreGroupState';
 import {
   FLOWCHAT_FOCUS_ITEM_EVENT,
   type FlowChatFocusItemRequest,
@@ -64,6 +69,13 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
   const parentSession = parentSessionId ? flowChatState.sessions.get(parentSessionId) : undefined;
   const resolvedVariant = resolveVariant(variant, childSession);
   const virtualItems = useMemo(() => sessionToVirtualItems(childSession ?? null), [childSession]);
+  const {
+    exploreGroupStates,
+    onExploreGroupToggle,
+    onExpandGroup,
+    onExpandAllInTurn,
+    onCollapseGroup,
+  } = useExploreGroupState(virtualItems);
 
   const isLoadingRef = useRef(false);
   useEffect(() => {
@@ -142,15 +154,40 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
     });
   }, []);
 
-  const contextValue = useMemo(
+  const staticContextValue = useMemo(
     () => ({
       onFileViewRequest: handleFileViewRequest,
       onTabOpen: handleTabOpen,
       sessionId: childSessionId,
-      activeSessionOverride: childSession ?? null,
       config: PANEL_CONFIG,
     }),
-    [childSession, childSessionId, handleFileViewRequest, handleTabOpen]
+    [childSessionId, handleFileViewRequest, handleTabOpen]
+  );
+
+  const viewContextValue = useMemo(
+    () => ({
+      exploreGroupStates,
+      onExploreGroupToggle,
+      onExpandGroup,
+      onExpandAllInTurn,
+      onCollapseGroup,
+    }),
+    [
+      exploreGroupStates,
+      onCollapseGroup,
+      onExpandAllInTurn,
+      onExpandGroup,
+      onExploreGroupToggle,
+    ]
+  );
+
+  const contextValue = useMemo(
+    () => ({
+      ...staticContextValue,
+      ...viewContextValue,
+      activeSessionOverride: childSession ?? null,
+    }),
+    [childSession, staticContextValue, viewContextValue]
   );
 
   const lastDialogTurn = childSession?.dialogTurns[childSession.dialogTurns.length - 1];
@@ -274,7 +311,9 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
 
   return (
     <FlowChatContext.Provider value={contextValue}>
-      <div className="child-session-panel">
+      <FlowChatStaticContext.Provider value={staticContextValue}>
+        <FlowChatViewContext.Provider value={viewContextValue}>
+          <div className="child-session-panel">
         <div className="child-session-panel__header">
           <div className="child-session-panel__header-left">
             <span className="child-session-panel__badge">{badgeLabel}</span>
@@ -322,7 +361,9 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
             </>
           )}
         </div>
-      </div>
+          </div>
+        </FlowChatViewContext.Provider>
+      </FlowChatStaticContext.Provider>
     </FlowChatContext.Provider>
   );
 };

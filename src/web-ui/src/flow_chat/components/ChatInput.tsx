@@ -1187,7 +1187,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         parentSessionId: currentSessionId,
         workspacePath,
         question,
-        modelId: 'fast',
+        modelId: currentSession?.config.modelName?.trim() || 'auto',
       });
       openBtwSessionInAuxPane({
         childSessionId,
@@ -1374,7 +1374,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       const { childSessionId } = await startHostScanThread({
         parentSessionId: currentSessionId,
         workspacePath,
-        modelId: 'fast',
+        modelId: currentSession?.config.modelName?.trim() || 'auto',
       });
       openHostScanSessionInAuxPane({
         childSessionId,
