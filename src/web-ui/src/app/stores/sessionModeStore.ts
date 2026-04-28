@@ -1,15 +1,16 @@
 /**
  * sessionModeStore — tracks the active session creation mode.
  *
- * Three modes:
+ * Session launch modes:
  *   - 'code'   → standard AI coding session (default)
  *   - 'cowork' → collaborative Cowork session
  *   - 'design' → dedicated Design session
+ *   - 'liveappstudio' → Live App Studio session
  */
 
 import { create } from 'zustand';
 
-export type SessionMode = 'code' | 'cowork' | 'design';
+export type SessionMode = 'code' | 'cowork' | 'design' | 'liveappstudio';
 
 interface SessionModeState {
   mode: SessionMode;

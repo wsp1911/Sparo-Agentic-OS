@@ -27,7 +27,9 @@ impl WorkspaceProvider {
 
     /// Quickly creates a new project workspace.
     pub async fn create_project(&self, path: &str) -> BitFunResult<WorkspaceInfo> {
-        self.service.open_workspace(std::path::PathBuf::from(path)).await
+        self.service
+            .open_workspace(std::path::PathBuf::from(path))
+            .await
     }
 
     /// Returns the current workspace.

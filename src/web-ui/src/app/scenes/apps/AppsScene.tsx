@@ -55,6 +55,7 @@ import './AppsScene.scss';
 
 const log = createLogger('AppsScene');
 const TAB_KEYS: AppsTab[] = ['agent-app', 'live-app', 'bridge-app'];
+type AppsData = ReturnType<typeof useAppsData>;
 
 const AppsListSkeleton: React.FC<{
   rowCount?: number;
@@ -256,11 +257,13 @@ const LiveAppRow: React.FC<{
 // Home view
 // ─────────────────────────────────────────────────────────────────────────────
 
-const AppsHomeView: React.FC = () => {
+const AppsHomeView: React.FC<{
+  appsData: AppsData;
+}> = ({ appsData }) => {
   const { t } = useTranslation('scenes/apps');
   const { activeTab, setActiveTab, searchQuery, setSearchQuery, openAppDetail, openAgentDetail } = useAppsStore();
 
-  const { appCards, loading: agentLoading } = useAppsData(searchQuery);
+  const { appCards, loading: agentLoading } = appsData;
 
   // Live App state
   const liveApps         = useLiveAppStore((s) => s.apps);
@@ -551,13 +554,15 @@ const AppsHomeView: React.FC = () => {
 
 const AppsScene: React.FC = () => {
   const { page, selectedAppId, selectedAgentId, openHome, openAppDetail, openAgentDetail } = useAppsStore();
+  const searchQuery = useAppsStore((s) => s.searchQuery);
   useLiveAppCatalogSync();
 
+  const appsData = useAppsData(searchQuery);
   const {
     availableTools, getAgentById, getAppById,
     getModeConfig, getModeSkills, handleResetTools, handleSetSkills, handleSetTools,
     loadAppsData,
-  } = useAppsData(useAppsStore((s) => s.searchQuery));
+  } = appsData;
 
   useGallerySceneAutoRefresh({ sceneId: 'apps', refetch: () => void loadAppsData() });
 
@@ -589,7 +594,7 @@ const AppsScene: React.FC = () => {
     );
   }
 
-  return <AppsHomeView />;
+  return <AppsHomeView appsData={appsData} />;
 };
 
 export default AppsScene;

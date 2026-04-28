@@ -21,15 +21,18 @@
       "retry": "Retry"
     },
     "diagnostics": {
-      "title": "Diagnostics",
+      "title": "Runtime",
       "ok": "Runtime OK",
       "empty": "No runtime errors yet",
+      "logsEmpty": "No runtime logs yet",
+      "issuesTab": "Issues",
+      "logsTab": "Logs",
       "fatalCount": "{{count}} errors",
       "warningCount": "{{count}} warnings",
-      "sendToAi": "Send errors to AI for repair",
-      "sendDisplay": "Fix Live App runtime errors",
+      "sendToAi": "Send runtime diagnostics to AI",
+      "sendDisplay": "Fix Live App runtime issue",
       "sent": "Sent to AI",
-      "clear": "Clear errors",
+      "clear": "Clear runtime diagnostics",
       "expand": "Expand logs",
       "collapse": "Collapse logs"
     }

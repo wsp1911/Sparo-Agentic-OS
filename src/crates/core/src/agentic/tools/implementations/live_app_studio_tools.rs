@@ -3,11 +3,14 @@
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use crate::live_app::try_get_global_live_app_manager;
-use crate::live_app::types::{LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity};
+use crate::live_app::types::{
+    LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog, LiveAppRuntimeLogLevel,
+};
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
 use chrono::Utc;
 use serde_json::{json, Value};
+use std::borrow::Cow;
 
 pub struct LiveAppRecompileTool;
 
@@ -63,12 +66,42 @@ impl Tool for LiveAppRecompileTool {
         let manager = try_get_global_live_app_manager()
             .ok_or_else(|| BitFunError::tool("LiveAppManager not initialized".to_string()))?;
 
-        let app = manager
+        manager
+            .record_runtime_log(LiveAppRuntimeLog {
+                app_id: app_id.to_string(),
+                level: LiveAppRuntimeLogLevel::Info,
+                category: "compile".to_string(),
+                message: "Live App recompile started".to_string(),
+                source: None,
+                stack: None,
+                details: Some(json!({ "theme": theme })),
+                timestamp_ms: Utc::now().timestamp_millis(),
+            })
+            .await;
+
+        let app = match manager
             .sync_from_fs(app_id, theme, context.workspace_root())
             .await
-            .map_err(|e| {
-                BitFunError::tool(format!("Failed to sync and recompile Live App: {e}"))
-            })?;
+        {
+            Ok(app) => app,
+            Err(e) => {
+                manager
+                    .record_runtime_log(LiveAppRuntimeLog {
+                        app_id: app_id.to_string(),
+                        level: LiveAppRuntimeLogLevel::Error,
+                        category: "compile".to_string(),
+                        message: format!("Failed to sync and recompile Live App: {e}"),
+                        source: None,
+                        stack: None,
+                        details: Some(json!({ "theme": theme })),
+                        timestamp_ms: Utc::now().timestamp_millis(),
+                    })
+                    .await;
+                return Err(BitFunError::tool(format!(
+                    "Failed to sync and recompile Live App: {e}"
+                )));
+            }
+        };
 
         let payload = json!({
             "id": app.id,
@@ -93,6 +126,21 @@ impl Tool for LiveAppRecompileTool {
             "compiled_html_size": app.compiled_html.len(),
             "warnings": [],
         });
+        manager
+            .record_runtime_log(LiveAppRuntimeLog {
+                app_id: app.id.clone(),
+                level: LiveAppRuntimeLogLevel::Info,
+                category: "compile".to_string(),
+                message: "Live App recompile completed".to_string(),
+                source: None,
+                stack: None,
+                details: Some(json!({
+                    "version": app.version,
+                    "compiledHtmlSize": app.compiled_html.len()
+                })),
+                timestamp_ms: Utc::now().timestamp_millis(),
+            })
+            .await;
         Ok(vec![ToolResult::ok(
             data,
             Some(format!(
@@ -136,7 +184,19 @@ impl Tool for LiveAppRuntimeProbeTool {
             "properties": {
                 "app_id": { "type": "string", "description": "Live App id" },
                 "since_ms": { "type": "integer", "description": "Only include issues with timestamp >= this Unix milliseconds value" },
-                "include_noise": { "type": "boolean", "description": "Return noise issues instead of just a count" }
+                "include_noise": { "type": "boolean", "description": "Return noise issues instead of just a count" },
+                "mode": {
+                    "type": "string",
+                    "enum": ["summary", "issues", "logs", "full"],
+                    "description": "Runtime evidence scope. summary/issues are issue-focused; logs/full include recent runtime logs."
+                },
+                "include_logs": { "type": "boolean", "description": "Include recent runtime logs in addition to issues" },
+                "tail": { "type": "integer", "description": "Maximum number of recent runtime logs to include, default 80" },
+                "min_level": {
+                    "type": "string",
+                    "enum": ["debug", "info", "warn", "error"],
+                    "description": "Minimum log level when logs are included, default info"
+                }
             }
         })
     }
@@ -156,10 +216,34 @@ impl Tool for LiveAppRuntimeProbeTool {
             .get("include_noise")
             .and_then(Value::as_bool)
             .unwrap_or(false);
+        let mode = input
+            .get("mode")
+            .and_then(Value::as_str)
+            .unwrap_or("summary");
+        let include_logs = input
+            .get("include_logs")
+            .and_then(Value::as_bool)
+            .unwrap_or(matches!(mode, "logs" | "full"));
+        let tail = input
+            .get("tail")
+            .and_then(Value::as_u64)
+            .map(|value| value.min(200) as usize)
+            .unwrap_or(80);
+        let min_level = input
+            .get("min_level")
+            .and_then(Value::as_str)
+            .and_then(parse_log_level);
         let manager = try_get_global_live_app_manager()
             .ok_or_else(|| BitFunError::tool("LiveAppManager not initialized".to_string()))?;
 
         let issues = manager.runtime_issues(app_id, since_ms).await;
+        let logs = if include_logs {
+            manager
+                .runtime_logs(app_id, since_ms, min_level, Some(tail))
+                .await
+        } else {
+            Vec::new()
+        };
         let fatal: Vec<&LiveAppRuntimeIssue> = issues
             .iter()
             .filter(|issue| issue.severity == LiveAppRuntimeIssueSeverity::Fatal)
@@ -173,21 +257,101 @@ impl Tool for LiveAppRuntimeProbeTool {
             .filter(|issue| issue.severity == LiveAppRuntimeIssueSeverity::Noise)
             .collect();
 
+        let ok = fatal.is_empty();
         let data = json!({
             "app_id": app_id,
             "fatal": fatal,
             "warning": warning,
             "noise_count": noise.len(),
             "noise": if include_noise { json!(noise) } else { Value::Null },
-            "ok": fatal.is_empty(),
+            "logs": logs.clone(),
+            "log_count": logs.len(),
+            "latest_timestamp_ms": latest_runtime_timestamp(&issues, &logs),
+            "ok": ok,
+        });
+        let assistant_text = format_runtime_probe_for_assistant(
+            app_id,
+            ok,
+            &fatal,
+            &warning,
+            &noise,
+            &logs,
+            include_noise,
+            include_logs,
+        );
+        Ok(vec![ToolResult::ok(data, Some(assistant_text))])
+    }
+}
+
+pub struct LiveAppClearRuntimeIssuesTool;
+
+impl LiveAppClearRuntimeIssuesTool {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for LiveAppClearRuntimeIssuesTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl Tool for LiveAppClearRuntimeIssuesTool {
+    fn name(&self) -> &str {
+        "LiveAppClearRuntimeIssues"
+    }
+
+    async fn description(&self) -> BitFunResult<String> {
+        Ok("Clear remembered runtime issues for a Live App before starting a fresh verification loop.".to_string())
+    }
+
+    fn input_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["app_id"],
+            "properties": {
+                "app_id": { "type": "string", "description": "Live App id" }
+            }
+        })
+    }
+
+    fn is_readonly(&self) -> bool {
+        false
+    }
+
+    fn needs_permissions(&self, _input: Option<&Value>) -> bool {
+        false
+    }
+
+    async fn call_impl(
+        &self,
+        input: &Value,
+        _context: &ToolUseContext,
+    ) -> BitFunResult<Vec<ToolResult>> {
+        let app_id = required_string(input, "app_id")?;
+        let manager = try_get_global_live_app_manager()
+            .ok_or_else(|| BitFunError::tool("LiveAppManager not initialized".to_string()))?;
+
+        manager.clear_runtime_issues(app_id).await;
+        let payload = json!({ "appId": app_id });
+        let _ = emit_global_event(BackendEvent::Custom {
+            event_name: "liveapp-runtime-errors-cleared".to_string(),
+            payload,
+        })
+        .await;
+
+        let data = json!({
+            "app_id": app_id,
+            "cleared": true,
         });
         Ok(vec![ToolResult::ok(
             data,
             Some(format!(
-                "Runtime probe: {} fatal, {} warning, {} noise",
-                fatal.len(),
-                warning.len(),
-                noise.len()
+                "Cleared remembered runtime issues for Live App '{}'. Run LiveAppRecompile and LiveAppRuntimeProbe to verify the current state.",
+                app_id
             )),
         )])
     }
@@ -308,6 +472,165 @@ impl Tool for LiveAppScreenshotMatrixTool {
                 manifest_path.to_string_lossy()
             )),
         )])
+    }
+}
+
+/// `result_for_assistant` is what the model reads for tool messages; include actionable detail.
+fn format_runtime_probe_for_assistant(
+    app_id: &str,
+    ok: bool,
+    fatal: &[&LiveAppRuntimeIssue],
+    warning: &[&LiveAppRuntimeIssue],
+    noise: &[&LiveAppRuntimeIssue],
+    logs: &[LiveAppRuntimeLog],
+    include_noise: bool,
+    include_logs: bool,
+) -> String {
+    const MAX_PER_BUCKET: usize = 24;
+    const MAX_STACK_CHARS: usize = 4000;
+
+    let mut out = format!(
+        "Live App runtime probe (app_id={app_id}): ok={ok}; fatal={}; warning={}; noise={}.\n\n",
+        fatal.len(),
+        warning.len(),
+        noise.len(),
+    );
+    append_issue_bucket(&mut out, "Fatal", fatal, MAX_PER_BUCKET, MAX_STACK_CHARS);
+    append_issue_bucket(
+        &mut out,
+        "Warning",
+        warning,
+        MAX_PER_BUCKET,
+        MAX_STACK_CHARS,
+    );
+    if include_noise {
+        append_issue_bucket(&mut out, "Noise", noise, MAX_PER_BUCKET, MAX_STACK_CHARS);
+    } else if !noise.is_empty() {
+        out.push_str(&format!(
+            "[Noise]\n{} noise issue(s) omitted; set include_noise=true on LiveAppRuntimeProbe to list them.\n\n",
+            noise.len()
+        ));
+    }
+    if include_logs {
+        append_log_bucket(&mut out, logs);
+    }
+
+    out.trim_end().to_string()
+}
+
+fn parse_log_level(value: &str) -> Option<LiveAppRuntimeLogLevel> {
+    match value {
+        "debug" => Some(LiveAppRuntimeLogLevel::Debug),
+        "info" => Some(LiveAppRuntimeLogLevel::Info),
+        "warn" => Some(LiveAppRuntimeLogLevel::Warn),
+        "error" => Some(LiveAppRuntimeLogLevel::Error),
+        _ => None,
+    }
+}
+
+fn latest_runtime_timestamp(
+    issues: &[LiveAppRuntimeIssue],
+    logs: &[LiveAppRuntimeLog],
+) -> Option<i64> {
+    issues
+        .iter()
+        .map(|issue| issue.timestamp_ms)
+        .chain(logs.iter().map(|entry| entry.timestamp_ms))
+        .max()
+}
+
+fn severity_fallback(sev: LiveAppRuntimeIssueSeverity) -> &'static str {
+    match sev {
+        LiveAppRuntimeIssueSeverity::Fatal => "fatal",
+        LiveAppRuntimeIssueSeverity::Warning => "warning",
+        LiveAppRuntimeIssueSeverity::Noise => "noise",
+    }
+}
+
+fn truncate_utf8_bytes(s: &str, max_bytes: usize) -> Cow<'_, str> {
+    if s.len() <= max_bytes {
+        return Cow::Borrowed(s);
+    }
+    let mut end = max_bytes;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    Cow::Owned(format!("{}... [truncated]", &s[..end]))
+}
+
+fn append_issue_bucket(
+    out: &mut String,
+    label: &str,
+    issues: &[&LiveAppRuntimeIssue],
+    max_list: usize,
+    max_stack_chars: usize,
+) {
+    if issues.is_empty() {
+        return;
+    }
+    out.push_str(&format!("[{label} issues]\n"));
+    let take = issues.len().min(max_list);
+    for (i, issue) in issues.iter().take(take).enumerate() {
+        let cat = issue
+            .category
+            .as_deref()
+            .unwrap_or_else(|| severity_fallback(issue.severity));
+        out.push_str(&format!("{}. [{}]\n", i + 1, cat));
+        out.push_str(&format!("   {}\n", issue.message.replace('\r', "")));
+        if let Some(src) = issue.source.as_deref() {
+            out.push_str(&format!("   source: {}\n", src.replace('\r', "")));
+        }
+        if let Some(st) = issue.stack.as_deref() {
+            let shortened = truncate_utf8_bytes(st, max_stack_chars);
+            out.push_str("   stack:\n");
+            for line in shortened.lines().take(120) {
+                out.push_str(&format!("   {}\n", line));
+            }
+            if st.lines().count() > 120 || st.len() > max_stack_chars {
+                out.push_str("   ...\n");
+            }
+        }
+        out.push('\n');
+    }
+    if issues.len() > max_list {
+        out.push_str(&format!(
+            "... {} more {} issue(s) not listed (limit {} per severity).\n\n",
+            issues.len() - max_list,
+            label.to_lowercase(),
+            max_list
+        ));
+    }
+}
+
+fn append_log_bucket(out: &mut String, logs: &[LiveAppRuntimeLog]) {
+    if logs.is_empty() {
+        out.push_str("[Runtime logs]\nNo recent runtime logs matched the probe filters.\n\n");
+        return;
+    }
+
+    out.push_str("[Runtime logs]\n");
+    for (i, entry) in logs.iter().enumerate() {
+        out.push_str(&format!(
+            "{}. [{:?}/{}] {}\n",
+            i + 1,
+            entry.level,
+            entry.category,
+            entry.message.replace('\r', "")
+        ));
+        if let Some(src) = entry.source.as_deref() {
+            out.push_str(&format!("   source: {}\n", src.replace('\r', "")));
+        }
+        if let Some(details) = entry.details.as_ref() {
+            out.push_str(&format!("   details: {}\n", details));
+        }
+        if let Some(stack) = entry.stack.as_deref() {
+            let shortened = truncate_utf8_bytes(stack, 1600);
+            out.push_str("   stack:\n");
+            for line in shortened.lines().take(40) {
+                out.push_str(&format!("   {}\n", line));
+            }
+        }
+        out.push('\n');
     }
 }
 

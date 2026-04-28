@@ -55,6 +55,54 @@ pub fn build_bridge_script(
     }} catch (_) {{}}
   }}
 
+  function _safeJson(value) {{
+    try {{
+      return JSON.stringify(value);
+    }} catch (_) {{
+      return String(value);
+    }}
+  }}
+
+  function _formatConsoleArgs(args) {{
+    return Array.from(args || []).map((arg) => {{
+      if (arg instanceof Error) return arg.stack || arg.message || String(arg);
+      if (typeof arg === 'string') return arg;
+      return _safeJson(arg);
+    }}).join(' ');
+  }}
+
+  function _reportRuntimeLog(entry) {{
+    try {{
+      window.parent.postMessage({{
+        method: 'bitfun/runtime-log',
+        params: {{
+          appId: {app_id_esc},
+          level: entry && entry.level ? entry.level : 'info',
+          category: entry && entry.category ? String(entry.category) : 'runtime',
+          message: entry && entry.message ? String(entry.message) : '',
+          source: entry && entry.source ? String(entry.source) : undefined,
+          stack: entry && entry.stack ? String(entry.stack) : undefined,
+          details: entry && entry.details !== undefined ? entry.details : undefined,
+          timestampMs: Date.now(),
+        }},
+      }}, '*');
+    }} catch (_) {{}}
+  }}
+
+  if (!window.console) window.console = {{}};
+  const _console = window.console;
+  for (const level of ['warn', 'error']) {{
+    const original = typeof _console[level] === 'function' ? _console[level].bind(_console) : null;
+    window.console[level] = function(...args) {{
+      if (original) original(...args);
+      _reportRuntimeLog({{
+        level: level === 'error' ? 'error' : 'warn',
+        category: 'console',
+        message: _formatConsoleArgs(args),
+      }});
+    }};
+  }}
+
   window.addEventListener('error', (event) => {{
     _reportRuntimeIssue({{
       severity: 'fatal',
@@ -114,6 +162,13 @@ pub fn build_bridge_script(
     storage: {{
       get: (key) => _call('storage.get', {{ key }}),
       set: (key, value) => _call('storage.set', {{ key, value }}),
+    }},
+
+    log: {{
+      debug: (message, details) => _reportRuntimeLog({{ level: 'debug', category: 'app', message, details }}),
+      info:  (message, details) => _reportRuntimeLog({{ level: 'info', category: 'app', message, details }}),
+      warn:  (message, details) => _reportRuntimeLog({{ level: 'warn', category: 'app', message, details }}),
+      error: (message, details) => _reportRuntimeLog({{ level: 'error', category: 'app', message, details }}),
     }},
 
     dialog: {{

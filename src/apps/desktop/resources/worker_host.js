@@ -37,6 +37,35 @@ function rpcEmit(event, data) {
 // Make rpcEmit available globally so source/worker.js can use it.
 global.rpcEmit = rpcEmit;
 
+function safeJson(value) {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatConsoleArgs(args) {
+  return Array.from(args || []).map((arg) => {
+    if (arg instanceof Error) return arg.stack || arg.message || String(arg);
+    if (typeof arg === 'string') return arg;
+    return safeJson(arg);
+  }).join(' ');
+}
+
+function writeRuntimeLog(level, args) {
+  process.stdout.write(JSON.stringify({
+    level,
+    category: 'worker:console',
+    message: formatConsoleArgs(args),
+    timestampMs: Date.now(),
+  }) + '\n');
+}
+
+for (const level of ['debug', 'info', 'warn', 'error']) {
+  console[level] = (...args) => writeRuntimeLog(level, args);
+}
+
 function isPathAllowed(targetPath, mode) {
   if (!policy.fs) return false;
   const resolved = path.resolve(targetPath);

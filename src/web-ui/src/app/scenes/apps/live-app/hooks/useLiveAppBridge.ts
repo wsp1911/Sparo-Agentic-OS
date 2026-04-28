@@ -38,6 +38,17 @@ interface RuntimeIssuePayload {
   timestampMs?: number;
 }
 
+interface RuntimeLogPayload {
+  appId?: string;
+  level?: 'debug' | 'info' | 'warn' | 'error';
+  category?: string;
+  message?: string;
+  source?: string;
+  stack?: string;
+  details?: unknown;
+  timestampMs?: number;
+}
+
 const NOOP_BRIDGE_METHODS = new Set([
   // Emitted by the injected scroll-boundary script when iframe scrolling reaches an edge.
   'bitfun/sandbox-wheel',
@@ -134,6 +145,23 @@ export function useLiveAppBridge(
           category: issue.category ?? 'runtime',
           timestampMs: issue.timestampMs ?? Date.now(),
         }).catch(() => undefined);
+        return;
+      }
+
+      if (method === 'bitfun/runtime-log') {
+        const logEntry = params as RuntimeLogPayload;
+        if (logEntry.message) {
+          void liveAppAPI.reportRuntimeLog({
+            appId,
+            level: logEntry.level ?? 'info',
+            category: logEntry.category ?? 'runtime',
+            message: logEntry.message,
+            source: logEntry.source,
+            stack: logEntry.stack,
+            details: logEntry.details,
+            timestampMs: logEntry.timestampMs ?? Date.now(),
+          }).catch(() => undefined);
+        }
         return;
       }
 

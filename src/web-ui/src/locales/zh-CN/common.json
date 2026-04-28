@@ -21,15 +21,18 @@
       "retry": "重试"
     },
     "diagnostics": {
-      "title": "Diagnostics",
+      "title": "Runtime",
       "ok": "运行正常",
       "empty": "暂无运行时错误",
+      "logsEmpty": "暂无运行日志",
+      "issuesTab": "问题",
+      "logsTab": "日志",
       "fatalCount": "{{count}} 个错误",
       "warningCount": "{{count}} 个警告",
-      "sendToAi": "发送错误给 AI 修复",
-      "sendDisplay": "修复 Live App 运行时错误",
+      "sendToAi": "发送运行诊断给 AI 修复",
+      "sendDisplay": "修复 Live App 运行问题",
       "sent": "已发送给 AI",
-      "clear": "清除错误",
+      "clear": "清除运行诊断",
       "expand": "展开日志",
       "collapse": "收起日志"
     }

@@ -19,6 +19,5 @@ pub use provider::{WorkspaceCleanupResult, WorkspaceProvider, WorkspaceSystemSum
 pub use service::{
     get_global_workspace_service, set_global_workspace_service, BatchImportResult,
     BatchRemoveResult, WorkspaceCreateOptions, WorkspaceExport, WorkspaceHealthStatus,
-    WorkspaceIdentityChangedEvent, WorkspaceImportResult, WorkspaceQuickSummary,
-    WorkspaceService,
+    WorkspaceIdentityChangedEvent, WorkspaceImportResult, WorkspaceQuickSummary, WorkspaceService,
 };

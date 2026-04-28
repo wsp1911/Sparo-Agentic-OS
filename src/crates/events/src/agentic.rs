@@ -1,4 +1,4 @@
-﻿//! Agentic Events Definition
+//! Agentic Events Definition
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
@@ -202,7 +202,6 @@ pub enum AgenticEvent {
         /// `"model_deleted"`.
         reason: String,
     },
-
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -3,6 +3,7 @@
 use bitfun_core::agentic::side_question::SideQuestionRuntime;
 use bitfun_core::agentic::{agents, tools};
 use bitfun_core::infrastructure::ai::{AIClient, AIClientFactory};
+use bitfun_core::infrastructure::APP_CONFIG_DIR_NAME;
 use bitfun_core::live_app::{
     initialize_global_live_app_manager, seed_builtin_live_apps, JsWorkerPool, LiveAppManager,
 };
@@ -10,7 +11,6 @@ use bitfun_core::service::remote_ssh::{
     init_remote_workspace_manager, RemoteFileService, RemoteTerminalManager, SSHConnectionManager,
 };
 use bitfun_core::service::{announcement, config, filesystem, mcp, token_usage, workspace};
-use bitfun_core::infrastructure::APP_CONFIG_DIR_NAME;
 use bitfun_core::util::errors::*;
 
 use serde::{Deserialize, Serialize};

@@ -43,6 +43,7 @@ export function useAppsData(searchQuery: string) {
   const { workspacePath } = useCurrentWorkspace();
   const [allAgents, setAllAgents] = useState<AgentWithCapabilities[]>([]);
   const [loading, setLoading] = useState(true);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [availableTools, setAvailableTools] = useState<ToolInfo[]>([]);
   const [modeSkills, setModeSkills] = useState<Record<string, ModeSkillInfo[]>>({});
   const [modeConfigs, setModeConfigs] = useState<Record<string, ModeConfigItem>>({});
@@ -51,6 +52,7 @@ export function useAppsData(searchQuery: string) {
   const loadAppsData = useCallback(async () => {
     const requestId = ++loadRequestIdRef.current;
     setLoading(true);
+    setDetailsLoading(true);
 
     const fetchTools = async (): Promise<ToolInfo[]> => {
       try {
@@ -62,21 +64,9 @@ export function useAppsData(searchQuery: string) {
     };
 
     try {
-      const [modes, tools, configs] = await Promise.all([
-        agentAPI.getAvailableModes().catch(() => []),
-        fetchTools(),
-        configAPI.getModeConfigs().catch(() => ({})),
-      ]);
-
-      const skillEntries = await Promise.all(
-        modes.map(async (mode) => [
-          mode.id,
-          await configAPI.getModeSkillConfigs({
-            modeId: mode.id,
-            workspacePath: workspacePath || undefined,
-          }).catch(() => []),
-        ] as const),
-      );
+      const toolsPromise = fetchTools();
+      const configsPromise = configAPI.getModeConfigs().catch(() => ({}));
+      const modes = await agentAPI.getAvailableModes().catch(() => []);
 
       if (requestId !== loadRequestIdRef.current) return;
 
@@ -95,12 +85,28 @@ export function useAppsData(searchQuery: string) {
         .filter((agent) => isPrimaryAgentMode({ id: agent.id, agentKind: 'mode' }));
 
       setAllAgents(primaryAgents);
+      setLoading(false);
+
+      const [tools, configs] = await Promise.all([toolsPromise, configsPromise]);
+      const skillEntries = await Promise.all(
+        modes.map(async (mode) => [
+          mode.id,
+          await configAPI.getModeSkillConfigs({
+            modeId: mode.id,
+            workspacePath: workspacePath || undefined,
+          }).catch(() => []),
+        ] as const),
+      );
+
+      if (requestId !== loadRequestIdRef.current) return;
+
       setAvailableTools(tools);
       setModeSkills(Object.fromEntries(skillEntries));
       setModeConfigs(configs as Record<string, ModeConfigItem>);
     } finally {
       if (requestId === loadRequestIdRef.current) {
         setLoading(false);
+        setDetailsLoading(false);
       }
     }
   }, [workspacePath]);
@@ -261,6 +267,7 @@ export function useAppsData(searchQuery: string) {
     handleSetSkills,
     handleSetTools,
     loadAppsData,
+    detailsLoading,
     loading,
   };
 }

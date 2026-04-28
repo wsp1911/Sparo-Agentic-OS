@@ -34,6 +34,7 @@ impl LiveAppStudioMode {
                 "InitLiveApp".to_string(),
                 "LiveAppRecompile".to_string(),
                 "LiveAppRuntimeProbe".to_string(),
+                "LiveAppClearRuntimeIssues".to_string(),
                 "LiveAppScreenshotMatrix".to_string(),
                 // Review and verification
                 "Task".to_string(),
@@ -96,6 +97,7 @@ mod tests {
                 "InitLiveApp".to_string(),
                 "LiveAppRecompile".to_string(),
                 "LiveAppRuntimeProbe".to_string(),
+                "LiveAppClearRuntimeIssues".to_string(),
                 "LiveAppScreenshotMatrix".to_string(),
                 "Task".to_string(),
                 "Bash".to_string(),

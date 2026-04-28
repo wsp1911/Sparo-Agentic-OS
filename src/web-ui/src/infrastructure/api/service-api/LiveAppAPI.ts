@@ -161,6 +161,17 @@ export interface LiveAppRuntimeIssueInput {
   timestampMs?: number;
 }
 
+export interface LiveAppRuntimeLogInput {
+  appId: string;
+  level?: 'debug' | 'info' | 'warn' | 'error';
+  category?: string;
+  message: string;
+  source?: string;
+  stack?: string;
+  details?: unknown;
+  timestampMs?: number;
+}
+
 // ─── API (Tauri commands `live_app_*` / `list_live_apps`, etc.) ─
 
 export class LiveAppAPI {
@@ -306,6 +317,16 @@ export class LiveAppAPI {
       });
     } catch (error) {
       throw createTauriCommandError('live_app_report_runtime_issue', error, { appId: issue.appId });
+    }
+  }
+
+  async reportRuntimeLog(logEntry: LiveAppRuntimeLogInput): Promise<void> {
+    try {
+      await api.invoke('live_app_report_runtime_log', {
+        request: logEntry,
+      });
+    } catch (error) {
+      throw createTauriCommandError('live_app_report_runtime_log', error, { appId: logEntry.appId });
     }
   }
 
