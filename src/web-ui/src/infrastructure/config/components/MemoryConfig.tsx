@@ -20,6 +20,7 @@ type AutoMemoryScopeKey = 'global' | 'workspace';
 type AutoMemoryScopeState = {
   enabled: boolean;
   extractEveryEligibleTurns: number;
+  minExtractIntervalMinutes: number;
 };
 
 type AutoMemoryState = Record<AutoMemoryScopeKey, AutoMemoryScopeState>;
@@ -28,10 +29,12 @@ const DEFAULT_AUTO_MEMORY_STATE: AutoMemoryState = {
   global: {
     enabled: true,
     extractEveryEligibleTurns: 6,
+    minExtractIntervalMinutes: 60,
   },
   workspace: {
     enabled: true,
     extractEveryEligibleTurns: 1,
+    minExtractIntervalMinutes: 60,
   },
 };
 
@@ -39,10 +42,12 @@ const AUTO_MEMORY_CONFIG_PATHS = {
   global: {
     enabled: 'ai.auto_memory.global.enabled',
     extractEveryEligibleTurns: 'ai.auto_memory.global.extract_every_eligible_turns',
+    minExtractIntervalSecs: 'ai.auto_memory.global.min_extract_interval_secs',
   },
   workspace: {
     enabled: 'ai.auto_memory.workspace.enabled',
     extractEveryEligibleTurns: 'ai.auto_memory.workspace.extract_every_eligible_turns',
+    minExtractIntervalSecs: 'ai.auto_memory.workspace.min_extract_interval_secs',
   },
 } as const;
 
@@ -52,6 +57,11 @@ const DEFAULT_EXTRACT_EVERY_ELIGIBLE_TURNS =
   DEFAULT_AUTO_MEMORY_STATE.workspace.extractEveryEligibleTurns;
 const normalizeExtractEveryEligibleTurns = (value: number) =>
   Math.max(DEFAULT_EXTRACT_EVERY_ELIGIBLE_TURNS, value);
+const normalizeExtractIntervalMinutes = (value: number) => Math.max(0, Math.round(value));
+const minutesToSeconds = (value: number) =>
+  normalizeExtractIntervalMinutes(value) * 60;
+const secondsToMinutes = (value: number) =>
+  value <= 0 ? 0 : Math.ceil(value / 60);
 
 const DEFAULT_HOST_SCAN_CONFIG: AppHostScanConfig = {
   auto_scan_enabled: false,
@@ -100,15 +110,21 @@ const MemoryConfig: React.FC = () => {
         const [
           loadedGlobalEnabled,
           loadedGlobalThreshold,
+          loadedGlobalIntervalSecs,
           loadedWorkspaceEnabled,
           loadedWorkspaceThreshold,
+          loadedWorkspaceIntervalSecs,
           loadedHostScanConfig,
         ] = await Promise.all([
           configManager.getConfig<boolean>(AUTO_MEMORY_CONFIG_PATHS.global.enabled),
           configManager.getConfig<number>(AUTO_MEMORY_CONFIG_PATHS.global.extractEveryEligibleTurns),
+          configManager.getConfig<number>(AUTO_MEMORY_CONFIG_PATHS.global.minExtractIntervalSecs),
           configManager.getConfig<boolean>(AUTO_MEMORY_CONFIG_PATHS.workspace.enabled),
           configManager.getConfig<number>(
             AUTO_MEMORY_CONFIG_PATHS.workspace.extractEveryEligibleTurns
+          ),
+          configManager.getConfig<number>(
+            AUTO_MEMORY_CONFIG_PATHS.workspace.minExtractIntervalSecs
           ),
           configManager.getConfig<AppHostScanConfig>('app.host_scan'),
         ]);
@@ -123,12 +139,24 @@ const MemoryConfig: React.FC = () => {
             extractEveryEligibleTurns: normalizeExtractEveryEligibleTurns(
               loadedGlobalThreshold ?? DEFAULT_AUTO_MEMORY_STATE.global.extractEveryEligibleTurns
             ),
+            minExtractIntervalMinutes: normalizeExtractIntervalMinutes(
+              secondsToMinutes(
+                loadedGlobalIntervalSecs ??
+                  minutesToSeconds(DEFAULT_AUTO_MEMORY_STATE.global.minExtractIntervalMinutes)
+              )
+            ),
           },
           workspace: {
             enabled: loadedWorkspaceEnabled ?? DEFAULT_AUTO_MEMORY_STATE.workspace.enabled,
             extractEveryEligibleTurns: normalizeExtractEveryEligibleTurns(
               loadedWorkspaceThreshold ??
                 DEFAULT_AUTO_MEMORY_STATE.workspace.extractEveryEligibleTurns
+            ),
+            minExtractIntervalMinutes: normalizeExtractIntervalMinutes(
+              secondsToMinutes(
+                loadedWorkspaceIntervalSecs ??
+                  minutesToSeconds(DEFAULT_AUTO_MEMORY_STATE.workspace.minExtractIntervalMinutes)
+              )
             ),
           },
         });
@@ -224,6 +252,34 @@ const MemoryConfig: React.FC = () => {
     }
   };
 
+  const saveMinExtractIntervalMinutes = async (scope: AutoMemoryScopeKey, nextValue: number) => {
+    const normalizedMinutes = normalizeExtractIntervalMinutes(nextValue);
+    const previousMinutes = autoMemoryState[scope].minExtractIntervalMinutes;
+
+    if (normalizedMinutes === previousMinutes) {
+      return;
+    }
+
+    updateScopeState(scope, { minExtractIntervalMinutes: normalizedMinutes });
+    setIsSaving(true);
+    try {
+      await configManager.setConfig(
+        AUTO_MEMORY_CONFIG_PATHS[scope].minExtractIntervalSecs,
+        minutesToSeconds(normalizedMinutes)
+      );
+      showMessage('success', t('messages.saveSuccess'));
+    } catch (error) {
+      log.error('Failed to save auto memory interval setting', {
+        scope,
+        error,
+      });
+      updateScopeState(scope, { minExtractIntervalMinutes: previousMinutes });
+      showMessage('error', t('messages.saveFailed'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const persistHostScanConfig = useCallback(
     async (nextConfig: AppHostScanConfig, successMessage: string) => {
       setIsSaving(true);
@@ -310,6 +366,25 @@ const MemoryConfig: React.FC = () => {
             min={1}
             max={100}
             step={1}
+            disabled={isSaving}
+            size="small"
+            variant="compact"
+          />
+        </div>
+      </ConfigPageRow>
+      <ConfigPageRow
+        label={t(`autoMemory.${scope}.minExtractIntervalMinutes`)}
+        description={t(`autoMemory.${scope}.minExtractIntervalMinutesDesc`)}
+        align="center"
+      >
+        <div className="bitfun-func-agent-config__row-control">
+          <NumberInput
+            value={autoMemoryState[scope].minExtractIntervalMinutes}
+            onChange={(value) => void saveMinExtractIntervalMinutes(scope, value)}
+            min={0}
+            max={24 * 60}
+            step={1}
+            unit={t('autoMemory.units.minutes')}
             disabled={isSaving}
             size="small"
             variant="compact"

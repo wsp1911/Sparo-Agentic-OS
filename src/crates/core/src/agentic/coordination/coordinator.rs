@@ -6,7 +6,8 @@ use super::{scheduler::DialogSubmissionPolicy, turn_outcome::TurnOutcome};
 use crate::agentic::agents::get_agent_registry;
 use crate::agentic::auto_memory::{
     build_auto_memory_runtime_restrictions, build_extract_prompt,
-    count_recent_model_visible_messages, AutoMemoryManager,
+    count_recent_model_visible_messages, AutoMemoryManager, AutoMemoryQueueAction,
+    AutoMemoryScheduleDecision,
 };
 use crate::agentic::core::{
     has_prompt_markup, Message, MessageContent, ProcessingPhase, PromptEnvelope, Session,
@@ -47,6 +48,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::OnceLock;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration, Instant};
 use tokio_util::sync::CancellationToken;
@@ -111,6 +113,13 @@ fn build_auto_memory_store_key(target: MemoryStoreTarget<'_>) -> String {
     memory_store_dir_path_for_target(target)
         .to_string_lossy()
         .replace('\\', "/")
+}
+
+fn current_time_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(i64::MAX as u128) as i64)
+        .unwrap_or(0)
 }
 
 /// Subagent execution result
@@ -1846,6 +1855,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                     match decide_auto_memory_post_turn_action(session_kind, turn_wrote_memory) {
                         AutoMemoryPostTurnAction::Skip => {
                             if matches!(turn_wrote_memory, Some(true)) {
+                                let consumed_at_ms = current_time_ms();
                                 debug!(
                                     "Skipping auto memory extractor because the completed turn already updated memory files: session_id={}, turn_id={}, scope={}",
                                     session_id_clone,
@@ -1858,6 +1868,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                                     .mark_auto_memory_consumed_through_turn(
                                         &session_id_clone,
                                         &turn_id_clone,
+                                        consumed_at_ms,
                                     )
                                     .await
                                 {
@@ -1883,28 +1894,33 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                                 );
                                 let extract_every_eligible_turns =
                                     scope_config.extract_every_eligible_turns.max(1) as usize;
+                                let min_extract_interval_secs =
+                                    scope_config.min_extract_interval_secs;
+                                let now_ms = current_time_ms();
                                 match session_manager
                                     .note_auto_memory_eligible_turn(
                                         &session_id_clone,
                                         extract_every_eligible_turns,
+                                        min_extract_interval_secs,
+                                        now_ms,
                                     )
                                     .await
                                 {
-                                    Ok(true) => {
+                                    Ok(AutoMemoryScheduleDecision::ReadyNow) => {
                                         if !scope_config.enabled {
                                             debug!(
-                                                "Auto memory is disabled for scope; eligible-turn threshold has been reached but extraction will stay pending: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}",
-                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns
+                                                "Auto memory is disabled for scope; eligible-turn and interval thresholds have been reached but extraction will stay pending: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}",
+                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns, min_extract_interval_secs
                                             );
                                         } else {
                                             debug!(
-                                                "Eligible-turn threshold reached; queueing auto memory extraction: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}",
-                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns
+                                                "Eligible-turn and interval thresholds reached; queueing auto memory extraction: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}",
+                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns, min_extract_interval_secs
                                             );
                                             if let Some(coordinator) = get_global_coordinator() {
                                                 coordinator
                                                     .auto_memory_manager
-                                                    .schedule_after_turn(
+                                                    .schedule_now(
                                                         coordinator.clone(),
                                                         session_id_clone.clone(),
                                                         memory_store_key.clone(),
@@ -1912,16 +1928,39 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                                             }
                                         }
                                     }
-                                    Ok(false) => {
+                                    Ok(AutoMemoryScheduleDecision::CoolingDown { ready_at_ms }) => {
                                         if !scope_config.enabled {
                                             debug!(
-                                                "Recorded auto memory eligible turn while auto memory is disabled for scope: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}",
-                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns
+                                                "Recorded auto memory eligible turn while auto memory is disabled for scope: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}, ready_at_ms={}",
+                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns, min_extract_interval_secs, ready_at_ms
                                             );
                                         } else {
                                             debug!(
-                                                "Deferred auto memory extraction until eligible-turn threshold is reached: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}",
-                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns
+                                                "Eligible-turn threshold reached but auto memory is cooling down: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}, ready_at_ms={}",
+                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns, min_extract_interval_secs, ready_at_ms
+                                            );
+                                            if let Some(coordinator) = get_global_coordinator() {
+                                                coordinator
+                                                    .auto_memory_manager
+                                                    .schedule_at(
+                                                        coordinator.clone(),
+                                                        session_id_clone.clone(),
+                                                        memory_store_key.clone(),
+                                                        ready_at_ms,
+                                                    );
+                                            }
+                                        }
+                                    }
+                                    Ok(AutoMemoryScheduleDecision::NotReadyByEligibleTurns) => {
+                                        if !scope_config.enabled {
+                                            debug!(
+                                                "Recorded auto memory eligible turn while auto memory is disabled for scope: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}",
+                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns, min_extract_interval_secs
+                                            );
+                                        } else {
+                                            debug!(
+                                                "Deferred auto memory extraction until eligible-turn threshold is reached: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}",
+                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns, min_extract_interval_secs
                                             );
                                         }
                                     }
@@ -1939,7 +1978,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                                             if let Some(coordinator) = get_global_coordinator() {
                                                 coordinator
                                                     .auto_memory_manager
-                                                    .schedule_after_turn(
+                                                    .schedule_now(
                                                         coordinator.clone(),
                                                         session_id_clone.clone(),
                                                         memory_store_key.clone(),
@@ -2101,32 +2140,57 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         self.auto_memory_manager.cancel_session(session_id);
     }
 
-    pub async fn has_pending_auto_memory(&self, session_id: &str) -> bool {
+    pub async fn next_auto_memory_queue_action(&self, session_id: &str) -> AutoMemoryQueueAction {
         let Some(session) = self.session_manager.get_session(session_id) else {
-            return false;
+            return AutoMemoryQueueAction::Skip;
         };
 
         if matches!(session.kind, SessionKind::Subagent)
             || session.config.remote_connection_id.is_some()
             || matches!(session.state, SessionState::Processing { .. })
         {
-            return false;
+            return AutoMemoryQueueAction::Skip;
         }
 
         let Some(auto_memory_scope) = resolve_session_auto_memory_scope(&session) else {
-            return false;
+            return AutoMemoryQueueAction::Skip;
         };
 
-        if !auto_memory_scope_runtime_config(auto_memory_scope)
-            .await
-            .enabled
-        {
-            return false;
+        let scope_config = auto_memory_scope_runtime_config(auto_memory_scope).await;
+        if !scope_config.enabled {
+            return AutoMemoryQueueAction::Skip;
         }
 
-        self.session_manager
+        if self
+            .session_manager
             .next_auto_memory_cursor(session_id)
-            .is_some()
+            .is_none()
+        {
+            return AutoMemoryQueueAction::Skip;
+        }
+
+        let now_ms = current_time_ms();
+        match self.session_manager.auto_memory_schedule_decision(
+            session_id,
+            scope_config.extract_every_eligible_turns.max(1) as usize,
+            scope_config.min_extract_interval_secs,
+            now_ms,
+        ) {
+            Ok(AutoMemoryScheduleDecision::ReadyNow) => AutoMemoryQueueAction::QueueNow,
+            Ok(AutoMemoryScheduleDecision::CoolingDown { ready_at_ms }) => {
+                AutoMemoryQueueAction::QueueAt { ready_at_ms }
+            }
+            Ok(AutoMemoryScheduleDecision::NotReadyByEligibleTurns) | Err(_) => {
+                AutoMemoryQueueAction::Skip
+            }
+        }
+    }
+
+    pub async fn has_pending_auto_memory(&self, session_id: &str) -> bool {
+        !matches!(
+            self.next_auto_memory_queue_action(session_id).await,
+            AutoMemoryQueueAction::Skip
+        )
     }
 
     pub async fn run_auto_memory_cycle(
@@ -2151,15 +2215,21 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             return Ok(false);
         }
 
-        let Some(auto_memory_scope) = resolve_session_auto_memory_scope(&session) else {
+        if resolve_session_auto_memory_scope(&session).is_none() {
             return Ok(false);
-        };
+        }
 
-        if !auto_memory_scope_runtime_config(auto_memory_scope)
-            .await
-            .enabled
-        {
-            return Ok(false);
+        let queue_action = self.next_auto_memory_queue_action(session_id).await;
+        match queue_action {
+            AutoMemoryQueueAction::Skip => return Ok(false),
+            AutoMemoryQueueAction::QueueAt { ready_at_ms } => {
+                debug!(
+                    "Deferring auto memory cycle until cooldown expires: session_id={}, ready_at_ms={}",
+                    session_id, ready_at_ms
+                );
+                return Ok(false);
+            }
+            AutoMemoryQueueAction::QueueNow => {}
         }
 
         let Some(cursor) = self.session_manager.next_auto_memory_cursor(session_id) else {
@@ -2180,12 +2250,14 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                 .any(|turn| turn.kind.is_model_visible());
 
             if !has_model_visible_turns {
+                let consumed_at_ms = current_time_ms();
                 let advanced = self
                     .session_manager
                     .complete_auto_memory_extraction_if_revision_matches(
                         session_id,
                         cursor.through_turn,
                         cursor.history_revision,
+                        consumed_at_ms,
                     )
                     .await?;
                 let _ = advanced;
@@ -2272,12 +2344,14 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                 result.text.len()
             );
 
+            let consumed_at_ms = current_time_ms();
             let advanced = self
                 .session_manager
                 .complete_auto_memory_extraction_if_revision_matches(
                     session_id,
                     cursor.through_turn,
                     cursor.history_revision,
+                    consumed_at_ms,
                 )
                 .await?;
             let _ = advanced;

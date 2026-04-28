@@ -8,7 +8,9 @@
       "enabled": "Enable global auto memory",
       "enabledDesc": "",
       "extractEveryEligibleTurns": "How often to update global memory",
-      "extractEveryEligibleTurnsDesc": "Update agentic_os memory once every N eligible conversations."
+      "extractEveryEligibleTurnsDesc": "Update agentic_os memory once every N eligible conversations.",
+      "minExtractIntervalMinutes": "Minimum time between updates",
+      "minExtractIntervalMinutesDesc": "Set to 0 to disable the cooldown."
     },
     "workspace": {
       "sectionTitle": "Workspace memory",
@@ -16,7 +18,12 @@
       "enabled": "Enable workspace auto memory",
       "enabledDesc": "",
       "extractEveryEligibleTurns": "How often to update workspace memory",
-      "extractEveryEligibleTurnsDesc": "Update workspace memory once every N eligible conversations."
+      "extractEveryEligibleTurnsDesc": "Update workspace memory once every N eligible conversations.",
+      "minExtractIntervalMinutes": "Minimum time between updates",
+      "minExtractIntervalMinutesDesc": "Set to 0 to disable the cooldown."
+    },
+    "units": {
+      "minutes": "min"
     }
   },
   "loading": {
