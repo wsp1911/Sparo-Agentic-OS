@@ -317,6 +317,7 @@ impl LiveAppManager {
             .save_version(app_id, previous_app.version, &previous_app)
             .await?;
         self.storage.save(&app).await?;
+        self.clear_runtime_issues(app_id).await;
         Ok(app)
     }
 
@@ -596,6 +597,7 @@ impl LiveAppManager {
             .save_version(app_id, current.version, &current)
             .await?;
         self.storage.save(&app).await?;
+        self.clear_runtime_issues(app_id).await;
         Ok(app)
     }
 
@@ -613,6 +615,7 @@ impl LiveAppManager {
         Self::ensure_runtime_state(&mut app);
         app.runtime.ui_recompile_required = false;
         self.storage.save(&app).await?;
+        self.clear_runtime_issues(app_id).await;
         Ok(app)
     }
 
@@ -663,6 +666,7 @@ impl LiveAppManager {
             .save_version(app_id, previous_app.version, &previous_app)
             .await?;
         self.storage.save(&app).await?;
+        self.clear_runtime_issues(app_id).await;
         Ok(app)
     }
 

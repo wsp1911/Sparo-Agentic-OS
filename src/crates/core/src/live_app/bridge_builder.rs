@@ -28,8 +28,12 @@ pub fn build_bridge_script(
       const handler = (e) => {{
         if (!e.data || e.data.id !== id) return;
         window.removeEventListener('message', handler);
-        if (e.data.error) reject(new Error(e.data.error.message || 'RPC error'));
-        else resolve(e.data.result);
+        if (e.data.error) {{
+          const error = new Error(e.data.error.message || 'RPC error');
+          error.source = method;
+          error.rpcParams = params;
+          reject(error);
+        }} else resolve(e.data.result);
       }};
       window.addEventListener('message', handler);
       window.parent.postMessage({{ jsonrpc: '2.0', id, method, params }}, '*');

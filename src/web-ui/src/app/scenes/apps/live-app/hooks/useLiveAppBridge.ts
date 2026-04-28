@@ -13,7 +13,7 @@ import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { useI18n } from '@/infrastructure/i18n';
 import { buildLiveAppThemeVars } from '../buildLiveAppThemeVars';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
-import { openMainSession } from '@/flow_chat/services/openBtwSession';
+import { openMainSession } from '@/flow_chat/services/childSessionPanels';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 
 interface JSONRPC {
@@ -62,22 +62,10 @@ const NOOP_BRIDGE_METHODS = new Set([
   'bitfun/sandbox-wheel',
 ]);
 
-function safeStringify(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
   return String(error);
-}
-
-function errorStack(error: unknown): string | undefined {
-  return error instanceof Error ? error.stack : undefined;
 }
 
 export function useLiveAppBridge(
@@ -108,12 +96,6 @@ export function useLiveAppBridge(
 
       const { id, method, params = {} } = msg;
       const appId = appIdRef.current;
-      const bridgeContext = [
-        `appId: ${appId}`,
-        `method: ${method}`,
-        `params: ${safeStringify(params)}`,
-        `message: ${safeStringify(msg)}`,
-      ].join('\n');
       const reply = (result: unknown) =>
         iframeRef.current?.contentWindow?.postMessage({ jsonrpc: '2.0', id, result }, '*');
       const replyError = (message: string) =>
@@ -344,30 +326,9 @@ export function useLiveAppBridge(
         }
 
         const message = `Unknown method: ${method}`;
-        void liveAppAPI.reportRuntimeIssue({
-          appId,
-          severity: 'warning',
-          message,
-          source: `bridge:${method}`,
-          stack: `Unsupported Live App bridge call.\n${bridgeContext}`,
-          category: 'bridge:unknown-method',
-          timestampMs: Date.now(),
-        }).catch(() => undefined);
         replyError(message);
       } catch (error) {
         const message = `Bridge call failed: ${method}: ${errorMessage(error)}`;
-        void liveAppAPI.reportRuntimeIssue({
-          appId,
-          severity: 'fatal',
-          message,
-          source: `bridge:${method}`,
-          stack: [
-            errorStack(error),
-            bridgeContext,
-          ].filter(Boolean).join('\n\n'),
-          category: `bridge:${method}`,
-          timestampMs: Date.now(),
-        }).catch(() => undefined);
         replyError(message);
       }
     };

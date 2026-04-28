@@ -312,6 +312,14 @@ async fn emit_live_app_event(event_name: &str, payload: Value) {
     .await;
 }
 
+async fn emit_live_app_runtime_issues_cleared(app_id: &str) {
+    emit_live_app_event(
+        "liveapp-runtime-errors-cleared",
+        json!({ "appId": app_id }),
+    )
+    .await;
+}
+
 fn workspace_root_from_input(workspace_path: Option<&str>) -> Option<PathBuf> {
     workspace_path
         .map(str::trim)
@@ -562,6 +570,7 @@ pub async fn update_live_app(
         .await
         .map_err(|e| e.to_string())?;
     maybe_stop_worker(&state, &app).await;
+    emit_live_app_runtime_issues_cleared(&app.id).await;
     emit_live_app_event("liveapp-updated", live_app_payload(&app, "update")).await;
     Ok(app)
 }
@@ -608,6 +617,7 @@ pub async fn rollback_live_app(
         .await
         .map_err(|e| e.to_string())?;
     maybe_stop_worker(&state, &app).await;
+    emit_live_app_runtime_issues_cleared(&app.id).await;
     emit_live_app_event("liveapp-rolled-back", live_app_payload(&app, "rollback")).await;
     emit_live_app_event("liveapp-updated", live_app_payload(&app, "rollback")).await;
     Ok(app)
@@ -691,6 +701,33 @@ pub async fn live_app_worker_call(
     state: State<'_, AppState>,
     request: LiveAppWorkerCallRequest,
 ) -> Result<Value, String> {
+    if request.method == "storage.get" {
+        let key = request
+            .params
+            .get("key")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "storage.get requires string key".to_string())?;
+        return state
+            .live_app_manager
+            .get_storage(&request.app_id, key)
+            .await
+            .map_err(|e| e.to_string());
+    }
+    if request.method == "storage.set" {
+        let key = request
+            .params
+            .get("key")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "storage.set requires string key".to_string())?;
+        let value = request.params.get("value").cloned().unwrap_or(Value::Null);
+        state
+            .live_app_manager
+            .set_storage(&request.app_id, key, value)
+            .await
+            .map_err(|e| e.to_string())?;
+        return Ok(Value::Null);
+    }
+
     let pool = state
         .js_worker_pool
         .as_ref()
@@ -813,6 +850,7 @@ pub async fn live_app_recompile(
         .recompile(&request.app_id, theme_type, workspace_root.as_deref())
         .await
         .map_err(|e| e.to_string())?;
+    emit_live_app_runtime_issues_cleared(&app.id).await;
     emit_live_app_event("liveapp-recompiled", live_app_payload(&app, "recompile")).await;
     emit_live_app_event("liveapp-updated", live_app_payload(&app, "recompile")).await;
     Ok(RecompileResult {
@@ -862,6 +900,7 @@ pub async fn live_app_sync_from_fs(
         .await
         .map_err(|e| e.to_string())?;
     maybe_stop_worker(&state, &app).await;
+    emit_live_app_runtime_issues_cleared(&app.id).await;
     emit_live_app_event("liveapp-updated", live_app_payload(&app, "sync-from-fs")).await;
     Ok(app)
 }
@@ -918,11 +957,7 @@ pub async fn live_app_clear_runtime_issues(
         .live_app_manager
         .clear_runtime_issues(&request.app_id)
         .await;
-    emit_live_app_event(
-        "liveapp-runtime-errors-cleared",
-        json!({ "appId": request.app_id }),
-    )
-    .await;
+    emit_live_app_runtime_issues_cleared(&request.app_id).await;
     Ok(())
 }
 
@@ -1622,6 +1657,7 @@ pub async fn live_app_agentic_send_message(
             request.original_prompt,
             Some(turn_id.clone()),
             agent_type,
+            None,
             session.config.workspace_path.clone(),
             DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi),
             None,
