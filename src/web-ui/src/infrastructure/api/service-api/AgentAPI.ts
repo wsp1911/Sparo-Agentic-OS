@@ -62,6 +62,8 @@ export interface StartDialogTurnRequest {
   originalUserInput?: string;
   turnId?: string; 
   agentType: string; 
+  systemReminderOverride?: string;
+  persistAgentType?: boolean;
   workspacePath?: string;
   /** Optional multimodal image contexts (snake_case fields, aligned with backend ImageContextData). */
   imageContexts?: ImageInputContextData[];

@@ -335,6 +335,7 @@ Parameters for "status":
                                 None,
                                 None,
                                 agent_type.clone(),
+                                None,
                                 Some(workspace.clone()),
                                 DialogSubmissionPolicy::for_source(
                                     DialogTriggerSource::AgentSession,

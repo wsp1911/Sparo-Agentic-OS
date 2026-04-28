@@ -1777,6 +1777,7 @@ impl RemoteExecutionDispatcher {
                 None,
                 Some(turn_id.clone()),
                 resolved_agent_type,
+                None,
                 binding_workspace,
                 submission_policy,
                 None,

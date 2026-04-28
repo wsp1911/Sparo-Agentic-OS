@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { DotMatrixLoader } from '@/component-library';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard } from './BaseToolCard';
-import { openMainSession } from '../services/openBtwSession';
+import { openMainSession } from '../services/childSessionPanels';
 import { flowChatStore } from '../store/FlowChatStore';
 import { useSessionsExecutionRunning } from '../hooks/useSessionsExecutionRunning';
 import { useToolCardHeightContract } from './useToolCardHeightContract';

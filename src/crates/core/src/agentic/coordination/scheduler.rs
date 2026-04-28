@@ -47,6 +47,7 @@ pub struct DialogSubmissionPolicy {
     pub trigger_source: DialogTriggerSource,
     pub queue_priority: DialogQueuePriority,
     pub skip_tool_confirmation: bool,
+    pub persist_agent_type: bool,
 }
 
 impl DialogSubmissionPolicy {
@@ -54,11 +55,13 @@ impl DialogSubmissionPolicy {
         trigger_source: DialogTriggerSource,
         queue_priority: DialogQueuePriority,
         skip_tool_confirmation: bool,
+        persist_agent_type: bool,
     ) -> Self {
         Self {
             trigger_source,
             queue_priority,
             skip_tool_confirmation,
+            persist_agent_type,
         }
     }
 
@@ -73,7 +76,7 @@ impl DialogSubmissionPolicy {
                 (DialogQueuePriority::Normal, true)
             }
         };
-        Self::new(trigger_source, queue_priority, skip_tool_confirmation)
+        Self::new(trigger_source, queue_priority, skip_tool_confirmation, true)
     }
 
     pub const fn with_queue_priority(mut self, queue_priority: DialogQueuePriority) -> Self {
@@ -83,6 +86,11 @@ impl DialogSubmissionPolicy {
 
     pub const fn with_skip_tool_confirmation(mut self, skip_tool_confirmation: bool) -> Self {
         self.skip_tool_confirmation = skip_tool_confirmation;
+        self
+    }
+
+    pub const fn with_persist_agent_type(mut self, persist_agent_type: bool) -> Self {
+        self.persist_agent_type = persist_agent_type;
         self
     }
 }
@@ -132,6 +140,7 @@ pub struct QueuedTurn {
     pub original_user_input: Option<String>,
     pub turn_id: Option<String>,
     pub agent_type: String,
+    pub system_reminder_override: Option<String>,
     pub workspace_path: Option<String>,
     pub policy: DialogSubmissionPolicy,
     pub reply_route: Option<AgentSessionReplyRoute>,
@@ -230,6 +239,7 @@ impl DialogScheduler {
         original_user_input: Option<String>,
         turn_id: Option<String>,
         agent_type: String,
+        system_reminder_override: Option<String>,
         workspace_path: Option<String>,
         policy: DialogSubmissionPolicy,
         reply_route: Option<AgentSessionReplyRoute>,
@@ -241,6 +251,7 @@ impl DialogScheduler {
             original_user_input,
             turn_id: Some(resolved_turn_id.clone()),
             agent_type,
+            system_reminder_override,
             workspace_path,
             policy,
             reply_route,
@@ -494,6 +505,7 @@ impl DialogScheduler {
                         imgs.clone(),
                         queued_turn.turn_id.clone(),
                         queued_turn.agent_type.clone(),
+                        queued_turn.system_reminder_override.clone(),
                         queued_turn.workspace_path.clone(),
                         queued_turn.policy,
                         extra_metadata,
@@ -508,6 +520,7 @@ impl DialogScheduler {
                         queued_turn.original_user_input.clone(),
                         queued_turn.turn_id.clone(),
                         queued_turn.agent_type.clone(),
+                        queued_turn.system_reminder_override.clone(),
                         queued_turn.workspace_path.clone(),
                         queued_turn.policy,
                         extra_metadata,
@@ -571,6 +584,7 @@ impl DialogScheduler {
                 Some(reply_user_input),
                 None,
                 String::new(),
+                None,
                 Some(reply_route.source_workspace_path.clone()),
                 DialogSubmissionPolicy::for_source(DialogTriggerSource::AgentSession),
                 None,

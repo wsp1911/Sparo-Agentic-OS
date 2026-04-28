@@ -14,7 +14,7 @@ import { diffService } from '../../../tools/editor/services';
 import { notificationService } from '../../../shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import { createBtwChildSession } from '../../services/BtwThreadService';
-import { openBtwSessionInAuxPane } from '../../services/openBtwSession';
+import { openBtwSessionInAuxPane } from '../../services/childSessionPanels';
 import './SessionFilesBadge.scss';
 
 const log = createLogger('SessionFilesBadge');

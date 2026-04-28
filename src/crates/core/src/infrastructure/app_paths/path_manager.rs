@@ -458,6 +458,16 @@ impl PathManager {
         self.agentic_os_runtime_root().join("memory")
     }
 
+    /// Get the Agentic OS host runtime directory: ~/.bitfun/core/agentic_os/host/
+    pub fn agentic_os_host_dir(&self) -> PathBuf {
+        self.agentic_os_runtime_root().join("host")
+    }
+
+    /// Get the Agentic OS host overview file path: ~/.bitfun/core/agentic_os/host/host_overview.md
+    pub fn agentic_os_host_overview_path(&self) -> PathBuf {
+        self.agentic_os_host_dir().join("host_overview.md")
+    }
+
     /// Get the runtime root for a workspace: ~/.bitfun/projects/<workspace-slug>/
     pub fn project_runtime_root(&self, workspace_path: &Path) -> PathBuf {
         self.projects_root()
@@ -781,5 +791,19 @@ mod tests {
 
         assert!(slug.starts_with("e--projects-openbitfun-bitfun"));
         assert_eq!(runtime_root.parent(), Some(pm.projects_root().as_path()));
+    }
+
+    #[test]
+    fn host_overview_path_lives_under_agentic_os_runtime_root() {
+        let pm = PathManager::default();
+
+        assert_eq!(
+            pm.agentic_os_host_dir(),
+            pm.agentic_os_runtime_root().join("host")
+        );
+        assert_eq!(
+            pm.agentic_os_host_overview_path(),
+            pm.agentic_os_host_dir().join("host_overview.md")
+        );
     }
 }

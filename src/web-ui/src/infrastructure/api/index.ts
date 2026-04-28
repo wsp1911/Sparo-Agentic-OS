@@ -27,9 +27,10 @@ import { sessionAPI } from './service-api/SessionAPI';
 import { i18nAPI } from './service-api/I18nAPI';
 import { btwAPI } from './service-api/BtwAPI';
 import { editorAiAPI } from './service-api/EditorAiAPI';
+import { hostScanAPI } from './service-api/HostScanAPI';
 
 // Export API modules
-export { workspaceAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, i18nAPI, btwAPI, editorAiAPI };
+export { workspaceAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, i18nAPI, btwAPI, editorAiAPI, hostScanAPI };
 
 // BitFun API collection: a single access point for all API modules.
 export const bitfunAPI = {
@@ -48,6 +49,7 @@ export const bitfunAPI = {
   session: sessionAPI,
   i18n: i18nAPI,
   btw: btwAPI,
+  hostScan: hostScanAPI,
   editorAi: editorAiAPI,
 };
 

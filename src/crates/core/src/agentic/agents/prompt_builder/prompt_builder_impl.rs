@@ -5,6 +5,7 @@ use crate::service::bootstrap::build_workspace_persona_prompt;
 use crate::service::config::get_app_language_code;
 use crate::service::config::global::GlobalConfigManager;
 use crate::service::filesystem::get_formatted_directory_listing;
+use crate::service::host::build_host_overview_context;
 use crate::service::instructions::build_instruction_files_context;
 use crate::service::memory_store::{
     build_global_workspace_overviews_context, build_memory_files_context_for_target,
@@ -228,6 +229,18 @@ impl PromptBuilder {
             }
         }
 
+        if policy.includes(RequestContextSection::HostOverviewContext) {
+            match build_host_overview_context().await {
+                Ok(Some(prompt)) => sections.push(prompt),
+                Ok(None) => {}
+                Err(e) => warn!(
+                    "Failed to build host overview context: workspace_path={} error={}",
+                    workspace.display(),
+                    e
+                ),
+            }
+        }
+
         for memory_scope in policy.memory_scopes() {
             let memory_target = match memory_scope {
                 MemoryScope::WorkspaceProject if self.context.remote_execution.is_some() => {
@@ -344,7 +357,6 @@ Do not read from, modify, create, move, or delete files outside this workspace u
     /// - `{CLAW_WORKSPACE}` - Claw-specific workspace ownership and boundary rules
     /// - `{VISUAL_MODE}` - Visual mode instruction (Mermaid diagrams, read from global config)
     /// - `{BITFUN_SELF}` - BitFun app capabilities (scenes, settings, Live Apps) for ControlHub app domain
-    ///
     /// If a placeholder is not in the template, corresponding content will not be added
     pub async fn build_prompt_from_template(&self, template: &str) -> BitFunResult<String> {
         let mut result = template.to_string();

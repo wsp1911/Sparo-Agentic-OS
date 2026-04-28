@@ -4,6 +4,7 @@ use crate::service::memory_store::MemoryScope;
 pub enum RequestContextSection {
     WorkspaceInstructions,
     WorkspaceRoutingContext,
+    HostOverviewContext,
     MemoryFiles(MemoryScope),
     ProjectLayout,
 }
@@ -45,6 +46,10 @@ impl RequestContextPolicy {
 
     pub fn with_workspace_routing_context(self) -> Self {
         self.with_section(RequestContextSection::WorkspaceRoutingContext)
+    }
+
+    pub fn with_host_overview_context(self) -> Self {
+        self.with_section(RequestContextSection::HostOverviewContext)
     }
 
     pub fn with_project_layout(self) -> Self {
@@ -103,6 +108,8 @@ mod tests {
             .with_workspace_instructions()
             .with_workspace_routing_context()
             .with_workspace_routing_context()
+            .with_host_overview_context()
+            .with_host_overview_context()
             .with_memory_scope(MemoryScope::WorkspaceProject)
             .with_memory_scope(MemoryScope::WorkspaceProject);
 
@@ -111,6 +118,7 @@ mod tests {
             vec![
                 RequestContextSection::WorkspaceInstructions,
                 RequestContextSection::WorkspaceRoutingContext,
+                RequestContextSection::HostOverviewContext,
                 RequestContextSection::MemoryFiles(MemoryScope::WorkspaceProject),
             ]
         );

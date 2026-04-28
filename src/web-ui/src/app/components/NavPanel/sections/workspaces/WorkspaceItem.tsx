@@ -11,7 +11,7 @@ import { useApp } from '@/app/hooks/useApp';
 import { workspaceAPI } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
-import { openMainSession } from '@/flow_chat/services/openBtwSession';
+import { openMainSession } from '@/flow_chat/services/childSessionPanels';
 import { findReusableEmptySessionId } from '@/app/utils/projectSessionWorkspace';
 import SessionList from '@/app/components/SessionList/SessionList';
 import {

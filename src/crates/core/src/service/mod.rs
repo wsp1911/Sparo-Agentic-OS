@@ -8,6 +8,7 @@ pub mod config; // Config management
 pub mod cron; // Scheduled jobs
 pub mod file_watch;
 pub mod filesystem; // FileSystem management
+pub(crate) mod host; // Agentic OS host-level runtime context and scan prompts
 pub mod i18n; // I18n service
 pub(crate) mod instructions; // Instruction memory (AGENTS.md / CLAUDE.md style files)
 pub mod mcp; // MCP (Model Context Protocol) system

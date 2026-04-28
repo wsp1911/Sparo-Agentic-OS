@@ -27,10 +27,10 @@ import type { FlowChatState, Session } from '../../../flow_chat/types/flow-chat'
 import { stateMachineManager } from '../../../flow_chat/state-machine';
 import { SessionExecutionState } from '../../../flow_chat/state-machine/types';
 import {
-  openBtwSessionInAuxPane,
+  openChildSessionInAuxPane,
   openMainSession,
-  selectActiveBtwSessionTab,
-} from '../../../flow_chat/services/openBtwSession';
+  selectActiveChildSessionTab,
+} from '../../../flow_chat/services/childSessionPanels';
 import { resolveSessionRelationship } from '../../../flow_chat/utils/sessionMetadata';
 import { compareSessionsForDisplay, findOpenedWorkspaceForSession } from '../../../flow_chat/utils/sessionOrdering';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
@@ -110,8 +110,10 @@ const SessionCapsule: React.FC = () => {
   const openTaskDetail = useSessionCapsuleStore((s) => s.openTaskDetail);
   const sessionListExpandNonce = useSessionCapsuleStore((s) => s.sessionListExpandNonce);
   const { openedWorkspacesList, setActiveWorkspace, currentWorkspace } = useWorkspaceContext();
-  const activeBtwSessionTab = useAgentCanvasStore((state) => selectActiveBtwSessionTab(state as any));
-  const activeBtwSessionData = activeBtwSessionTab?.content.data as
+  const activeChildSessionTab = useAgentCanvasStore(
+    state => selectActiveChildSessionTab(state as any)
+  );
+  const activeChildSessionData = activeChildSessionTab?.content.data as
     | { childSessionId: string; parentSessionId: string; workspacePath?: string }
     | undefined;
 
@@ -161,12 +163,12 @@ const SessionCapsule: React.FC = () => {
     (session: Session | undefined): boolean => {
       if (!session) return false;
       const relationship = resolveSessionRelationship(session);
-      if (relationship.isBtw && relationship.canOpenInAuxPane) {
-        return activeBtwSessionData?.childSessionId === session.sessionId;
+      if (relationship.canOpenInAuxPane) {
+        return activeChildSessionData?.childSessionId === session.sessionId;
       }
       return activeTabId === AGENT_SCENE && session.sessionId === activeSessionId;
     },
-    [activeBtwSessionData?.childSessionId, activeSessionId, activeTabId]
+    [activeChildSessionData?.childSessionId, activeSessionId, activeTabId]
   );
 
   const runningSessionsOrdered = useMemo((): Session[] => {
@@ -209,10 +211,11 @@ const SessionCapsule: React.FC = () => {
             workspaceId: resolvedWorkspaceId,
             activateWorkspace,
           });
-          openBtwSessionInAuxPane({
+          openChildSessionInAuxPane({
             childSessionId: sessionId,
             parentSessionId,
             workspacePath: session.workspacePath,
+            variant: relationship.isHostScan ? 'host_scan' : 'btw',
           });
           return;
         }

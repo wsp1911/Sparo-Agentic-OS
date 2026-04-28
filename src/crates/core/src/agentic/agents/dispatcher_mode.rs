@@ -74,6 +74,7 @@ impl Agent for DispatcherMode {
         RequestContextPolicy::empty()
             .with_workspace_instructions()
             .with_workspace_routing_context()
+            .with_host_overview_context()
             .with_memory_scope(MemoryScope::GlobalAgenticOs)
     }
 

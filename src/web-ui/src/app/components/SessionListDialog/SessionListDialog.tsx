@@ -13,8 +13,9 @@ import { useI18n } from '@/infrastructure/i18n';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { findOpenedWorkspaceForSession } from '@/flow_chat/utils/sessionOrdering';
-import { openMainSession } from '@/flow_chat/services/openBtwSession';
+import { openChildSessionInAuxPane, openMainSession } from '@/flow_chat/services/childSessionPanels';
 import { compareSessionsForDisplay } from '@/flow_chat/utils/sessionOrdering';
+import { resolveSessionRelationship } from '@/flow_chat/utils/sessionMetadata';
 import type { FlowChatState, Session } from '@/flow_chat/types/flow-chat';
 import { useSessionCapsuleStore } from '../../stores/sessionCapsuleStore';
 import { useOverlayStore } from '../../stores/overlayStore';
@@ -96,6 +97,21 @@ const SessionListDialog: React.FC = () => {
     close();
     const ws = findOpenedWorkspaceForSession(session, openedWorkspacesList);
     const mustActivate = ws && ws.id !== currentWorkspace?.id;
+    const relationship = resolveSessionRelationship(session);
+    if (relationship.canOpenInAuxPane && relationship.parentSessionId) {
+      await openMainSession(relationship.parentSessionId, {
+        workspaceId: ws?.id,
+        activateWorkspace: mustActivate ? setActiveWorkspace : undefined,
+      });
+      openChildSessionInAuxPane({
+        childSessionId: session.sessionId,
+        parentSessionId: relationship.parentSessionId,
+        workspacePath: session.workspacePath,
+        variant: relationship.isHostScan ? 'host_scan' : 'btw',
+      });
+      return;
+    }
+
     await openMainSession(session.sessionId, {
       workspaceId: ws?.id,
       activateWorkspace: mustActivate ? setActiveWorkspace : undefined,

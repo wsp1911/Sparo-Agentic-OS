@@ -33,11 +33,16 @@ import { useMessageSender } from '../hooks/useMessageSender';
 import { useChatInputState } from '../store/chatInputStateStore';
 import { useInputHistoryStore } from '../store/inputHistoryStore';
 import { startBtwThread } from '../services/BtwThreadService';
+import { startHostScanThread } from '../services/HostScanThreadService';
 import { FlowChatManager } from '../services/FlowChatManager';
 import { createLogger } from '@/shared/utils/logger';
 import { Tooltip, IconButton } from '@/component-library';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
-import { openBtwSessionInAuxPane, selectActiveBtwSessionTab } from '../services/openBtwSession';
+import {
+  openBtwSessionInAuxPane,
+  openHostScanSessionInAuxPane,
+  selectActiveSideThreadSessionTab,
+} from '../services/childSessionPanels';
 import { resolveSessionRelationship } from '../utils/sessionMetadata';
 import { resolveWorkspaceChatInputMode } from '../utils/chatInputMode';
 import { useOverlayStore } from '@/app/stores/overlayStore';
@@ -110,6 +115,11 @@ function parseSlashArguments(input: string): string[] {
     }
     return token;
   });
+}
+
+function isLoopbackHost(host?: string | null): boolean {
+  const normalized = host?.trim().toLowerCase();
+  return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1';
 }
 
 function renderMcpPromptContent(content: unknown): string {
@@ -218,7 +228,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const currentImageCount = imageContexts.length;
   
   const activeSessionState = useActiveSessionState();
-  const activeBtwSessionTab = useAgentCanvasStore(state => selectActiveBtwSessionTab(state as any));
+  const activeBtwSessionTab = useAgentCanvasStore(
+    state => selectActiveSideThreadSessionTab(state as any)
+  );
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => FlowChatStore.getInstance().getState());
   const currentSessionId = activeSessionState.sessionId;
   const currentSession = currentSessionId ? flowChatState.sessions.get(currentSessionId) : undefined;
@@ -980,6 +992,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         command: '/init',
         label: t('chatInput.initAction', { defaultValue: 'Generate AGENTS.md' }),
       },
+      {
+        kind: 'action',
+        id: 'scan_host',
+        command: '/scan_host',
+        label: t('chatInput.scanHostAction', { defaultValue: 'Scan host overview' }),
+      },
     ];
 
     const q = (slashCommandState.query || '').trim().toLowerCase();
@@ -1066,10 +1084,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     const trimmedLower = text.trim().toLowerCase();
     const isBtwCommand = trimmedLower.startsWith('/btw');
     const isCompactCommand = trimmedLower.startsWith('/compact');
+    const isScanHostCommand = trimmedLower.startsWith('/scan_host');
     const isProcessing = !!derivedState?.isProcessing;
 
-    // Don't queue /btw while the main session is processing; /btw runs independently.
-    if (derivedState?.isProcessing && !isBtwCommand && !isCompactCommand) {
+    // Don't queue independent slash actions while the main session is processing.
+    if (derivedState?.isProcessing && !isBtwCommand && !isCompactCommand && !isScanHostCommand) {
       setQueuedInput(text);
     }
 
@@ -1080,12 +1099,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       const query = firstToken;
       const matchedMcpPrompt = resolveTypedMcpPromptCommand(text);
 
-      // While the main session is running, expose a single quick action (/btw) via the same picker UX.
+      // While the main session is running, expose independent quick actions
+      // (/btw, /scan_host) via the same picker UX.
       if (isProcessing) {
-        // Only show the picker for "/..." patterns that are plausibly a command (/ or /b...).
-        // Once the user types a space (starts composing the real question), stop showing the picker
-        // so Enter can submit "/btw ..." instead of selecting from the picker.
-        if (!hasWhitespace && (query === '' || query.startsWith('b'))) {
+        // Once the user types a space (starts composing the real question),
+        // stop showing the picker so Enter can submit the command directly.
+        if (!hasWhitespace && (query === '' || query.startsWith('b') || query.startsWith('s'))) {
           setSlashCommandState({
             isActive: true,
             kind: 'actions',
@@ -1099,7 +1118,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       }
 
       // When idle, keep the picker for mode switching, but don't interfere with executable slash commands.
-      if (!isBtwCommand && !isCompactCommand && !matchedMcpPrompt) {
+      if (!isBtwCommand && !isCompactCommand && !isScanHostCommand && !matchedMcpPrompt) {
         setSlashCommandState({
           isActive: true,
           kind: 'all',
@@ -1315,6 +1334,81 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     t,
   ]);
 
+  const submitScanHostFromInput = useCallback(async () => {
+    if (!currentSessionId || !currentSession) {
+      notificationService.error(
+        t('chatInput.scanHostNoSession', { defaultValue: 'No active session for /scan_host' })
+      );
+      return;
+    }
+
+    const remoteSshHost = currentSession.remoteSshHost?.trim();
+    const isRemoteSession =
+      !!currentSession.remoteConnectionId ||
+      (!!remoteSshHost && !isLoopbackHost(remoteSshHost));
+
+    if (isRemoteSession) {
+      notificationService.warning(
+        t('chatInput.scanHostRemoteUnsupported', {
+          defaultValue: '/scan_host is currently supported only for local sessions.',
+        })
+      );
+      return;
+    }
+
+    const message = inputState.value.trim();
+    if (!/^\/scan_host\s*$/i.test(message)) {
+      notificationService.warning(
+        t('chatInput.scanHostUsage', {
+          defaultValue: 'Use /scan_host without extra arguments.',
+        })
+      );
+      return;
+    }
+
+    dispatchInput({ type: 'CLEAR_VALUE' });
+    setQueuedInput(null);
+    setSlashCommandState({ isActive: false, kind: 'modes', query: '', selectedIndex: 0 });
+
+    try {
+      const { childSessionId } = await startHostScanThread({
+        parentSessionId: currentSessionId,
+        workspacePath,
+        modelId: 'fast',
+      });
+      openHostScanSessionInAuxPane({
+        childSessionId,
+        parentSessionId: currentSessionId,
+        workspacePath,
+        expand: true,
+      });
+      dispatchInput({ type: 'DEACTIVATE' });
+    } catch (error) {
+      log.error('Failed to trigger /scan_host', {
+        error,
+        sessionId: currentSessionId,
+      });
+      dispatchInput({ type: 'ACTIVATE' });
+      dispatchInput({ type: 'SET_VALUE', payload: message });
+      notificationService.error(
+        error instanceof Error ? error.message : t('error.unknown'),
+        {
+          title: t('chatInput.scanHostFailed', {
+            defaultValue: 'Host overview scan failed',
+          }),
+          duration: 5000,
+        }
+      );
+    }
+  }, [
+    currentSession,
+    currentSessionId,
+    inputState.value,
+    setQueuedInput,
+    t,
+    workspacePath,
+  ]);
+
   const submitMcpPromptFromInput = useCallback(async () => {
     const originalMessage = inputState.value.trim();
     let command = resolveTypedMcpPromptCommand(originalMessage);
@@ -1451,6 +1545,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       return;
     }
 
+    if (/^\/scan_host\s*$/i.test(message)) {
+      await submitScanHostFromInput();
+      return;
+    }
+
     if (resolveTypedMcpPromptCommand(message)) {
       await submitMcpPromptFromInput();
       return;
@@ -1466,6 +1565,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (message.toLowerCase().startsWith('/init')) {
       notificationService.warning(
         t('chatInput.initUsage', { defaultValue: 'Use /init without extra arguments.' })
+      );
+      return;
+    }
+
+    if (message.toLowerCase().startsWith('/scan_host')) {
+      notificationService.warning(
+        t('chatInput.scanHostUsage', {
+          defaultValue: 'Use /scan_host without extra arguments.',
+        })
       );
       return;
     }
@@ -1524,6 +1632,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     submitBtwFromInput,
     submitCompactFromInput,
     submitInitFromInput,
+    submitScanHostFromInput,
     submitMcpPromptFromInput,
     t,
     resolveTypedMcpPromptCommand,
@@ -1615,6 +1724,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       next = '/compact';
     } else if (actionId === 'init') {
       next = '/init';
+    } else if (actionId === 'scan_host') {
+      next = '/scan_host';
     } else {
       return;
     }
@@ -1873,9 +1984,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       e.preventDefault();
 
       const isBtwCommand = inputState.value.trim().toLowerCase().startsWith('/btw');
+      const isScanHostCommand = /^\/scan_host\s*$/i.test(inputState.value.trim());
       if (isBtwCommand) {
         // Allow /btw submission even while the main session is generating.
         void submitBtwFromInput();
+        return;
+      }
+
+      if (isScanHostCommand) {
+        void submitScanHostFromInput();
         return;
       }
 

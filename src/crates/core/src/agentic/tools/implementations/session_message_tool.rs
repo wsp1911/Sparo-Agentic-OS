@@ -407,6 +407,7 @@ When overriding an existing session's agent_type, only switching between "agenti
                 Some(params.message.clone()),
                 None,
                 target_agent_type.clone(),
+                None,
                 Some(workspace.clone()),
                 DialogSubmissionPolicy::for_source(DialogTriggerSource::AgentSession),
                 Some(AgentSessionReplyRoute {

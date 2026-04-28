@@ -21,7 +21,7 @@ import {
   clearDeferredNewSessionWorkspace,
   markDeferredNewSessionWorkspace,
 } from '@/app/utils/deferredWorkspaceSession';
-import { openMainSession } from '@/flow_chat/services/openBtwSession';
+import { openMainSession } from '@/flow_chat/services/childSessionPanels';
 import { useSessionModeStore } from '@/app/stores/sessionModeStore';
 import { isRemoteWorkspace, type WorkspaceInfo } from '@/shared/types';
 import { notificationService } from '@/shared/notification-system';

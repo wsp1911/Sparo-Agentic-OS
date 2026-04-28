@@ -48,6 +48,12 @@ const BtwSessionPanel = React.lazy(() =>
   }))
 );
 
+const HostScanSessionPanel = React.lazy(() =>
+  import('@/flow_chat/components/host-scan/HostScanSessionPanel').then(module => ({
+    default: module.HostScanSessionPanel
+  }))
+);
+
 const LiveAppStudioPanel = React.lazy(() =>
   import('@/app/scenes/apps/live-app/components/LiveAppStudioPanel')
 );
@@ -542,6 +548,17 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         return (
           <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">{t('flexiblePanel.loading.taskDetail')}</div>}>
             <BtwSessionPanel
+              childSessionId={content.data?.childSessionId}
+              parentSessionId={content.data?.parentSessionId}
+              workspacePath={content.data?.workspacePath || workspacePath}
+            />
+          </React.Suspense>
+        );
+
+      case 'host-scan-session':
+        return (
+          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">{t('flexiblePanel.loading.taskDetail')}</div>}>
+            <HostScanSessionPanel
               childSessionId={content.data?.childSessionId}
               parentSessionId={content.data?.parentSessionId}
               workspacePath={content.data?.workspacePath || workspacePath}
