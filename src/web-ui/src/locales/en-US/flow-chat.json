@@ -229,6 +229,7 @@
     "scanHostAction": "Scan host overview",
     "scanHostNoSession": "No active session for /scan_host",
     "scanHostBusy": "Wait until the session is idle before using /scan_host.",
+    "scanHostDispatcherOnly": "/scan_host is available only in dispatcher sessions.",
     "scanHostRemoteUnsupported": "/scan_host is currently supported only for local sessions.",
     "scanHostUsage": "Use /scan_host without extra arguments.",
     "scanHostFailed": "Host overview scan failed",

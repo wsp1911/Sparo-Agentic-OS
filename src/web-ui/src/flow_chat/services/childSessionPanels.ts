@@ -210,6 +210,8 @@ export function openChildSessionInAuxPane(params: {
   });
 }
 
-export const isSideThreadSessionPanelContent = (
+export function isSideThreadSessionPanelContent(
   content: PanelContent | null | undefined
-): boolean => content?.type === SIDE_THREAD_SESSION_PANEL_TYPE;
+): boolean {
+  return content?.type === SIDE_THREAD_SESSION_PANEL_TYPE;
+}

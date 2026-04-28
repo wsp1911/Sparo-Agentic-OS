@@ -234,6 +234,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => FlowChatStore.getInstance().getState());
   const currentSessionId = activeSessionState.sessionId;
   const currentSession = currentSessionId ? flowChatState.sessions.get(currentSessionId) : undefined;
+  const currentSessionModelId = currentSession?.config.modelName?.trim() || 'auto';
+  const isDispatcherSession = currentSession?.mode?.toLowerCase() === 'dispatcher';
   const activeBtwSessionData = activeBtwSessionTab?.content.data as
     | { childSessionId: string; parentSessionId: string; workspacePath?: string }
     | undefined;
@@ -992,12 +994,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         command: '/init',
         label: t('chatInput.initAction', { defaultValue: 'Generate AGENTS.md' }),
       },
-      {
-        kind: 'action',
-        id: 'scan_host',
-        command: '/scan_host',
-        label: t('chatInput.scanHostAction', { defaultValue: 'Scan host overview' }),
-      },
+      ...(isDispatcherSession
+        ? [{
+            kind: 'action' as const,
+            id: 'scan_host',
+            command: '/scan_host',
+            label: t('chatInput.scanHostAction', { defaultValue: 'Scan host overview' }),
+          }]
+        : []),
     ];
 
     const q = (slashCommandState.query || '').trim().toLowerCase();
@@ -1007,7 +1011,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       const cmd = i.command.slice(1).toLowerCase();
       return cmd.includes(q) || i.label.toLowerCase().includes(q);
     });
-  }, [isBtwSession, slashCommandState.query, t]);
+  }, [isBtwSession, isDispatcherSession, slashCommandState.query, t]);
 
   const getFilteredMcpPromptCommands = useCallback((): SlashMcpPromptItem[] => {
     const q = (slashCommandState.query || '').trim().toLowerCase();
@@ -1187,7 +1191,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         parentSessionId: currentSessionId,
         workspacePath,
         question,
-        modelId: currentSession?.config.modelName?.trim() || 'auto',
+        modelId: currentSessionModelId,
       });
       openBtwSessionInAuxPane({
         childSessionId,
@@ -1203,7 +1207,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       pendingLargePastesRef.current = originalPendingLargePastes;
       dispatchInput({ type: 'SET_VALUE', payload: originalMessage });
     }
-  }, [clearPendingLargePastes, currentSessionId, derivedState, expandPendingLargePastes, inputState.value, isBtwSession, setQueuedInput, t, workspacePath]);
+  }, [clearPendingLargePastes, currentSessionId, currentSessionModelId, derivedState, expandPendingLargePastes, inputState.value, isBtwSession, setQueuedInput, t, workspacePath]);
 
   const submitCompactFromInput = useCallback(async () => {
     if (!effectiveTargetSessionId || !effectiveTargetSession) {
@@ -1342,6 +1346,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       return;
     }
 
+    if (!isDispatcherSession) {
+      notificationService.warning(
+        t('chatInput.scanHostDispatcherOnly', {
+          defaultValue: '/scan_host is available only in dispatcher sessions.',
+        })
+      );
+      return;
+    }
+
     const remoteSshHost = currentSession.remoteSshHost?.trim();
     const isRemoteSession =
       !!currentSession.remoteConnectionId ||
@@ -1374,7 +1387,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       const { childSessionId } = await startHostScanThread({
         parentSessionId: currentSessionId,
         workspacePath,
-        modelId: currentSession?.config.modelName?.trim() || 'auto',
+        modelId: currentSessionModelId,
       });
       openHostScanSessionInAuxPane({
         childSessionId,
@@ -1403,7 +1416,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, [
     currentSession,
     currentSessionId,
+    currentSessionModelId,
     inputState.value,
+    isDispatcherSession,
     setQueuedInput,
     t,
     workspacePath,
@@ -1570,6 +1585,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
 
     if (message.toLowerCase().startsWith('/scan_host')) {
+      if (!isDispatcherSession) {
+        notificationService.warning(
+          t('chatInput.scanHostDispatcherOnly', {
+            defaultValue: '/scan_host is available only in dispatcher sessions.',
+          })
+        );
+        return;
+      }
+
       notificationService.warning(
         t('chatInput.scanHostUsage', {
           defaultValue: 'Use /scan_host without extra arguments.',
@@ -1634,6 +1658,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     submitInitFromInput,
     submitScanHostFromInput,
     submitMcpPromptFromInput,
+    isDispatcherSession,
     t,
     resolveTypedMcpPromptCommand,
   ]);
@@ -2009,7 +2034,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       e.preventDefault();
       transition(SessionExecutionEvent.USER_CANCEL);
     }
-  }, [handleSendOrCancel, submitBtwFromInput, derivedState, transition, slashCommandState, getFilteredIncrementalModes, getFilteredActions, getSlashPickerItems, selectSlashCommandMode, selectSlashCommandAction, selectSlashPromptCommand, canSwitchModes, historyIndex, inputHistory, savedDraft, inputState.value, currentSessionId, isBtwSession, showTargetSwitcher, setInputTarget, t]);
+  }, [handleSendOrCancel, submitBtwFromInput, submitScanHostFromInput, derivedState, transition, slashCommandState, getFilteredIncrementalModes, getFilteredActions, getSlashPickerItems, selectSlashCommandMode, selectSlashCommandAction, selectSlashPromptCommand, canSwitchModes, historyIndex, inputHistory, savedDraft, inputState.value, currentSessionId, isBtwSession, showTargetSwitcher, setInputTarget, t]);
 
   const handleImeCompositionStart = useCallback(() => {
     isImeComposingRef.current = true;
