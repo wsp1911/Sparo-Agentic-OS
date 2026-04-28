@@ -67,7 +67,8 @@ pub use glob_tool::GlobTool;
 pub use grep_tool::GrepTool;
 pub use live_app_init_tool::InitLiveAppTool;
 pub use live_app_studio_tools::{
-    LiveAppRecompileTool, LiveAppRuntimeProbeTool, LiveAppScreenshotMatrixTool,
+    LiveAppClearRuntimeIssuesTool, LiveAppRecompileTool, LiveAppRuntimeProbeTool,
+    LiveAppScreenshotMatrixTool,
 };
 pub use log_tool::LogTool;
 pub use ls_tool::LSTool;

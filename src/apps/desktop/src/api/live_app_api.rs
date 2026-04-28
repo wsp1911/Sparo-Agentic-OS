@@ -4,7 +4,8 @@ use crate::api::app_state::AppState;
 use bitfun_core::infrastructure::events::{emit_global_event, BackendEvent};
 use bitfun_core::live_app::{
     InstallResult as CoreInstallResult, LiveApp, LiveAppAiContext, LiveAppMeta, LiveAppPermissions,
-    LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppSource,
+    LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog, LiveAppRuntimeLogLevel,
+    LiveAppSource,
 };
 use bitfun_core::service::config::types::GlobalConfig;
 use bitfun_core::util::types::Message;
@@ -179,6 +180,19 @@ pub struct LiveAppRuntimeIssueRequest {
     pub source: Option<String>,
     pub stack: Option<String>,
     pub category: Option<String>,
+    pub timestamp_ms: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppRuntimeLogRequest {
+    pub app_id: String,
+    pub level: Option<LiveAppRuntimeLogLevel>,
+    pub category: Option<String>,
+    pub message: String,
+    pub source: Option<String>,
+    pub stack: Option<String>,
+    pub details: Option<Value>,
     pub timestamp_ms: Option<i64>,
 }
 
@@ -695,6 +709,25 @@ pub async fn live_app_report_runtime_issue(
         .record_runtime_issue(issue.clone())
         .await;
     emit_live_app_event("liveapp-runtime-error", json!(issue)).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn live_app_report_runtime_log(
+    state: State<'_, AppState>,
+    request: LiveAppRuntimeLogRequest,
+) -> Result<(), String> {
+    let log_entry = LiveAppRuntimeLog {
+        app_id: request.app_id,
+        level: request.level.unwrap_or(LiveAppRuntimeLogLevel::Info),
+        category: request.category.unwrap_or_else(|| "runtime".to_string()),
+        message: request.message,
+        source: request.source,
+        stack: request.stack,
+        details: request.details,
+        timestamp_ms: request.timestamp_ms.unwrap_or_else(|| now_ms() as i64),
+    };
+    state.live_app_manager.record_runtime_log(log_entry).await;
     Ok(())
 }
 

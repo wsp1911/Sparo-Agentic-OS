@@ -1,7 +1,9 @@
 //! JS Worker — single child process (Bun/Node) with stdin/stderr JSON-RPC.
 
 use crate::infrastructure::events::{emit_global_event, BackendEvent};
+use crate::live_app::manager::try_get_global_live_app_manager;
 use crate::live_app::runtime_detect::DetectedRuntime;
+use crate::live_app::types::{LiveAppRuntimeLog, LiveAppRuntimeLogLevel};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
@@ -15,6 +17,66 @@ use tokio::sync::{oneshot, Mutex};
 type JsWorkerResponse = Result<Value, String>;
 type PendingResponseSender = oneshot::Sender<JsWorkerResponse>;
 type PendingResponseMap = HashMap<String, PendingResponseSender>;
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
+}
+
+fn parse_log_level(value: Option<&str>) -> LiveAppRuntimeLogLevel {
+    match value {
+        Some("debug") => LiveAppRuntimeLogLevel::Debug,
+        Some("warn") => LiveAppRuntimeLogLevel::Warn,
+        Some("error") => LiveAppRuntimeLogLevel::Error,
+        _ => LiveAppRuntimeLogLevel::Info,
+    }
+}
+
+fn parse_worker_log_line(app_id: &str, line: &str) -> LiveAppRuntimeLog {
+    let parsed = serde_json::from_str::<Value>(line).ok();
+    if let Some(value) = parsed.as_ref().and_then(Value::as_object) {
+        return LiveAppRuntimeLog {
+            app_id: app_id.to_string(),
+            level: parse_log_level(value.get("level").and_then(Value::as_str)),
+            category: value
+                .get("category")
+                .and_then(Value::as_str)
+                .unwrap_or("worker")
+                .to_string(),
+            message: value
+                .get("message")
+                .and_then(Value::as_str)
+                .unwrap_or(line)
+                .to_string(),
+            source: value
+                .get("source")
+                .and_then(Value::as_str)
+                .map(ToString::to_string),
+            stack: value
+                .get("stack")
+                .and_then(Value::as_str)
+                .map(ToString::to_string),
+            details: value.get("details").cloned(),
+            timestamp_ms: value
+                .get("timestampMs")
+                .and_then(Value::as_i64)
+                .unwrap_or_else(now_ms),
+        };
+    }
+
+    LiveAppRuntimeLog {
+        app_id: app_id.to_string(),
+        level: LiveAppRuntimeLogLevel::Info,
+        category: "worker:stdout".to_string(),
+        message: line.to_string(),
+        source: None,
+        stack: None,
+        details: None,
+        timestamp_ms: now_ms(),
+    }
+}
 
 /// Single JS Worker process: stdin for requests, stderr for RPC responses, stdout for user logs.
 pub struct JsWorker {
@@ -49,7 +111,7 @@ impl JsWorker {
 
         let stdin_handle = child.stdin.take().ok_or("No stdin")?;
         let stderr = child.stderr.take().ok_or("No stderr")?;
-        let _stdout = child.stdout.take();
+        let stdout = child.stdout.take().ok_or("No stdout")?;
 
         let pending = Arc::new(Mutex::new(PendingResponseMap::new()));
         let last_activity = Arc::new(AtomicI64::new(
@@ -61,6 +123,7 @@ impl JsWorker {
 
         let pending_clone = pending.clone();
         let last_activity_clone = last_activity.clone();
+        let stderr_app_id = app_id.clone();
         tokio::spawn(async move {
             let reader = BufReader::new(stderr);
             let mut lines = reader.lines();
@@ -108,16 +171,31 @@ impl JsWorker {
                 if let Some(event_name) = msg.get("event").and_then(Value::as_str) {
                     let data = msg.get("data").cloned().unwrap_or(Value::Null);
                     let payload = serde_json::json!({
-                        "appId": app_id,
+                        "appId": &stderr_app_id,
                         "event": event_name,
                         "data": data,
                     });
-                    let event_full_name = format!("liveapp://worker-event:{}", app_id);
+                    let event_full_name = format!("liveapp://worker-event:{}", stderr_app_id);
                     let _ = emit_global_event(BackendEvent::Custom {
                         event_name: event_full_name,
                         payload,
                     })
                     .await;
+                }
+            }
+        });
+
+        let stdout_app_id = app_id.clone();
+        tokio::spawn(async move {
+            let reader = BufReader::new(stdout);
+            let mut lines = reader.lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if line.trim().is_empty() {
+                    continue;
+                }
+                let log_entry = parse_worker_log_line(&stdout_app_id, &line);
+                if let Some(manager) = try_get_global_live_app_manager() {
+                    manager.record_runtime_log(log_entry).await;
                 }
             }
         });

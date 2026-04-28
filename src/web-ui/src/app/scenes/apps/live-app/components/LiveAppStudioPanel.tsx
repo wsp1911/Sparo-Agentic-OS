@@ -34,12 +34,24 @@ interface RuntimeIssue {
   timestampMs: number;
 }
 
+interface RuntimeLog {
+  appId: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  category: string;
+  message: string;
+  source?: string;
+  stack?: string;
+  details?: unknown;
+  timestampMs: number;
+}
+
 interface LiveAppStudioPanelProps {
   sessionId: string | null;
   appId?: string;
 }
 
 const MAX_VISIBLE_ISSUES = 20;
+const MAX_VISIBLE_LOGS = 100;
 
 const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appId }) => {
   const { workspacePath } = useCurrentWorkspace();
@@ -51,6 +63,8 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
   const [error, setError] = useState<string | null>(null);
   const [runnerKey, setRunnerKey] = useState(0);
   const [issues, setIssues] = useState<RuntimeIssue[]>([]);
+  const [logs, setLogs] = useState<RuntimeLog[]>([]);
+  const [runtimeView, setRuntimeView] = useState<'issues' | 'logs'>('issues');
   const [sendingIssues, setSendingIssues] = useState(false);
   const [clearingIssues, setClearingIssues] = useState(false);
   const [diagnosticsExpanded, setDiagnosticsExpanded] = useState(true);
@@ -63,7 +77,14 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
       const loaded = await liveAppAPI.getLiveApp(appId, themeType ?? 'dark', workspacePath || undefined);
       setApp(loaded);
     } catch (err) {
-      setError(String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      void liveAppAPI.reportRuntimeLog({
+        appId,
+        level: 'error',
+        category: 'studio:preview',
+        message: `Failed to load Live App preview: ${message}`,
+      }).catch(() => undefined);
     } finally {
       setLoading(false);
     }
@@ -72,6 +93,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
   useEffect(() => {
     setApp(null);
     setIssues([]);
+    setLogs([]);
     if (appId) {
       void load();
     }
@@ -92,15 +114,21 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
       if (payload.severity === 'noise') return;
       setIssues((current) => [payload, ...current].slice(0, MAX_VISIBLE_ISSUES));
     });
+    const unlistenLog = api.listen<RuntimeLog>('liveapp-runtime-log', (payload) => {
+      if (payload?.appId !== appId) return;
+      setLogs((current) => [payload, ...current].slice(0, MAX_VISIBLE_LOGS));
+    });
     const unlistenCleared = api.listen<{ appId?: string }>('liveapp-runtime-errors-cleared', (payload) => {
       if (payload?.appId !== appId) return;
       setIssues([]);
+      setLogs([]);
     });
 
     return () => {
       unlistenUpdated();
       unlistenRecompiled();
       unlistenIssue();
+      unlistenLog();
       unlistenCleared();
     };
   }, [appId, load]);
@@ -116,6 +144,10 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
       { fatal: 0, warning: 0, total: 0 },
     );
   }, [issues]);
+
+  const visibleLogs = useMemo(() => {
+    return logs.filter((entry) => entry.level !== 'debug');
+  }, [logs]);
 
   const handleOpenInApps = () => {
     if (appId) {
@@ -136,21 +168,38 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
       ].filter(Boolean).join('\n');
     });
 
+    const logLines = visibleLogs.slice(0, 40).map((entry, index) => {
+      const details = entry.details ? `\nDetails: ${JSON.stringify(entry.details)}` : '';
+      const stack = entry.stack ? `\nStack:\n${entry.stack}` : '';
+      const source = entry.source ? `\nSource: ${entry.source}` : '';
+      return [
+        `#${index + 1} [${entry.level}] ${entry.category}`,
+        `Message: ${entry.message}`,
+        source.trim(),
+        details.trim(),
+        stack.trim(),
+      ].filter(Boolean).join('\n');
+    });
+
     return [
-      `请修复 Live App 的运行时错误。App: ${appLabel}`,
+      `请根据 Live App Studio 的运行诊断修复当前 Live App。App: ${appLabel}`,
       '',
       '要求：',
-      '- 先定位错误原因，再修改当前 Live App 的 source/meta/package 文件。',
+      '- 先结合 fatal/warning 和最近 runtime logs 判断根因，再修改当前 Live App 的 source/meta/package 文件。',
       '- 修改后运行 LiveAppRecompile 和 LiveAppRuntimeProbe。',
-      '- Diagnostics 里不能留下 fatal 错误。',
+      '- 如果没有 fatal 但行为仍异常，请用 LiveAppRuntimeProbe({ include_logs: true, tail: 80 }) 读取最近日志。',
+      '- Runtime 里不能留下 fatal 错误。',
       '',
       '最近错误：',
-      lines.join('\n\n---\n\n'),
+      lines.length > 0 ? lines.join('\n\n---\n\n') : '暂无 fatal/warning issue。',
+      '',
+      '最近日志：',
+      logLines.length > 0 ? logLines.join('\n\n---\n\n') : '暂无 runtime log。',
     ].join('\n');
-  }, [app, appId, issues]);
+  }, [app, appId, issues, visibleLogs]);
 
   const handleSendIssuesToAi = useCallback(async () => {
-    if (!sessionId || issues.length === 0 || sendingIssues) return;
+    if (!sessionId || (issues.length === 0 && visibleLogs.length === 0) || sendingIssues) return;
     setSendingIssues(true);
     try {
       await flowChatManager.sendMessage(buildIssuePrompt(), sessionId, t('liveAppStudio.diagnostics.sendDisplay'));
@@ -160,7 +209,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
     } finally {
       setSendingIssues(false);
     }
-  }, [buildIssuePrompt, issues.length, sendingIssues, sessionId, t]);
+  }, [buildIssuePrompt, issues.length, sendingIssues, sessionId, t, visibleLogs.length]);
 
   const handleClearIssues = useCallback(async () => {
     if (!appId || clearingIssues) return;
@@ -168,6 +217,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
     try {
       await liveAppAPI.clearRuntimeIssues(appId);
       setIssues([]);
+      setLogs([]);
     } catch (err) {
       notificationService.error(err instanceof Error ? err.message : String(err), { duration: 4000 });
     } finally {
@@ -285,7 +335,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
               variant="ghost"
               size="xs"
               onClick={() => void handleSendIssuesToAi()}
-              disabled={!sessionId || issues.length === 0 || sendingIssues}
+              disabled={!sessionId || (issues.length === 0 && visibleLogs.length === 0) || sendingIssues}
               tooltip={t('liveAppStudio.diagnostics.sendToAi')}
             >
               {sendingIssues ? <Loader2 size={12} className="live-app-studio-panel__spin" /> : <Send size={12} />}
@@ -302,27 +352,72 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
           </div>
         </div>
         {diagnosticsExpanded && (
-          <div className="live-app-studio-panel__diagnostics-list">
-            {issues.length === 0 ? (
-              <div className="live-app-studio-panel__diagnostics-empty">
-                {t('liveAppStudio.diagnostics.empty')}
-              </div>
-            ) : (
-              issues.map((issue, index) => (
-                <div key={`${issue.timestampMs}-${index}`} className={`live-app-studio-panel__issue is-${issue.severity}`}>
-                  <span>{issue.category ?? issue.severity}</span>
-                  <div className="live-app-studio-panel__issue-body">
-                    <p title={issue.stack || issue.message}>{issue.message}</p>
-                    {(issue.source || issue.stack) && (
-                      <pre>
-                        {[issue.source, issue.stack].filter(Boolean).join('\n')}
-                      </pre>
-                    )}
+          <>
+            <div className="live-app-studio-panel__runtime-tabs">
+              <button
+                type="button"
+                className={runtimeView === 'issues' ? 'is-active' : ''}
+                onClick={() => setRuntimeView('issues')}
+              >
+                {t('liveAppStudio.diagnostics.issuesTab')}
+              </button>
+              <button
+                type="button"
+                className={runtimeView === 'logs' ? 'is-active' : ''}
+                onClick={() => setRuntimeView('logs')}
+              >
+                {t('liveAppStudio.diagnostics.logsTab')}
+              </button>
+            </div>
+            <div className="live-app-studio-panel__diagnostics-list">
+              {runtimeView === 'issues' && (
+                issues.length === 0 ? (
+                  <div className="live-app-studio-panel__diagnostics-empty">
+                    {t('liveAppStudio.diagnostics.empty')}
                   </div>
-                </div>
-              ))
-            )}
-          </div>
+                ) : (
+                  issues.map((issue, index) => (
+                    <div key={`${issue.timestampMs}-${index}`} className={`live-app-studio-panel__issue is-${issue.severity}`}>
+                      <span className="live-app-studio-panel__issue-category">{issue.category ?? issue.severity}</span>
+                      <div className="live-app-studio-panel__issue-body">
+                        <p title={issue.stack || issue.message}>{issue.message}</p>
+                        {(issue.source || issue.stack) && (
+                          <pre>
+                            {[issue.source, issue.stack].filter(Boolean).join('\n')}
+                          </pre>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )
+              )}
+              {runtimeView === 'logs' && (
+                visibleLogs.length === 0 ? (
+                  <div className="live-app-studio-panel__diagnostics-empty">
+                    {t('liveAppStudio.diagnostics.logsEmpty')}
+                  </div>
+                ) : (
+                  visibleLogs.map((entry, index) => (
+                    <div key={`${entry.timestampMs}-${index}`} className={`live-app-studio-panel__issue is-${entry.level}`}>
+                      <span className="live-app-studio-panel__issue-category">
+                        {entry.level} / {entry.category}
+                      </span>
+                      <div className="live-app-studio-panel__issue-body">
+                        <p title={entry.stack || entry.message}>{entry.message}</p>
+                        {!!(entry.source || entry.stack || entry.details != null) && (
+                          <pre>
+                            {[entry.source, entry.details != null ? JSON.stringify(entry.details) : undefined, entry.stack]
+                              .filter(Boolean)
+                              .join('\n')}
+                          </pre>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>

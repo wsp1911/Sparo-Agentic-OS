@@ -568,6 +568,7 @@ pub async fn run() {
             api::live_app_api::live_app_import_from_path,
             api::live_app_api::live_app_sync_from_fs,
             api::live_app_api::live_app_report_runtime_issue,
+            api::live_app_api::live_app_report_runtime_log,
             api::live_app_api::live_app_clear_runtime_issues,
             api::live_app_api::live_app_capture_matrix,
             api::live_app_api::live_app_ai_complete,

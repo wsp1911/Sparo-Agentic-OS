@@ -27,6 +27,7 @@ pub use runtime_ui_kit::RUNTIME_UI_KIT_COMPONENTS;
 pub use storage::LiveAppStorage;
 pub use types::{
     AiPermissions, EsmDep, FsPermissions, LiveApp, LiveAppAiContext, LiveAppMeta,
-    LiveAppPermissions, LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppSource,
-    NetPermissions, NodePermissions, NpmDep, PathScope, ShellPermissions,
+    LiveAppPermissions, LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog,
+    LiveAppRuntimeLogLevel, LiveAppSource, NetPermissions, NodePermissions, NpmDep, PathScope,
+    ShellPermissions,
 };

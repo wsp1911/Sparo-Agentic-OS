@@ -156,6 +156,31 @@ pub enum LiveAppRuntimeIssueSeverity {
     Noise,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppRuntimeLog {
+    pub app_id: String,
+    pub level: LiveAppRuntimeLogLevel,
+    pub category: String,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stack: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
+    pub timestamp_ms: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LiveAppRuntimeLogLevel {
+    Debug,
+    Info,
+    Warn,
+    Error,
+}
+
 /// Full Live App entity (in-memory / API).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiveApp {

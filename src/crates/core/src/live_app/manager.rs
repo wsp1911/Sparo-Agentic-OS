@@ -1,19 +1,30 @@
 //! Live App manager — CRUD, version management, compile on save (V2: no permission guard, policy for Worker).
 
+use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use crate::live_app::compiler::compile;
 use crate::live_app::permission_policy::resolve_policy;
 use crate::live_app::storage::LiveAppStorage;
 use crate::live_app::types::{
     LiveApp, LiveAppAiContext, LiveAppMeta, LiveAppPermissions, LiveAppRuntimeIssue,
-    LiveAppRuntimeState, LiveAppSource,
+    LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog, LiveAppRuntimeLogLevel, LiveAppRuntimeState,
+    LiveAppSource,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
 use chrono::Utc;
+use serde_json::json;
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
+use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
 use uuid::Uuid;
+
+const MAX_RUNTIME_ISSUES_PER_APP: usize = 50;
+const MAX_RUNTIME_LOGS_PER_APP: usize = 200;
+const MAX_RUNTIME_LOG_FILE_BYTES: u64 = 2 * 1024 * 1024;
+const MAX_RUNTIME_MESSAGE_CHARS: usize = 4_000;
+const MAX_RUNTIME_STACK_CHARS: usize = 8_000;
+const MAX_RUNTIME_DETAILS_CHARS: usize = 8_000;
 
 static GLOBAL_LIVE_APP_MANAGER: OnceLock<Arc<LiveAppManager>> = OnceLock::new();
 
@@ -40,6 +51,15 @@ fn permissions_include_workspace(permissions: &LiveAppPermissions) -> bool {
             .is_some_and(|paths| paths.iter().any(|path| path == "{workspace}"))
 }
 
+fn truncate_chars(value: &str, max_chars: usize) -> String {
+    if value.chars().count() <= max_chars {
+        return value.to_string();
+    }
+    let mut out: String = value.chars().take(max_chars).collect();
+    out.push_str("... [truncated]");
+    out
+}
+
 /// Live App manager: create, read, update, delete, list, compile, rollback.
 pub struct LiveAppManager {
     storage: LiveAppStorage,
@@ -47,6 +67,7 @@ pub struct LiveAppManager {
     /// User-granted paths per app (for resolve_policy).
     granted_paths: RwLock<HashMap<String, Vec<PathBuf>>>,
     runtime_issues: RwLock<HashMap<String, VecDeque<LiveAppRuntimeIssue>>>,
+    runtime_logs: RwLock<HashMap<String, VecDeque<LiveAppRuntimeLog>>>,
 }
 
 impl LiveAppManager {
@@ -57,6 +78,7 @@ impl LiveAppManager {
             path_manager,
             granted_paths: RwLock::new(HashMap::new()),
             runtime_issues: RwLock::new(HashMap::new()),
+            runtime_logs: RwLock::new(HashMap::new()),
         }
     }
 
@@ -348,14 +370,15 @@ impl LiveAppManager {
     }
 
     pub async fn record_runtime_issue(&self, issue: LiveAppRuntimeIssue) {
-        const MAX_ISSUES_PER_APP: usize = 50;
-
         let mut issues = self.runtime_issues.write().await;
         let app_issues = issues.entry(issue.app_id.clone()).or_default();
-        app_issues.push_back(issue);
-        while app_issues.len() > MAX_ISSUES_PER_APP {
+        app_issues.push_back(issue.clone());
+        while app_issues.len() > MAX_RUNTIME_ISSUES_PER_APP {
             app_issues.pop_front();
         }
+        drop(issues);
+
+        self.record_runtime_log(Self::log_from_issue(issue)).await;
     }
 
     pub async fn runtime_issues(
@@ -382,6 +405,143 @@ impl LiveAppManager {
 
     pub async fn clear_runtime_issues(&self, app_id: &str) {
         self.runtime_issues.write().await.remove(app_id);
+        self.runtime_logs.write().await.remove(app_id);
+        self.record_runtime_log(LiveAppRuntimeLog {
+            app_id: app_id.to_string(),
+            level: LiveAppRuntimeLogLevel::Info,
+            category: "lifecycle".to_string(),
+            message: "Runtime diagnostics cleared".to_string(),
+            source: None,
+            stack: None,
+            details: None,
+            timestamp_ms: Utc::now().timestamp_millis(),
+        })
+        .await;
+    }
+
+    pub async fn record_runtime_log(&self, log_entry: LiveAppRuntimeLog) {
+        let log_entry = Self::sanitize_runtime_log(log_entry);
+        let mut logs = self.runtime_logs.write().await;
+        let app_logs = logs.entry(log_entry.app_id.clone()).or_default();
+        app_logs.push_back(log_entry.clone());
+        while app_logs.len() > MAX_RUNTIME_LOGS_PER_APP {
+            app_logs.pop_front();
+        }
+        drop(logs);
+
+        self.append_runtime_log_to_disk(&log_entry).await;
+        let _ = emit_global_event(BackendEvent::Custom {
+            event_name: "liveapp-runtime-log".to_string(),
+            payload: json!(log_entry),
+        })
+        .await;
+    }
+
+    pub async fn runtime_logs(
+        &self,
+        app_id: &str,
+        since_ms: Option<i64>,
+        min_level: Option<LiveAppRuntimeLogLevel>,
+        tail: Option<usize>,
+    ) -> Vec<LiveAppRuntimeLog> {
+        let logs = self.runtime_logs.read().await;
+        let mut out: Vec<LiveAppRuntimeLog> = logs
+            .get(app_id)
+            .map(|app_logs| {
+                app_logs
+                    .iter()
+                    .filter(|entry| {
+                        since_ms
+                            .map(|since| entry.timestamp_ms >= since)
+                            .unwrap_or(true)
+                    })
+                    .filter(|entry| min_level.map(|level| entry.level >= level).unwrap_or(true))
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default();
+        if let Some(tail) = tail {
+            if out.len() > tail {
+                out = out.split_off(out.len() - tail);
+            }
+        }
+        out
+    }
+
+    fn log_from_issue(issue: LiveAppRuntimeIssue) -> LiveAppRuntimeLog {
+        LiveAppRuntimeLog {
+            app_id: issue.app_id,
+            level: match issue.severity {
+                LiveAppRuntimeIssueSeverity::Fatal => LiveAppRuntimeLogLevel::Error,
+                LiveAppRuntimeIssueSeverity::Warning => LiveAppRuntimeLogLevel::Warn,
+                LiveAppRuntimeIssueSeverity::Noise => LiveAppRuntimeLogLevel::Debug,
+            },
+            category: issue.category.unwrap_or_else(|| "runtime".to_string()),
+            message: issue.message,
+            source: issue.source,
+            stack: issue.stack,
+            details: None,
+            timestamp_ms: issue.timestamp_ms,
+        }
+    }
+
+    fn sanitize_runtime_log(mut entry: LiveAppRuntimeLog) -> LiveAppRuntimeLog {
+        entry.message = truncate_chars(&entry.message, MAX_RUNTIME_MESSAGE_CHARS);
+        entry.stack = entry
+            .stack
+            .map(|stack| truncate_chars(&stack, MAX_RUNTIME_STACK_CHARS));
+        entry.details = entry.details.map(|details| {
+            let serialized = serde_json::to_string(&details).unwrap_or_else(|_| "null".to_string());
+            if serialized.len() <= MAX_RUNTIME_DETAILS_CHARS {
+                details
+            } else {
+                json!({
+                    "truncated": true,
+                    "preview": truncate_chars(&serialized, MAX_RUNTIME_DETAILS_CHARS)
+                })
+            }
+        });
+        entry
+    }
+
+    async fn append_runtime_log_to_disk(&self, entry: &LiveAppRuntimeLog) {
+        let log_dir = self.path_manager.live_app_dir(&entry.app_id).join("_logs");
+        if let Err(e) = tokio::fs::create_dir_all(&log_dir).await {
+            log::warn!("Failed to create Live App runtime log dir: {}", e);
+            return;
+        }
+
+        let log_path = log_dir.join("runtime.ndjson");
+        if let Ok(metadata) = tokio::fs::metadata(&log_path).await {
+            if metadata.len() > MAX_RUNTIME_LOG_FILE_BYTES {
+                let rotated = log_dir.join("runtime.1.ndjson");
+                let _ = tokio::fs::remove_file(&rotated).await;
+                let _ = tokio::fs::rename(&log_path, rotated).await;
+            }
+        }
+
+        let line = match serde_json::to_string(entry) {
+            Ok(line) => line,
+            Err(e) => {
+                log::warn!("Failed to serialize Live App runtime log: {}", e);
+                return;
+            }
+        };
+        let mut file = match tokio::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+            .await
+        {
+            Ok(file) => file,
+            Err(e) => {
+                log::warn!("Failed to open Live App runtime log file: {}", e);
+                return;
+            }
+        };
+        if let Err(e) = file.write_all(format!("{line}\n").as_bytes()).await {
+            log::warn!("Failed to append Live App runtime log: {}", e);
+        }
     }
 
     /// Set app storage (KV) value.

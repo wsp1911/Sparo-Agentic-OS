@@ -112,6 +112,8 @@ function syncSessionModeStore(mode: 'agentic' | 'Cowork' | 'Design' | 'Claw' | '
     useSessionModeStore.getState().setMode('cowork');
   } else if (mode === 'Design') {
     useSessionModeStore.getState().setMode('design');
+  } else if (mode === 'LiveAppStudio') {
+    useSessionModeStore.getState().setMode('liveappstudio');
   } else {
     useSessionModeStore.getState().setMode('code');
   }
