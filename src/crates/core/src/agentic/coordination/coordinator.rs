@@ -29,7 +29,7 @@ use crate::agentic::WorkspaceBinding;
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::host::{
     build_host_scan_system_reminder, build_host_scan_user_prompt,
-    default_host_scan_session_name,
+    default_host_scan_session_name, host_scan_allowed_tools,
 };
 use crate::service::bootstrap::{
     ensure_workspace_persona_files_for_prompt, is_workspace_bootstrap_pending,
@@ -54,6 +54,9 @@ use tokio_util::sync::CancellationToken;
 const MANUAL_COMPACTION_COMMAND: &str = "/compact";
 const CONTEXT_COMPRESSION_TOOL_NAME: &str = "ContextCompression";
 const AUTO_MEMORY_FORK_MAX_TURNS: usize = 5;
+const BACKGROUND_HOST_SCAN_PARENT_SESSION_ID: &str = "system-host-scan-parent";
+const BACKGROUND_HOST_SCAN_PARENT_SESSION_NAME: &str = "Host scan dispatcher";
+const BACKGROUND_HOST_SCAN_CHILD_SESSION_ID: &str = "system-host-scan-session";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AutoMemoryPostTurnAction {
@@ -127,6 +130,12 @@ struct HiddenSubagentExecutionRequest {
     created_by: Option<String>,
     subagent_parent_info: Option<SubagentParentInfo>,
     context: HashMap<String, String>,
+    runtime_tool_restrictions: ToolRuntimeRestrictions,
+}
+
+#[derive(Debug, Clone, Default)]
+struct DialogExecutionSettings {
+    tool_allowlist_override: Option<Vec<String>>,
     runtime_tool_restrictions: ToolRuntimeRestrictions,
 }
 
@@ -207,6 +216,23 @@ pub struct ConversationCoordinator {
 }
 
 impl ConversationCoordinator {
+    fn host_scan_execution_settings() -> DialogExecutionSettings {
+        let tool_allowlist_override = Some(host_scan_allowed_tools());
+        let runtime_tool_restrictions = ToolRuntimeRestrictions {
+            allowed_tool_names: tool_allowlist_override
+                .clone()
+                .unwrap_or_default()
+                .into_iter()
+                .collect(),
+            ..ToolRuntimeRestrictions::default()
+        };
+
+        DialogExecutionSettings {
+            tool_allowlist_override,
+            runtime_tool_restrictions,
+        }
+    }
+
     async fn track_session_workspace_activity_best_effort(config: &SessionConfig, reason: &str) {
         let Some(workspace_path) = config.workspace_path.as_ref() else {
             return;
@@ -1020,11 +1046,12 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             None,
             Some(turn_id.clone()),
             ASSISTANT_BOOTSTRAP_AGENT_TYPE.to_string(),
-            Some(workspace_root.to_string_lossy().to_string()),
             None,
+            Some(workspace_root.to_string_lossy().to_string()),
             DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi)
                 .with_skip_tool_confirmation(true),
             Some(metadata),
+            DialogExecutionSettings::default(),
             true,
         )
         .await?;
@@ -1064,6 +1091,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             workspace_path,
             submission_policy,
             extra_user_message_metadata,
+            DialogExecutionSettings::default(),
             false,
         )
         .await
@@ -1094,6 +1122,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             workspace_path,
             submission_policy,
             extra_user_message_metadata,
+            DialogExecutionSettings::default(),
             false,
         )
         .await
@@ -1288,6 +1317,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         workspace_path: Option<String>,
         submission_policy: DialogSubmissionPolicy,
         extra_user_message_metadata: Option<serde_json::Value>,
+        execution_settings: DialogExecutionSettings,
         suppress_session_title_generation: bool,
     ) -> BitFunResult<()> {
         // Get latest session, restoring from persistence on demand so every entry
@@ -1343,6 +1373,15 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             submission_policy.skip_tool_confirmation,
             submission_policy.persist_agent_type
         );
+        if let Some(tool_allowlist_override) = execution_settings.tool_allowlist_override.as_ref() {
+            debug!(
+                "Applying dialog tool allowlist override: session_id={}, turn_id={}, tool_count={}, tools={:?}",
+                session_id,
+                turn_id.as_deref().unwrap_or(""),
+                tool_allowlist_override.len(),
+                tool_allowlist_override
+            );
+        }
 
         if submission_policy.persist_agent_type && session.agent_type != effective_agent_type {
             self.session_manager
@@ -1655,9 +1694,10 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             hidden_session: matches!(session.kind, SessionKind::Subagent),
             workspace: session_workspace,
             context: context_vars,
+            tool_allowlist_override: execution_settings.tool_allowlist_override,
             subagent_parent_info: None,
             skip_tool_confirmation: submission_policy.skip_tool_confirmation,
-            runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
+            runtime_tool_restrictions: execution_settings.runtime_tool_restrictions,
             workspace_services,
             round_preempt: self.round_preempt_source.get().cloned(),
         };
@@ -2551,6 +2591,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             hidden_session: matches!(session.kind, SessionKind::Subagent),
             workspace: subagent_workspace,
             context,
+            tool_allowlist_override: None,
             subagent_parent_info: subagent_parent_info.clone(),
             // Subagents run autonomously without user interaction; always skip
             // tool confirmation to prevent them from blocking indefinitely on a
@@ -2698,6 +2739,33 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         .await
     }
 
+    async fn ensure_background_host_scan_parent_session(&self) -> BitFunResult<Session> {
+        if let Some(session) = self
+            .session_manager
+            .get_session(BACKGROUND_HOST_SCAN_PARENT_SESSION_ID)
+        {
+            return Ok(session);
+        }
+
+        let workspace_path = get_path_manager_arc()
+            .agentic_os_runtime_root()
+            .to_string_lossy()
+            .into_owned();
+
+        self.create_hidden_subagent_session(
+            Some(BACKGROUND_HOST_SCAN_PARENT_SESSION_ID.to_string()),
+            BACKGROUND_HOST_SCAN_PARENT_SESSION_NAME.to_string(),
+            HOST_SCAN_AGENT_TYPE.to_string(),
+            SessionConfig {
+                workspace_path: Some(workspace_path),
+                storage_scope: Some(SessionStorageScope::AgenticOs),
+                ..SessionConfig::default()
+            },
+            None,
+        )
+        .await
+    }
+
     pub async fn start_hidden_btw_turn(
         &self,
         request_id: &str,
@@ -2752,11 +2820,12 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             None,
             Some(turn_id.clone()),
             child_session.agent_type.clone(),
-            child_session.config.workspace_path.clone(),
             None,
+            child_session.config.workspace_path.clone(),
             DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi)
                 .with_skip_tool_confirmation(true),
             user_message_metadata,
+            DialogExecutionSettings::default(),
             true,
         )
         .await?;
@@ -2824,6 +2893,64 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                 .with_skip_tool_confirmation(true)
                 .with_persist_agent_type(false),
             user_message_metadata,
+            Self::host_scan_execution_settings(),
+            true,
+        )
+        .await?;
+
+        Ok(turn_id)
+    }
+
+    pub async fn start_background_host_scan_turn(
+        &self,
+        request_id: &str,
+        model_id: Option<&str>,
+    ) -> BitFunResult<String> {
+        if request_id.trim().is_empty() {
+            return Err(BitFunError::Validation(
+                "request_id is required".to_string(),
+            ));
+        }
+
+        let parent_session = self.ensure_background_host_scan_parent_session().await?;
+        let child_session = self
+            .ensure_hidden_host_scan_session(
+                &parent_session.session_id,
+                BACKGROUND_HOST_SCAN_CHILD_SESSION_ID,
+                Some(default_host_scan_session_name()),
+            )
+            .await?;
+
+        if let Some(model_id) = model_id
+            .map(str::trim)
+            .filter(|model_id| !model_id.is_empty())
+        {
+            self.session_manager
+                .update_session_model_id(&child_session.session_id, model_id)
+                .await?;
+        }
+
+        let turn_id = format!("background-host-scan-turn-{}", request_id.trim());
+        let user_message_metadata = Some(serde_json::json!({
+            "kind": "host_scan",
+            "parentSessionId": parent_session.session_id,
+            "trigger": "auto",
+        }));
+
+        self.start_dialog_turn_internal(
+            child_session.session_id.clone(),
+            build_host_scan_user_prompt(),
+            Some("/scan_host".to_string()),
+            None,
+            Some(turn_id.clone()),
+            child_session.agent_type.clone(),
+            Some(build_host_scan_system_reminder()),
+            child_session.config.workspace_path.clone(),
+            DialogSubmissionPolicy::for_source(DialogTriggerSource::ScheduledJob)
+                .with_skip_tool_confirmation(true)
+                .with_persist_agent_type(false),
+            user_message_metadata,
+            Self::host_scan_execution_settings(),
             true,
         )
         .await?;

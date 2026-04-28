@@ -40,6 +40,10 @@ pub use file_watch::{
     FileWatcherConfig,
 };
 pub use filesystem::{DirectoryStats, FileSystemService, FileSystemServiceFactory};
+pub use host::{
+    get_global_host_auto_scan_service, set_global_host_auto_scan_service,
+    HostAutoScanEventSubscriber, HostAutoScanService, HostScanTrigger,
+};
 pub use i18n::{get_global_i18n_service, I18nConfig, I18nService, LocaleId, LocaleMetadata};
 pub use mcp::MCPService;
 pub use project_detection::{ProjectDetector, ProjectInfo};

@@ -21,6 +21,7 @@ pub struct ExecutionContext {
     pub hidden_session: bool,
     pub workspace: Option<WorkspaceBinding>,
     pub context: HashMap<String, String>,
+    pub tool_allowlist_override: Option<Vec<String>>,
     pub subagent_parent_info: Option<SubagentParentInfo>,
     pub skip_tool_confirmation: bool,
     pub runtime_tool_restrictions: ToolRuntimeRestrictions,

@@ -11,6 +11,7 @@ use std::sync::Arc;
 use tauri::State;
 
 use bitfun_core::agentic::coordination::ConversationCoordinator;
+use bitfun_core::service::{get_global_host_auto_scan_service, HostScanTrigger};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -44,7 +45,7 @@ pub async fn start_host_scan_stream(
         return Err("childSessionId is required".to_string());
     }
 
-    coordinator
+    let turn_id = coordinator
         .start_hidden_host_scan_turn(
             &request.request_id,
             &request.parent_session_id,
@@ -54,6 +55,13 @@ pub async fn start_host_scan_stream(
         )
         .await
         .map_err(|error| error.to_string())?;
+
+    if let Some(service) = get_global_host_auto_scan_service() {
+        service
+            .register_scan_turn(&turn_id, HostScanTrigger::Manual)
+            .await
+            .map_err(|error| error.to_string())?;
+    }
 
     Ok(StartHostScanResponse { ok: true })
 }

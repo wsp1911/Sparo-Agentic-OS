@@ -468,6 +468,11 @@ impl PathManager {
         self.agentic_os_host_dir().join("host_overview.md")
     }
 
+    /// Get the Agentic OS host scan state file path: ~/.bitfun/core/agentic_os/host/host_scan_state.json
+    pub fn agentic_os_host_scan_state_path(&self) -> PathBuf {
+        self.agentic_os_host_dir().join("host_scan_state.json")
+    }
+
     /// Get the runtime root for a workspace: ~/.bitfun/projects/<workspace-slug>/
     pub fn project_runtime_root(&self, workspace_path: &Path) -> PathBuf {
         self.projects_root()
@@ -804,6 +809,10 @@ mod tests {
         assert_eq!(
             pm.agentic_os_host_overview_path(),
             pm.agentic_os_host_dir().join("host_overview.md")
+        );
+        assert_eq!(
+            pm.agentic_os_host_scan_state_path(),
+            pm.agentic_os_host_dir().join("host_scan_state.json")
         );
     }
 }

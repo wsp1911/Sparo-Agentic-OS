@@ -503,6 +503,12 @@ impl ConfigProvider for AppConfigProvider {
                     app_config.logging.level
                 )));
             }
+
+            if app_config.host_scan.auto_scan_interval_days == 0 {
+                return Err(BitFunError::validation(
+                    "app.host_scan.auto_scan_interval_days must be greater than 0".to_string(),
+                ));
+            }
         } else {
             return Err(BitFunError::validation(
                 "Invalid app config format".to_string(),

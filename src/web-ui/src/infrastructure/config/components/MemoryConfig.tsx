@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ConfigPageLoading, NumberInput, Switch } from '@/component-library';
-import { notificationService } from '@/shared/notification-system';
+import { ConfigPageLoading, ConfigPageMessage, NumberInput, Select, Switch } from '@/component-library';
 import { createLogger } from '@/shared/utils/logger';
 import { configManager } from '../services/ConfigManager';
+import type { AppHostScanConfig } from '../types';
 import {
   ConfigPageContent,
   ConfigPageHeader,
@@ -53,13 +53,43 @@ const DEFAULT_EXTRACT_EVERY_ELIGIBLE_TURNS =
 const normalizeExtractEveryEligibleTurns = (value: number) =>
   Math.max(DEFAULT_EXTRACT_EVERY_ELIGIBLE_TURNS, value);
 
+const DEFAULT_HOST_SCAN_CONFIG: AppHostScanConfig = {
+  auto_scan_enabled: false,
+  auto_scan_interval_days: 7,
+};
+
 const MemoryConfig: React.FC = () => {
   const { t } = useTranslation('settings/memory');
   const [isLoading, setIsLoading] = useState(true);
   const [autoMemoryState, setAutoMemoryState] = useState<AutoMemoryState>(
     DEFAULT_AUTO_MEMORY_STATE
   );
+  const [hostScanConfig, setHostScanConfig] = useState<AppHostScanConfig>(DEFAULT_HOST_SCAN_CONFIG);
   const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const messageTimeoutRef = useRef<number | null>(null);
+
+  const hostScanIntervalOptions = useMemo(
+    () => [
+      { value: '1', label: t('hostScan.intervals.daily') },
+      { value: '3', label: t('hostScan.intervals.every3Days') },
+      { value: '7', label: t('hostScan.intervals.weekly') },
+      { value: '14', label: t('hostScan.intervals.every2Weeks') },
+      { value: '30', label: t('hostScan.intervals.monthly') },
+    ],
+    [t]
+  );
+
+  const showMessage = useCallback((type: 'success' | 'error', text: string) => {
+    setMessage({ type, text });
+    if (messageTimeoutRef.current !== null) {
+      window.clearTimeout(messageTimeoutRef.current);
+    }
+    messageTimeoutRef.current = window.setTimeout(() => {
+      setMessage(null);
+      messageTimeoutRef.current = null;
+    }, 3000);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +102,7 @@ const MemoryConfig: React.FC = () => {
           loadedGlobalThreshold,
           loadedWorkspaceEnabled,
           loadedWorkspaceThreshold,
+          loadedHostScanConfig,
         ] = await Promise.all([
           configManager.getConfig<boolean>(AUTO_MEMORY_CONFIG_PATHS.global.enabled),
           configManager.getConfig<number>(AUTO_MEMORY_CONFIG_PATHS.global.extractEveryEligibleTurns),
@@ -79,6 +110,7 @@ const MemoryConfig: React.FC = () => {
           configManager.getConfig<number>(
             AUTO_MEMORY_CONFIG_PATHS.workspace.extractEveryEligibleTurns
           ),
+          configManager.getConfig<AppHostScanConfig>('app.host_scan'),
         ]);
 
         if (cancelled) {
@@ -100,10 +132,17 @@ const MemoryConfig: React.FC = () => {
             ),
           },
         });
+        setHostScanConfig({
+          auto_scan_enabled:
+            loadedHostScanConfig?.auto_scan_enabled ?? DEFAULT_HOST_SCAN_CONFIG.auto_scan_enabled,
+          auto_scan_interval_days:
+            loadedHostScanConfig?.auto_scan_interval_days ??
+            DEFAULT_HOST_SCAN_CONFIG.auto_scan_interval_days,
+        });
       } catch (error) {
         log.error('Failed to load auto memory settings', error);
         if (!cancelled) {
-          notificationService.error(t('messages.saveFailed'));
+          showMessage('error', t('messages.loadFailed'));
         }
       } finally {
         if (!cancelled) {
@@ -117,7 +156,13 @@ const MemoryConfig: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [showMessage, t]);
+
+  useEffect(() => () => {
+    if (messageTimeoutRef.current !== null) {
+      window.clearTimeout(messageTimeoutRef.current);
+    }
+  }, []);
 
   const updateScopeState = (
     scope: AutoMemoryScopeKey,
@@ -138,14 +183,14 @@ const MemoryConfig: React.FC = () => {
     setIsSaving(true);
     try {
       await configManager.setConfig(AUTO_MEMORY_CONFIG_PATHS[scope].enabled, nextValue);
-      notificationService.success(t('messages.saveSuccess'), { duration: 2000 });
+      showMessage('success', t('messages.saveSuccess'));
     } catch (error) {
       log.error('Failed to save auto memory enabled setting', {
         scope,
         error,
       });
       updateScopeState(scope, { enabled: previousValue });
-      notificationService.error(t('messages.saveFailed'));
+      showMessage('error', t('messages.saveFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -166,18 +211,61 @@ const MemoryConfig: React.FC = () => {
         AUTO_MEMORY_CONFIG_PATHS[scope].extractEveryEligibleTurns,
         normalizedValue
       );
-      notificationService.success(t('messages.saveSuccess'), { duration: 2000 });
+      showMessage('success', t('messages.saveSuccess'));
     } catch (error) {
       log.error('Failed to save auto memory threshold setting', {
         scope,
         error,
       });
       updateScopeState(scope, { extractEveryEligibleTurns: previousValue });
-      notificationService.error(t('messages.saveFailed'));
+      showMessage('error', t('messages.saveFailed'));
     } finally {
       setIsSaving(false);
     }
   };
+
+  const persistHostScanConfig = useCallback(
+    async (nextConfig: AppHostScanConfig, successMessage: string) => {
+      setIsSaving(true);
+      try {
+        await configManager.setConfig('app.host_scan', nextConfig);
+        configManager.clearCache();
+        setHostScanConfig(nextConfig);
+        showMessage('success', successMessage);
+      } catch (error) {
+        log.error('Failed to save host scan config', { nextConfig, error });
+        showMessage('error', t('hostScan.messages.saveFailed'));
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [showMessage, t]
+  );
+
+  const handleHostScanEnabledChange = useCallback(
+    async (checked: boolean) => {
+      await persistHostScanConfig(
+        { ...hostScanConfig, auto_scan_enabled: checked },
+        t('hostScan.messages.enabledUpdated')
+      );
+    },
+    [hostScanConfig, persistHostScanConfig, t]
+  );
+
+  const handleHostScanIntervalChange = useCallback(
+    async (value: string) => {
+      const nextInterval = Number.parseInt(value, 10);
+      if (!Number.isFinite(nextInterval) || nextInterval <= 0) {
+        return;
+      }
+
+      await persistHostScanConfig(
+        { ...hostScanConfig, auto_scan_interval_days: nextInterval },
+        t('hostScan.messages.intervalUpdated')
+      );
+    },
+    [hostScanConfig, persistHostScanConfig, t]
+  );
 
   if (isLoading) {
     return (
@@ -235,7 +323,40 @@ const MemoryConfig: React.FC = () => {
     <ConfigPageLayout className="bitfun-func-agent-config">
       <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
       <ConfigPageContent className="bitfun-func-agent-config__content">
+        <ConfigPageMessage message={message} />
         {AUTO_MEMORY_SCOPES.map(renderScopeSection)}
+        <ConfigPageSection
+          title={t('hostScan.title')}
+          description={t('hostScan.hint')}
+        >
+          <ConfigPageRow
+            label={t('hostScan.enable.label')}
+            align="center"
+          >
+            <div className="bitfun-func-agent-config__row-control">
+              <Switch
+                checked={hostScanConfig.auto_scan_enabled}
+                onChange={(event) => void handleHostScanEnabledChange(event.target.checked)}
+                disabled={isSaving}
+                size="small"
+              />
+            </div>
+          </ConfigPageRow>
+          <ConfigPageRow
+            label={t('hostScan.interval.label')}
+            description={t('hostScan.interval.description')}
+            align="center"
+          >
+            <div className="bitfun-func-agent-config__row-control">
+              <Select
+                value={String(hostScanConfig.auto_scan_interval_days)}
+                onChange={(value) => void handleHostScanIntervalChange(value as string)}
+                options={hostScanIntervalOptions}
+                disabled={isSaving || !hostScanConfig.auto_scan_enabled}
+              />
+            </div>
+          </ConfigPageRow>
+        </ConfigPageSection>
       </ConfigPageContent>
     </ConfigPageLayout>
   );

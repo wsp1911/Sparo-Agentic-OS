@@ -72,6 +72,43 @@ pub struct ExecutionEngine {
 }
 
 impl ExecutionEngine {
+    fn resolve_effective_tool_allowlist(
+        mode_allowed_tools: Vec<String>,
+        tool_allowlist_override: Option<&[String]>,
+    ) -> Vec<String> {
+        let Some(tool_allowlist_override) = tool_allowlist_override else {
+            return mode_allowed_tools;
+        };
+
+        let mode_allowed_set: HashSet<&str> =
+            mode_allowed_tools.iter().map(String::as_str).collect();
+        tool_allowlist_override
+            .iter()
+            .filter(|tool_name| mode_allowed_set.contains(tool_name.as_str()))
+            .cloned()
+            .collect()
+    }
+
+    fn intersect_runtime_tool_restrictions_with_visible_tools(
+        restrictions: &ToolRuntimeRestrictions,
+        visible_tools: &[String],
+    ) -> ToolRuntimeRestrictions {
+        if restrictions.allowed_tool_names.is_empty() {
+            return restrictions.clone();
+        }
+
+        let visible_tool_names: HashSet<&str> = visible_tools.iter().map(String::as_str).collect();
+        let mut next = restrictions.clone();
+        let original_allowed = next.allowed_tool_names.clone();
+        next.allowed_tool_names.retain(|tool_name| {
+            visible_tool_names.contains(tool_name.as_str())
+        });
+        if next.allowed_tool_names.is_empty() {
+            next.allowed_tool_names = original_allowed;
+        }
+        next
+    }
+
     pub fn new(
         round_executor: Arc<RoundExecutor>,
         event_queue: Arc<EventQueue>,
@@ -1191,7 +1228,7 @@ impl ExecutionEngine {
         );
 
         // 4. Get available tools list (read tool configuration for current mode from global config)
-        let allowed_tools = agent_registry
+        let agent_allowed_tools = agent_registry
             .get_agent_tools(
                 &agent_type,
                 context
@@ -1200,6 +1237,10 @@ impl ExecutionEngine {
                     .map(|workspace| workspace.root_path()),
             )
             .await;
+        let allowed_tools = Self::resolve_effective_tool_allowlist(
+            agent_allowed_tools,
+            context.tool_allowlist_override.as_deref(),
+        );
         let enable_tools = context
             .context
             .get("enable_tools")
@@ -1221,6 +1262,10 @@ impl ExecutionEngine {
         } else {
             (vec![], None)
         };
+        let runtime_tool_restrictions = Self::intersect_runtime_tool_restrictions_with_visible_tools(
+            &context.runtime_tool_restrictions,
+            &available_tools,
+        );
 
         let enable_context_compression = session.config.enable_context_compression;
         let compression_threshold = session.config.compression_threshold;
@@ -1426,7 +1471,7 @@ impl ExecutionEngine {
                 model_name: ai_client.config.model.clone(),
                 agent_type: agent_type.clone(),
                 context_vars: round_context_vars,
-                runtime_tool_restrictions: context.runtime_tool_restrictions.clone(),
+                runtime_tool_restrictions: runtime_tool_restrictions.clone(),
                 cancellation_token: CancellationToken::new(),
                 workspace_services: context.workspace_services.clone(),
             };

@@ -22,7 +22,33 @@
   "loading": {
     "text": "加载配置中..."
   },
+  "hostScan": {
+    "title": "主机扫描",
+    "hint": "后台维护主机级概览，帮助后续会话判断代码、文档、软件和新工作区更可能放在哪里",
+    "enable": {
+      "label": "启用后台自动扫描",
+      "description": "在后台使用临时 dispatcher 会话定期更新 host overview；首次缺失或为空时会延后 10 分钟再尝试"
+    },
+    "interval": {
+      "label": "常规扫描间隔",
+      "description": "当 host overview 已存在且非空时，按这个间隔检查并刷新概览"
+    },
+    "intervals": {
+      "daily": "每天",
+      "every3Days": "每 3 天",
+      "weekly": "每 7 天",
+      "every2Weeks": "每 14 天",
+      "monthly": "每 30 天"
+    },
+    "messages": {
+      "loadFailed": "加载主机扫描设置失败",
+      "saveFailed": "保存主机扫描设置失败",
+      "enabledUpdated": "主机扫描开关已更新",
+      "intervalUpdated": "主机扫描间隔已更新"
+    }
+  },
   "messages": {
+    "loadFailed": "加载配置失败",
     "saveSuccess": "设置已保存",
     "saveFailed": "保存失败"
   }

@@ -73,6 +73,8 @@ pub struct AppConfig {
     pub notifications: NotificationConfig,
     #[serde(default)]
     pub session_config: AppSessionConfig,
+    #[serde(default)]
+    pub host_scan: AppHostScanConfig,
     pub ai_experience: AIExperienceConfig,
     /// User-defined keyboard shortcut overrides.
     /// Stored as opaque JSON so the backend remains schema-agnostic;
@@ -97,6 +99,16 @@ pub struct AppSessionConfig {
     /// Default new session mode used by the frontend.
     /// Supported values: "code", "cowork", "design".
     pub default_mode: String,
+}
+
+/// Host scan automation settings.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AppHostScanConfig {
+    /// Whether automatic background host scan is enabled.
+    pub auto_scan_enabled: bool,
+    /// Background scan interval in days once a valid overview exists.
+    pub auto_scan_interval_days: u32,
 }
 
 /// AI experience configuration.
@@ -1189,6 +1201,7 @@ impl Default for AppConfig {
                 enable_startup_tips: true,
             },
             session_config: AppSessionConfig::default(),
+            host_scan: AppHostScanConfig::default(),
             ai_experience: AIExperienceConfig::default(),
             keybindings: None,
         }
@@ -1208,6 +1221,15 @@ impl Default for AppSessionConfig {
     fn default() -> Self {
         Self {
             default_mode: "code".to_string(),
+        }
+    }
+}
+
+impl Default for AppHostScanConfig {
+    fn default() -> Self {
+        Self {
+            auto_scan_enabled: true,
+            auto_scan_interval_days: 7,
         }
     }
 }
