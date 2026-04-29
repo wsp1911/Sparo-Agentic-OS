@@ -217,7 +217,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     }
     const model = allModels.find(m => m.id === configuredModelId);
     return model ? configuredModelId : 'primary';
-  }, [allModels, currentMode, agentModels, defaultModels]);
+  }, [allModels, currentMode, agentModels]);
   
   const currentModel = useMemo((): ModelInfo | null => {
     const modelId = getCurrentModelId();
