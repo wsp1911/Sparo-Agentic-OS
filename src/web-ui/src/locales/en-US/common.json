@@ -1053,6 +1053,39 @@
     "deleteDialog": {
       "title": "Forget this memory?",
       "message": "\"{{name}}\" will be removed from the memory library and the agent will no longer use it proactively."
+    },
+    "overview": {
+      "modes": {
+        "graph": "Constellation",
+        "list": "List"
+      },
+      "summary": "{{total}} memories · {{global}} global · {{workspaces}} workspace orbit(s)",
+      "workspaceCount": "{{count}} workspace orbit(s)",
+      "hint": "Click a node for details · Scroll to zoom · Drag to pan"
+    },
+    "drawer": {
+      "tabs": {
+        "summary": "Summary",
+        "content": "Content",
+        "relations": "Relations"
+      },
+      "stats": {
+        "updated": "Last updated",
+        "words": "Words",
+        "lines": "Lines",
+        "related": "Related"
+      },
+      "sections": {
+        "description": "Description"
+      },
+      "relations": {
+        "empty": "No related memories yet",
+        "reasons": {
+          "index": "Index in same scope",
+          "same-folder": "Same folder",
+          "cross-scope": "Cross-scope bridge"
+        }
+      }
     }
   },
   "taskDetailScene": {

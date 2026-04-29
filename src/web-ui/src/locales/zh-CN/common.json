@@ -1057,6 +1057,39 @@
     "deleteDialog": {
       "title": "遗忘这条记忆？",
       "message": "“{{name}}” 将从记忆库中移除，未来 Agent 不会再主动使用它。"
+    },
+    "overview": {
+      "modes": {
+        "graph": "星图",
+        "list": "列表"
+      },
+      "summary": "共 {{total}} 条记忆 · 全局 {{global}} · 工作区 {{workspaces}}",
+      "workspaceCount": "{{count}} 个工作区轨道",
+      "hint": "点击节点查看详情 · 滚轮缩放 · 拖拽平移"
+    },
+    "drawer": {
+      "tabs": {
+        "summary": "概要",
+        "content": "内容",
+        "relations": "关联"
+      },
+      "stats": {
+        "updated": "最近更新",
+        "words": "字数",
+        "lines": "行数",
+        "related": "关联节点"
+      },
+      "sections": {
+        "description": "描述"
+      },
+      "relations": {
+        "empty": "暂无与之相关的记忆",
+        "reasons": {
+          "index": "同范围索引",
+          "same-folder": "同目录",
+          "cross-scope": "跨范围桥接"
+        }
+      }
     }
   },
   "taskDetailScene": {
