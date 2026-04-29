@@ -248,7 +248,7 @@ pub struct ThemesConfig {
 impl Default for ThemesConfig {
     fn default() -> Self {
         Self {
-            current: "bitfun-light".to_string(),
+            current: "light".to_string(),
             custom: None,
         }
     }

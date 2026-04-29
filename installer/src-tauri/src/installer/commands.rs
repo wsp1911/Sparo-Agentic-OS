@@ -606,15 +606,20 @@ pub fn close_installer(window: Window) {
 pub fn set_theme_preference(theme_preference: String) -> Result<(), String> {
     let allowed = [
         "system",
-        "bitfun-dark",
-        "bitfun-light",
-        "bitfun-midnight",
+        "dark",
+        "light",
         "bitfun-china-style",
         "bitfun-china-night",
         "bitfun-cyber",
-        "bitfun-slate",
+        "slate",
     ];
-    if !allowed.contains(&theme_preference.as_str()) {
+    let normalized = match theme_preference.as_str() {
+        "sparo-light" | "bitfun-light" => "light".to_string(),
+        "bitfun-dark" => "dark".to_string(),
+        "bitfun-slate" | "bitfun-midnight" => "slate".to_string(),
+        other => other.to_string(),
+    };
+    if !allowed.contains(&normalized.as_str()) {
         return Err("Unsupported theme preference".to_string());
     }
 
@@ -630,7 +635,7 @@ pub fn set_theme_preference(theme_preference: String) -> Result<(), String> {
         .or_insert_with(|| Value::Object(Map::new()))
         .as_object_mut()
         .ok_or_else(|| "Invalid themes config object".to_string())?;
-    themes_obj.insert("current".to_string(), Value::String(theme_preference));
+    themes_obj.insert("current".to_string(), Value::String(normalized));
 
     write_root_config(&app_config_file, &root)
 }

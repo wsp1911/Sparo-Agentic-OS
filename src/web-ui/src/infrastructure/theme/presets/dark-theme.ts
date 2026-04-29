@@ -2,14 +2,14 @@
 
 import { ThemeConfig } from '../types';
 
-export const bitfunDarkTheme: ThemeConfig = {
+/** Default Sparo OS dark preset — aligns accent with the Light theme ink-red ramp. */
+export const darkTheme: ThemeConfig = {
   
-  id: 'bitfun-dark',
+  id: 'dark',
   name: 'Dark',
   type: 'dark',
-  description: 'Default dark theme',
-  author: 'BitFun Team',
-  version: '2.1.0',
+  description: 'Default Sparo OS dark theme — restrained surfaces with ink-red accent',
+  version: '2.2.0',
   
   
   colors: {
@@ -32,15 +32,15 @@ export const bitfunDarkTheme: ThemeConfig = {
     },
     
     accent: {
-      50: 'rgba(96, 165, 250, 0.04)',
-      100: 'rgba(96, 165, 250, 0.08)',
-      200: 'rgba(96, 165, 250, 0.15)',
-      300: 'rgba(96, 165, 250, 0.25)',
-      400: 'rgba(96, 165, 250, 0.4)',
-      500: '#60a5fa',
-      600: '#3b82f6',
-      700: 'rgba(59, 130, 246, 0.8)',
-      800: 'rgba(59, 130, 246, 0.9)',
+      50: 'rgba(183, 55, 47, 0.05)',
+      100: 'rgba(183, 55, 47, 0.09)',
+      200: 'rgba(183, 55, 47, 0.14)',
+      300: 'rgba(183, 55, 47, 0.24)',
+      400: 'rgba(183, 55, 47, 0.42)',
+      500: '#B7372F',
+      600: '#9E2F29',
+      700: 'rgba(158, 47, 41, 0.88)',
+      800: 'rgba(128, 36, 32, 0.94)',
     },
     
     purple: {
@@ -64,17 +64,16 @@ export const bitfunDarkTheme: ThemeConfig = {
       warningBg: 'rgba(245, 158, 11, 0.1)',
       warningBorder: 'rgba(245, 158, 11, 0.3)',
       
-      error: '#ef4444',
-      errorBg: 'rgba(239, 68, 68, 0.1)',
-      errorBorder: 'rgba(239, 68, 68, 0.3)',
+      error: '#B7372F',
+      errorBg: 'rgba(183, 55, 47, 0.12)',
+      errorBorder: 'rgba(183, 55, 47, 0.35)',
       
       info: '#a1a1aa',
       infoBg: 'rgba(255, 255, 255, 0.08)',
       infoBorder: 'rgba(255, 255, 255, 0.22)',
       
-      
-      highlight: '#a8a8a8',
-      highlightBg: 'rgba(255, 255, 255, 0.1)',
+      highlight: '#B7372F',
+      highlightBg: 'rgba(183, 55, 47, 0.14)',
     },
     
     border: {
@@ -125,9 +124,9 @@ export const bitfunDarkTheme: ThemeConfig = {
     },
     
     glow: {
-      blue: '0 12px 32px rgba(96, 165, 250, 0.2), 0 6px 16px rgba(96, 165, 250, 0.12), 0 3px 8px rgba(0, 0, 0, 0.12)',
+      blue: '0 12px 32px rgba(183, 55, 47, 0.18), 0 6px 16px rgba(183, 55, 47, 0.1), 0 3px 8px rgba(0, 0, 0, 0.12)',
       purple: '0 12px 32px rgba(139, 92, 246, 0.22), 0 6px 16px rgba(124, 58, 237, 0.14), 0 3px 8px rgba(0, 0, 0, 0.12)',
-      mixed: '0 12px 32px rgba(255, 255, 255, 0.06), 0 6px 16px rgba(139, 92, 246, 0.12), 0 3px 8px rgba(0, 0, 0, 0.12)',
+      mixed: '0 12px 32px rgba(255, 255, 255, 0.06), 0 6px 16px rgba(183, 55, 47, 0.1), 0 3px 8px rgba(0, 0, 0, 0.12)',
     },
     
     blur: {
@@ -252,7 +251,7 @@ export const bitfunDarkTheme: ThemeConfig = {
         defaultColor: 'rgba(232, 232, 232, 0.9)',
         defaultDot: 'rgba(255, 255, 255, 0.2)',
         disabledDot: 'rgba(255, 255, 255, 0.1)',
-        flowGradient: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.05), transparent)',
+        flowGradient: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04), rgba(183, 55, 47, 0.1), rgba(255, 255, 255, 0.04), transparent)',
       },
     },
     
@@ -282,23 +281,23 @@ export const bitfunDarkTheme: ThemeConfig = {
       
       primary: {
         default: {
-          background: 'rgba(255, 255, 255, 0.16)',
-          color: '#f4f4f5',
+          background: '#B7372F',
+          color: '#FFFFFF',
           border: 'transparent',
-          shadow: 'none',
+          shadow: '0 2px 8px rgba(183, 55, 47, 0.22)',
         },
         hover: {
-          background: 'rgba(255, 255, 255, 0.24)',
-          color: '#fafafa',
+          background: '#9E2F29',
+          color: '#FFFFFF',
           border: 'transparent',
-          shadow: 'none',
+          shadow: '0 4px 14px rgba(183, 55, 47, 0.28)',
           transform: 'none',
         },
         active: {
-          background: 'rgba(255, 255, 255, 0.2)',
-          color: '#fafafa',
+          background: '#802420',
+          color: '#FFFFFF',
           border: 'transparent',
-          shadow: 'none',
+          shadow: '0 2px 8px rgba(183, 55, 47, 0.22)',
           transform: 'none',
         },
       },
@@ -340,13 +339,10 @@ export const bitfunDarkTheme: ThemeConfig = {
       background: '#121214',
       foreground: '#e8e8e8',
       lineHighlight: '#18181a',
-      selection: 'rgba(255, 255, 255, 0.12)',
-      cursor: '#c4c4c4',
+      selection: 'rgba(183, 55, 47, 0.28)',
+      cursor: '#B7372F',
     },
   },
 };
-
-
-
 
 

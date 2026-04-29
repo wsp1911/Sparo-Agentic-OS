@@ -103,7 +103,7 @@ export type { EditorBreadcrumbProps } from './components/EditorBreadcrumb';
 export { EditorStatusBar } from './components/EditorStatusBar';
 export type { EditorStatusBarProps } from './components/EditorStatusBar';
 
-export { BitFunDarkTheme, BitFunDarkThemeMetadata } from './themes/bitfun-dark.theme';
+export { SparoOsDarkTheme, SparoOsDarkThemeMetadata } from './themes/sparo-dark.theme';
 
 import { createLogger } from '@/shared/utils/logger';
 

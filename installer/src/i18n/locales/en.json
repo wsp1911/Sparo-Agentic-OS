@@ -196,13 +196,12 @@
     "followSystem": "Match system",
     "skip": "Skip theme and launch",
     "themeNames": {
-      "bitfun-dark": "Dark",
-      "bitfun-light": "Light",
-      "bitfun-midnight": "Midnight",
+      "dark": "Dark",
+      "light": "Light",
       "bitfun-china-style": "Ink Charm",
       "bitfun-china-night": "Ink Night",
       "bitfun-cyber": "Cyber",
-      "bitfun-slate": "Slate"
+      "slate": "Slate"
     }
   },
   "complete": {

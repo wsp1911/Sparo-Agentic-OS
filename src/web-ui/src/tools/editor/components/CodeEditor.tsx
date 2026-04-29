@@ -13,8 +13,8 @@ import { monacoModelManager } from '../services/MonacoModelManager';
 import { activeEditTargetService, createMonacoEditTarget } from '../services/ActiveEditTargetService';
 import { 
   forceRegisterTheme,
-  BitFunDarkTheme,
-  BitFunDarkThemeMetadata 
+  SparoOsDarkTheme,
+  SparoOsDarkThemeMetadata 
 } from '../themes';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { configManager } from '@/infrastructure/config/services/ConfigManager';
@@ -210,7 +210,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     line_numbers: 'on',
     minimap: { enabled: showMinimap, side: 'right', size: 'proportional' }
   });
-  const [_currentThemeId, setCurrentThemeId] = useState<string>(BitFunDarkThemeMetadata.id);
+  const [_currentThemeId, setCurrentThemeId] = useState<string>(SparoOsDarkThemeMetadata.id);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const [selection, setSelection] = useState({ chars: 0, lines: 0 });
   const [statusBarPopover, setStatusBarPopover] = useState<null | 'position' | 'indent' | 'encoding' | 'language'>(null);
@@ -598,15 +598,20 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           }
         }
 
-        forceRegisterTheme(BitFunDarkThemeMetadata.id, BitFunDarkTheme);
+        forceRegisterTheme(SparoOsDarkThemeMetadata.id, SparoOsDarkTheme);
 
-        let themeId = BitFunDarkThemeMetadata.id;
+        let themeId: monaco.editor.IStandaloneEditorConstructionOptions['theme'] =
+          SparoOsDarkThemeMetadata.id;
         try {
           const { themeService } = await import('@/infrastructure/theme');
           const currentTheme = themeService.getCurrentTheme();
           if (currentTheme) {
-            themeId = currentTheme.monaco ? currentTheme.id : (currentTheme.type === 'dark' ? BitFunDarkThemeMetadata.id : 'vs');
-            setCurrentThemeId(themeId);
+            themeId = (currentTheme.monaco
+              ? currentTheme.id
+              : currentTheme.type === 'dark'
+                ? SparoOsDarkThemeMetadata.id
+                : 'vs') as monaco.editor.IStandaloneEditorConstructionOptions['theme'];
+            setCurrentThemeId(themeId ?? SparoOsDarkThemeMetadata.id);
           }
         } catch (error) {
           log.warn('Failed to get current theme, using default', error);
@@ -1949,7 +1954,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         
         unsubscribeThemeService = themeService.on('theme:after-change', (event) => {
           if (event.theme) {
-            const newThemeId = event.theme.monaco ? event.theme.id : (event.theme.type === 'dark' ? BitFunDarkThemeMetadata.id : 'vs');
+            const newThemeId = event.theme.monaco ? event.theme.id : (event.theme.type === 'dark' ? SparoOsDarkThemeMetadata.id : 'vs');
             
             setCurrentThemeId(newThemeId);
             

@@ -51,45 +51,31 @@ export type InstallerTheme = {
 
 export const THEMES: InstallerTheme[] = [
   {
-    id: 'bitfun-dark',
+    id: 'dark',
     name: 'Dark',
     type: 'dark',
     colors: {
       background: { primary: '#121214', secondary: '#18181a', tertiary: '#121214', quaternary: '#202024', elevated: '#18181a', workbench: '#121214', flowchat: '#121214', tooltip: 'rgba(30, 30, 32, 0.92)' },
       text: { primary: '#e8e8e8', secondary: '#b0b0b0', muted: '#858585', disabled: '#555555' },
-      accent: { '50': 'rgba(96, 165, 250, 0.04)', '100': 'rgba(96, 165, 250, 0.08)', '200': 'rgba(96, 165, 250, 0.15)', '300': 'rgba(96, 165, 250, 0.25)', '400': 'rgba(96, 165, 250, 0.4)', '500': '#60a5fa', '600': '#3b82f6', '700': 'rgba(59, 130, 246, 0.8)', '800': 'rgba(59, 130, 246, 0.9)' },
+      accent: { '50': 'rgba(183, 55, 47, 0.05)', '100': 'rgba(183, 55, 47, 0.09)', '200': 'rgba(183, 55, 47, 0.14)', '300': 'rgba(183, 55, 47, 0.24)', '400': 'rgba(183, 55, 47, 0.42)', '500': '#B7372F', '600': '#9E2F29', '700': 'rgba(158, 47, 41, 0.88)', '800': 'rgba(128, 36, 32, 0.94)' },
       purple: { '50': 'rgba(139, 92, 246, 0.04)', '100': 'rgba(139, 92, 246, 0.08)', '200': 'rgba(139, 92, 246, 0.15)', '300': 'rgba(139, 92, 246, 0.25)', '400': 'rgba(139, 92, 246, 0.4)', '500': '#8b5cf6', '600': '#7c3aed', '700': 'rgba(124, 58, 237, 0.8)', '800': 'rgba(124, 58, 237, 0.9)' },
-      semantic: { success: '#34d399', warning: '#f59e0b', error: '#ef4444', info: '#E1AB80', highlight: '#d4a574', highlightBg: 'rgba(212, 165, 116, 0.15)' },
-      border: { subtle: 'rgba(255, 255, 255, 0.12)', base: 'rgba(255, 255, 255, 0.18)', medium: 'rgba(255, 255, 255, 0.24)', strong: 'rgba(255, 255, 255, 0.32)', prominent: 'rgba(225, 171, 128, 0.50)' },
+      semantic: { success: '#34d399', warning: '#f59e0b', error: '#B7372F', info: '#a1a1aa', highlight: '#B7372F', highlightBg: 'rgba(183, 55, 47, 0.14)' },
+      border: { subtle: 'rgba(255, 255, 255, 0.12)', base: 'rgba(255, 255, 255, 0.18)', medium: 'rgba(255, 255, 255, 0.24)', strong: 'rgba(255, 255, 255, 0.32)', prominent: 'rgba(255, 255, 255, 0.40)' },
       element: { subtle: 'rgba(255, 255, 255, 0.06)', soft: 'rgba(255, 255, 255, 0.10)', base: 'rgba(255, 255, 255, 0.13)', medium: 'rgba(255, 255, 255, 0.17)', strong: 'rgba(255, 255, 255, 0.21)', elevated: 'rgba(255, 255, 255, 0.25)' },
     },
   },
   {
-    id: 'bitfun-light',
+    id: 'light',
     name: 'Light',
     type: 'light',
     colors: {
-      background: { primary: '#f7f8fa', secondary: '#ffffff', tertiary: '#f3f5f8', quaternary: '#ebeef3', elevated: '#ffffff', workbench: '#f7f8fa', flowchat: '#f7f8fa', tooltip: 'rgba(255, 255, 255, 0.98)' },
-      text: { primary: '#1e293b', secondary: '#3d4f66', muted: '#64748b', disabled: '#94a3b8' },
-      accent: { '50': 'rgba(71, 102, 143, 0.04)', '100': 'rgba(71, 102, 143, 0.08)', '200': 'rgba(71, 102, 143, 0.14)', '300': 'rgba(71, 102, 143, 0.22)', '400': 'rgba(71, 102, 143, 0.36)', '500': '#5a7bb2', '600': '#4a6694', '700': 'rgba(74, 102, 148, 0.8)', '800': 'rgba(74, 102, 148, 0.9)' },
-      purple: { '50': 'rgba(107, 90, 137, 0.04)', '100': 'rgba(107, 90, 137, 0.08)', '200': 'rgba(107, 90, 137, 0.14)', '300': 'rgba(107, 90, 137, 0.22)', '400': 'rgba(107, 90, 137, 0.36)', '500': '#7c6b99', '600': '#655680', '700': 'rgba(101, 86, 128, 0.8)', '800': 'rgba(101, 86, 128, 0.9)' },
-      semantic: { success: '#5b9a6f', warning: '#c08c42', error: '#c26565', info: '#5a7bb2', highlight: '#b8863a', highlightBg: 'rgba(184, 134, 58, 0.12)' },
-      border: { subtle: 'rgba(100, 116, 139, 0.15)', base: 'rgba(100, 116, 139, 0.22)', medium: 'rgba(100, 116, 139, 0.32)', strong: 'rgba(100, 116, 139, 0.42)', prominent: 'rgba(100, 116, 139, 0.52)' },
-      element: { subtle: 'rgba(71, 102, 143, 0.05)', soft: 'rgba(71, 102, 143, 0.08)', base: 'rgba(71, 102, 143, 0.11)', medium: 'rgba(71, 102, 143, 0.15)', strong: 'rgba(71, 102, 143, 0.20)', elevated: 'rgba(255, 255, 255, 0.92)' },
-    },
-  },
-  {
-    id: 'bitfun-midnight',
-    name: 'Midnight',
-    type: 'dark',
-    colors: {
-      background: { primary: '#2b2d30', secondary: '#1e1f22', tertiary: '#313335', quaternary: '#3c3f41', elevated: '#2b2d30', workbench: '#212121', flowchat: '#2b2d30', tooltip: 'rgba(43, 45, 48, 0.94)' },
-      text: { primary: '#bcbec4', secondary: '#9da0a8', muted: '#6f737a', disabled: '#4e5157' },
-      accent: { '50': 'rgba(88, 166, 255, 0.04)', '100': 'rgba(88, 166, 255, 0.08)', '200': 'rgba(88, 166, 255, 0.15)', '300': 'rgba(88, 166, 255, 0.25)', '400': 'rgba(88, 166, 255, 0.4)', '500': '#58a6ff', '600': '#3b82f6', '700': 'rgba(59, 130, 246, 0.8)', '800': 'rgba(59, 130, 246, 0.9)' },
-      purple: { '50': 'rgba(156, 120, 255, 0.04)', '100': 'rgba(156, 120, 255, 0.08)', '200': 'rgba(156, 120, 255, 0.15)', '300': 'rgba(156, 120, 255, 0.25)', '400': 'rgba(156, 120, 255, 0.4)', '500': '#9c78ff', '600': '#8b5cf6', '700': 'rgba(139, 92, 246, 0.8)', '800': 'rgba(139, 92, 246, 0.9)' },
-      semantic: { success: '#6aab73', warning: '#e0a055', error: '#cc7f7a', info: '#58a6ff', highlight: '#d4a574', highlightBg: 'rgba(212, 165, 116, 0.15)' },
-      border: { subtle: 'rgba(255, 255, 255, 0.08)', base: 'rgba(255, 255, 255, 0.14)', medium: 'rgba(255, 255, 255, 0.20)', strong: 'rgba(255, 255, 255, 0.26)', prominent: 'rgba(255, 255, 255, 0.35)' },
-      element: { subtle: 'rgba(255, 255, 255, 0.04)', soft: 'rgba(255, 255, 255, 0.06)', base: 'rgba(255, 255, 255, 0.09)', medium: 'rgba(255, 255, 255, 0.12)', strong: 'rgba(255, 255, 255, 0.15)', elevated: 'rgba(255, 255, 255, 0.18)' },
+      background: { primary: '#F8FAFC', secondary: '#FFFFFF', tertiary: '#F1F5F9', quaternary: '#E7ECF3', elevated: '#FFFFFF', workbench: '#F3F6FA', flowchat: '#FFFFFF', tooltip: 'rgba(255, 255, 255, 0.98)' },
+      text: { primary: '#0F172A', secondary: '#253044', muted: '#5B6B8C', disabled: 'rgba(91, 107, 140, 0.56)' },
+      accent: { '50': 'rgba(183, 55, 47, 0.045)', '100': 'rgba(183, 55, 47, 0.08)', '200': 'rgba(183, 55, 47, 0.13)', '300': 'rgba(183, 55, 47, 0.22)', '400': 'rgba(183, 55, 47, 0.42)', '500': '#B7372F', '600': '#9E2F29', '700': 'rgba(158, 47, 41, 0.88)', '800': 'rgba(128, 36, 32, 0.94)' },
+      purple: { '50': 'rgba(91, 107, 140, 0.045)', '100': 'rgba(91, 107, 140, 0.08)', '200': 'rgba(91, 107, 140, 0.13)', '300': 'rgba(91, 107, 140, 0.2)', '400': 'rgba(91, 107, 140, 0.34)', '500': '#5B6B8C', '600': '#253044', '700': 'rgba(37, 48, 68, 0.82)', '800': 'rgba(15, 23, 42, 0.9)' },
+      semantic: { success: '#4F8F67', warning: '#B8842B', error: '#B7372F', info: '#5B6B8C', highlight: '#B7372F', highlightBg: 'rgba(183, 55, 47, 0.11)' },
+      border: { subtle: 'rgba(15, 23, 42, 0.08)', base: 'rgba(15, 23, 42, 0.12)', medium: 'rgba(15, 23, 42, 0.18)', strong: 'rgba(15, 23, 42, 0.28)', prominent: 'rgba(15, 23, 42, 0.38)' },
+      element: { subtle: 'rgba(15, 23, 42, 0.035)', soft: 'rgba(15, 23, 42, 0.055)', base: 'rgba(15, 23, 42, 0.075)', medium: 'rgba(15, 23, 42, 0.105)', strong: 'rgba(15, 23, 42, 0.145)', elevated: 'rgba(255, 255, 255, 0.94)' },
     },
   },
   {
@@ -135,15 +121,15 @@ export const THEMES: InstallerTheme[] = [
     },
   },
   {
-    id: 'bitfun-slate',
+    id: 'slate',
     name: 'Slate',
     type: 'dark',
     colors: {
-      background: { primary: '#1a1c1e', secondary: '#1a1c1e', tertiary: '#1a1c1e', quaternary: '#32363a', elevated: '#1a1c1e', workbench: '#1a1c1e', flowchat: '#1a1c1e', tooltip: 'rgba(42, 45, 48, 0.96)' },
+      background: { primary: '#14161a', secondary: '#22262c', tertiary: '#14161a', quaternary: '#2c3038', elevated: '#22262c', workbench: '#14161a', flowchat: '#22262c', tooltip: 'rgba(34, 38, 44, 0.96)' },
       text: { primary: '#eef0f3', secondary: '#c8ccd2', muted: '#9ea4ab', disabled: '#65696f' },
-      accent: { '50': 'rgba(122, 176, 238, 0.04)', '100': 'rgba(122, 176, 238, 0.08)', '200': 'rgba(122, 176, 238, 0.15)', '300': 'rgba(122, 176, 238, 0.25)', '400': 'rgba(122, 176, 238, 0.4)', '500': '#7ab0ee', '600': '#689ad8', '700': 'rgba(104, 154, 216, 0.8)', '800': 'rgba(104, 154, 216, 0.9)' },
+      accent: { '50': 'rgba(183, 55, 47, 0.05)', '100': 'rgba(183, 55, 47, 0.09)', '200': 'rgba(183, 55, 47, 0.14)', '300': 'rgba(183, 55, 47, 0.24)', '400': 'rgba(183, 55, 47, 0.42)', '500': '#B7372F', '600': '#9E2F29', '700': 'rgba(158, 47, 41, 0.88)', '800': 'rgba(128, 36, 32, 0.94)' },
       purple: { '50': 'rgba(184, 198, 255, 0.04)', '100': 'rgba(184, 198, 255, 0.08)', '200': 'rgba(184, 198, 255, 0.15)', '300': 'rgba(184, 198, 255, 0.25)', '400': 'rgba(184, 198, 255, 0.4)', '500': '#b8c4ff', '600': '#9dacf5', '700': 'rgba(157, 172, 245, 0.8)', '800': 'rgba(157, 172, 245, 0.9)' },
-      semantic: { success: '#7fb899', warning: '#d4a574', error: '#c9878d', info: '#7ab0ee', highlight: '#e2e4e7', highlightBg: 'rgba(212, 214, 216, 0.12)' },
+      semantic: { success: '#7fb899', warning: '#f59e0b', error: '#B7372F', info: '#a8b0bd', highlight: '#B7372F', highlightBg: 'rgba(183, 55, 47, 0.14)' },
       border: { subtle: 'rgba(255, 255, 255, 0.12)', base: 'rgba(255, 255, 255, 0.18)', medium: 'rgba(255, 255, 255, 0.24)', strong: 'rgba(255, 255, 255, 0.32)', prominent: 'rgba(255, 255, 255, 0.45)' },
       element: { subtle: 'rgba(255, 255, 255, 0.06)', soft: 'rgba(255, 255, 255, 0.10)', base: 'rgba(255, 255, 255, 0.13)', medium: 'rgba(255, 255, 255, 0.17)', strong: 'rgba(255, 255, 255, 0.21)', elevated: 'rgba(255, 255, 255, 0.25)' },
     },
@@ -151,10 +137,9 @@ export const THEMES: InstallerTheme[] = [
 ];
 
 export const THEME_DISPLAY_ORDER: ThemeId[] = [
-  'bitfun-light',
-  'bitfun-slate',
-  'bitfun-dark',
-  'bitfun-midnight',
+  'light',
+  'slate',
+  'dark',
   'bitfun-china-style',
   'bitfun-china-night',
   'bitfun-cyber',
@@ -162,6 +147,6 @@ export const THEME_DISPLAY_ORDER: ThemeId[] = [
 
 export function findInstallerThemeById(id: ThemeId): InstallerTheme {
   return THEMES.find((t) => t.id === id)
-    ?? THEMES.find((t) => t.id === 'bitfun-light')
+    ?? THEMES.find((t) => t.id === 'light')
     ?? THEMES[0];
 }

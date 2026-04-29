@@ -2,15 +2,17 @@
 
 import * as monaco from 'monaco-editor';
 import { ThemeConfig } from '../types';
-import { BitFunDarkTheme } from '@/tools/editor/themes/bitfun-dark.theme';
+import { SparoOsDarkTheme, SPARO_BUILTIN_DARK_MONACO_THEME_ID } from '@/tools/editor/themes/sparo-dark.theme';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('MonacoThemeSync');
 
+const SEMANTIC_HIGHLIGHTING_RULES = SparoOsDarkTheme.rules;
 
-const SEMANTIC_HIGHLIGHTING_RULES = BitFunDarkTheme.rules;
+/** Monaco theme for light UI themes that do not ship a `theme.monaco` block. */
+const BUILTIN_LIGHT_MONACO_THEME_ID = 'builtin-app-light';
 
-function getBitfunLightMonacoTheme(): monaco.editor.IStandaloneThemeData {
+function getBuiltinLightMonacoTheme(): monaco.editor.IStandaloneThemeData {
   return {
     base: 'vs',
     inherit: true,
@@ -82,8 +84,8 @@ export class MonacoThemeSync {
     
     
     try {
-      monaco.editor.defineTheme('bitfun-dark', BitFunDarkTheme);
-      log.debug('BitFun Dark theme registered');
+      monaco.editor.defineTheme(SPARO_BUILTIN_DARK_MONACO_THEME_ID, SparoOsDarkTheme);
+      log.debug('Sparo built-in dark Monaco theme registered');
       this.initialized = true;
     } catch (error) {
       log.warn('Monaco Editor not loaded yet, will retry later', error);
@@ -105,10 +107,10 @@ export class MonacoThemeSync {
       } else {
         
         if (theme.type === 'dark') {
-          targetThemeId = 'bitfun-dark';
+          targetThemeId = SPARO_BUILTIN_DARK_MONACO_THEME_ID;
         } else {
-          targetThemeId = 'bitfun-light';
-          monaco.editor.defineTheme('bitfun-light', getBitfunLightMonacoTheme());
+          targetThemeId = BUILTIN_LIGHT_MONACO_THEME_ID;
+          monaco.editor.defineTheme(BUILTIN_LIGHT_MONACO_THEME_ID, getBuiltinLightMonacoTheme());
         }
         log.debug('Using builtin theme', { themeId: targetThemeId });
       }
@@ -156,18 +158,18 @@ export class MonacoThemeSync {
     if (theme.monaco) {
       return theme.id;
     }
-    return theme.type === 'dark' ? 'bitfun-dark' : 'bitfun-light';
+    return theme.type === 'dark' ? SPARO_BUILTIN_DARK_MONACO_THEME_ID : BUILTIN_LIGHT_MONACO_THEME_ID;
   }
 
   /**
-   * Registers BitFun built-in and optional custom Monaco themes on the given Monaco instance.
+   * Registers Sparo OS built-in and optional custom Monaco themes on the given Monaco instance.
    * Use from the Monaco React wrapper `beforeMount` hook so themes exist on the loader's Monaco
    * before the editor is created (avoids falling back to the default light theme).
    */
   registerThemesForEditorInstance(monacoInstance: typeof monaco, theme: ThemeConfig): string {
     try {
-      monacoInstance.editor.defineTheme('bitfun-dark', BitFunDarkTheme);
-      monacoInstance.editor.defineTheme('bitfun-light', getBitfunLightMonacoTheme());
+      monacoInstance.editor.defineTheme(SPARO_BUILTIN_DARK_MONACO_THEME_ID, SparoOsDarkTheme);
+      monacoInstance.editor.defineTheme(BUILTIN_LIGHT_MONACO_THEME_ID, getBuiltinLightMonacoTheme());
 
       if (theme.monaco) {
         monacoInstance.editor.defineTheme(theme.id, this.convertToMonacoTheme(theme));
@@ -176,7 +178,7 @@ export class MonacoThemeSync {
       return this.getTargetMonacoThemeId(theme);
     } catch (error) {
       log.error('registerThemesForEditorInstance failed', error);
-      return 'bitfun-dark';
+      return SPARO_BUILTIN_DARK_MONACO_THEME_ID;
     }
   }
   

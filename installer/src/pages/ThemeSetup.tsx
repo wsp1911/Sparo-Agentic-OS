@@ -18,8 +18,8 @@ export function ThemeSetup({ options, setOptions, onLaunch, onClose }: ThemeSetu
   const [isFinishing, setIsFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
   const orderedThemes = [...THEMES].sort((a, b) => THEME_DISPLAY_ORDER.indexOf(a.id) - THEME_DISPLAY_ORDER.indexOf(b.id));
-  const lightPreview = findInstallerThemeById('bitfun-light');
-  const darkPreview = findInstallerThemeById('bitfun-dark');
+  const lightPreview = findInstallerThemeById('light');
+  const darkPreview = findInstallerThemeById('dark');
 
   const selectTheme = (theme: ThemePreferenceId) => {
     setOptions((prev) => ({ ...prev, themePreference: theme }));

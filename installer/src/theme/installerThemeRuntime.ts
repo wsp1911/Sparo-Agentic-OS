@@ -3,12 +3,12 @@ import { SYSTEM_THEME_ID, type ThemeId, type ThemePreferenceId } from '../types/
 import type { InstallerTheme } from './installerThemesData';
 import { findInstallerThemeById } from './installerThemesData';
 
-/** Same rule as main app `getSystemPreferredDefaultThemeId`: dark -> bitfun-dark, else bitfun-light. */
+/** Same as main app `getSystemPreferredDefaultThemeId` (dark vs light from OS). */
 export function getSystemPreferredBuiltinThemeId(): ThemeId {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return 'bitfun-light';
+    return 'light';
   }
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'bitfun-dark' : 'bitfun-light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 export function applyInstallerThemeToDocument(theme: InstallerTheme): void {
@@ -61,7 +61,7 @@ export function applyInstallerThemeToDocument(theme: InstallerTheme): void {
 
 /**
  * Keeps the installer shell CSS variables aligned with the user's theme preference.
- * When preference is `system`, follows `prefers-color-scheme` like the main BitFun ThemeService.
+ * When preference is `system`, follows `prefers-color-scheme` like the main app ThemeService.
  */
 export function useSyncInstallerRootTheme(preference: ThemePreferenceId): void {
   useLayoutEffect(() => {

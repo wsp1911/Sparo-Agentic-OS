@@ -1,7 +1,7 @@
  
 
 import React, { useState, useMemo } from 'react';
-import { X, CheckCheck, Trash2, XCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { X, CheckCheck, Eraser, XCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { Search, Modal, Select } from '@/component-library';
 import { useI18n } from '@/infrastructure/i18n';
 import { useNotificationHistory, useCenterOpen, useAllProgressNotifications, useAllLoadingNotifications } from '../hooks/useNotificationState';
@@ -361,7 +361,7 @@ export const NotificationCenter: React.FC = () => {
               onClick={handleClearAll}
               title={t('components:notificationCenter.actions.clearAll')}
             >
-              <Trash2 size={16} />
+              <Eraser size={16} />
             </button>
             <button
               className="notification-center__header-button"

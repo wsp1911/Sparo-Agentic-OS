@@ -1,24 +1,18 @@
 /**
- * BitFun Dark Theme Definition
- * Custom Monaco Editor Theme
- *
- * Design Philosophy:
- * - Deep background with premium vibrant colors
- * - High saturation, modern color palette
- * - Carefully balanced multi-color scheme
- * - Excellent contrast and distinction between syntax elements
- * - Consistent with BitFun UI style
- * - Inspired by Night Owl, Tokyo Night themes
+ * Sparo OS built-in Monaco dark theme.
+ * Syntax colors follow Night Owl–style readability; chrome accents align with Sparo UI (crimson / ink accent).
  */
 
 import type { editor } from 'monaco-editor';
 
+/** Matches default app dark preset (`presets/dark-theme`) for editor registration. */
+export const SPARO_BUILTIN_DARK_MONACO_THEME_ID = 'sparo-dark' as const;
+
 /**
- * BitFun Dark Theme Configuration
- * Follows Monaco Editor official theme format
+ * Sparo OS Monaco dark palette for editors without a per-theme `monaco` block.
  * @see https://microsoft.github.io/monaco-editor/api/interfaces/monaco.editor.IStandaloneThemeData.html
  */
-export const BitFunDarkTheme: editor.IStandaloneThemeData = {
+export const SparoOsDarkTheme: editor.IStandaloneThemeData = {
   base: 'vs-dark',
   inherit: true,
 
@@ -232,52 +226,52 @@ export const BitFunDarkTheme: editor.IStandaloneThemeData = {
     'editor.background': '#121214',
     'editor.foreground': '#D6DEEB',
 
-    // Line Numbers
+    // Line Numbers (crimson active / selection chrome)
     'editorLineNumber.foreground': '#707070',
-    'editorLineNumber.activeForeground': '#E1AB80',
+    'editorLineNumber.activeForeground': '#B7372F',
     'editorLineNumber.dimmedForeground': '#454545',
 
     // Cursor and Selection
-    'editorCursor.foreground': '#E1AB80',
+    'editorCursor.foreground': '#B7372F',
     'editorCursor.background': '#121214',
-    'editor.selectionBackground': '#E1AB8040',
+    'editor.selectionBackground': '#B7372F40',
     'editor.selectionForeground': '#FFFFFF',
-    'editor.inactiveSelectionBackground': '#E1AB8020',
-    'editor.selectionHighlightBackground': '#E1AB8030',
-    'editor.selectionHighlightBorder': '#E1AB80',
+    'editor.inactiveSelectionBackground': '#B7372F20',
+    'editor.selectionHighlightBackground': '#B7372F30',
+    'editor.selectionHighlightBorder': '#B7372F',
 
     // Current Line Highlight
     'editor.lineHighlightBackground': '#18181a',
     'editor.lineHighlightBorder': '#202024',
 
     // Find and Match
-    'editor.findMatchBackground': '#E1AB80',
-    'editor.findMatchHighlightBackground': '#E1AB8040',
-    'editor.findRangeHighlightBackground': '#E1AB8020',
-    'editor.findMatchBorder': '#F6D0A3',
-    'editor.findMatchHighlightBorder': '#E1AB8080',
+    'editor.findMatchBackground': '#B7372F',
+    'editor.findMatchHighlightBackground': '#B7372F40',
+    'editor.findRangeHighlightBackground': '#B7372F20',
+    'editor.findMatchBorder': '#D9736A',
+    'editor.findMatchHighlightBorder': '#B7372F80',
 
     // Word Highlight
-    'editor.wordHighlightBackground': '#E1AB8020',
-    'editor.wordHighlightStrongBackground': '#E1AB8040',
-    'editor.wordHighlightBorder': '#E1AB8060',
-    'editor.wordHighlightStrongBorder': '#E1AB80',
+    'editor.wordHighlightBackground': '#B7372F20',
+    'editor.wordHighlightStrongBackground': '#B7372F40',
+    'editor.wordHighlightBorder': '#B7372F60',
+    'editor.wordHighlightStrongBorder': '#B7372F',
 
     // Code Highlight and Decorations
-    'editor.hoverHighlightBackground': '#E1AB8020',
-    'editor.symbolHighlightBackground': '#E1AB8020',
-    'editor.symbolHighlightBorder': '#E1AB8060',
+    'editor.hoverHighlightBackground': '#B7372F20',
+    'editor.symbolHighlightBackground': '#B7372F20',
+    'editor.symbolHighlightBorder': '#B7372F60',
 
     // Indent Guides and Rulers
     'editorIndentGuide.background': '#202024',
-    'editorIndentGuide.activeBackground': '#E1AB8060',
+    'editorIndentGuide.activeBackground': '#B7372F60',
     'editorRuler.foreground': '#202024',
 
     // Bracket Matching
-    'editorBracketMatch.background': '#E1AB8030',
-    'editorBracketMatch.border': '#E1AB80',
+    'editorBracketMatch.background': '#B7372F30',
+    'editorBracketMatch.border': '#B7372F',
     'editorBracketHighlight.foreground1': '#FFD700',
-    'editorBracketHighlight.foreground2': '#E1AB80',
+    'editorBracketHighlight.foreground2': '#B7372F',
     'editorBracketHighlight.foreground3': '#C792EA',
     'editorBracketHighlight.foreground4': '#4ECDC4',
     'editorBracketHighlight.foreground5': '#F78C6C',
@@ -285,15 +279,15 @@ export const BitFunDarkTheme: editor.IStandaloneThemeData = {
 
     // Suggest Widget
     'editorSuggestWidget.background': '#18181a',
-    'editorSuggestWidget.border': '#E1AB80',
+    'editorSuggestWidget.border': '#B7372F',
     'editorSuggestWidget.foreground': '#E0E6F0',
-    'editorSuggestWidget.highlightForeground': '#E1AB80',
-    'editorSuggestWidget.selectedBackground': '#E1AB8030',
+    'editorSuggestWidget.highlightForeground': '#B7372F',
+    'editorSuggestWidget.selectedBackground': '#B7372F30',
     'editorSuggestWidget.focusHighlightForeground': '#A5E844',
 
     // Hover Widget
     'editorHoverWidget.background': '#18181a',
-    'editorHoverWidget.border': '#E1AB80',
+    'editorHoverWidget.border': '#B7372F',
     'editorHoverWidget.foreground': '#E0E6F0',
     'editorHoverWidget.statusBarBackground': '#202024',
 
@@ -306,30 +300,30 @@ export const BitFunDarkTheme: editor.IStandaloneThemeData = {
     // Errors and Warnings
     'editorError.foreground': '#FF5370',
     'editorWarning.foreground': '#FFCB6B',
-    'editorInfo.foreground': '#82AAFF',
+    'editorInfo.foreground': '#8B93A8',
     'editorHint.foreground': '#6A737D',
 
     // Scrollbar
     'scrollbar.shadow': '#121214',
-    'scrollbarSlider.background': '#E1AB8040',
-    'scrollbarSlider.hoverBackground': '#E1AB8070',
-    'scrollbarSlider.activeBackground': '#E1AB80A0',
+    'scrollbarSlider.background': '#B7372F40',
+    'scrollbarSlider.hoverBackground': '#B7372F70',
+    'scrollbarSlider.activeBackground': '#B7372FA0',
 
     // Minimap
     'minimap.background': '#121214',
-    'minimap.selectionHighlight': '#E1AB8040',
-    'minimap.findMatchHighlight': '#E1AB80',
+    'minimap.selectionHighlight': '#B7372F40',
+    'minimap.findMatchHighlight': '#B7372F',
     'minimap.errorHighlight': '#FF5370',
     'minimap.warningHighlight': '#FFCB6B',
-    'minimapSlider.background': '#E1AB8040',
-    'minimapSlider.hoverBackground': '#E1AB8070',
-    'minimapSlider.activeBackground': '#E1AB80A0',
+    'minimapSlider.background': '#B7372F40',
+    'minimapSlider.hoverBackground': '#B7372F70',
+    'minimapSlider.activeBackground': '#B7372FA0',
 
     // Widget Borders
     'editorWidget.background': '#18181a',
-    'editorWidget.border': '#E1AB8040',
+    'editorWidget.border': '#B7372F40',
     'editorWidget.foreground': '#D6DEEB',
-    'editorWidget.resizeBorder': '#E1AB8060',
+    'editorWidget.resizeBorder': '#B7372F60',
 
     // Code Lens
     'editorCodeLens.foreground': '#6A737D',
@@ -343,18 +337,18 @@ export const BitFunDarkTheme: editor.IStandaloneThemeData = {
     // Overview Ruler
     'editorOverviewRuler.border': '#18181a',
     'editorOverviewRuler.background': '#121214',
-    'editorOverviewRuler.currentContentForeground': '#E1AB8080',
+    'editorOverviewRuler.currentContentForeground': '#B7372F80',
     'editorOverviewRuler.incomingContentForeground': '#7FDBCA80',
     'editorOverviewRuler.findMatchForeground': '#FFCB6B80',
-    'editorOverviewRuler.rangeHighlightForeground': '#E1AB8040',
-    'editorOverviewRuler.selectionHighlightForeground': '#E1AB8060',
+    'editorOverviewRuler.rangeHighlightForeground': '#B7372F40',
+    'editorOverviewRuler.selectionHighlightForeground': '#B7372F60',
     'editorOverviewRuler.wordHighlightForeground': '#C792EA60',
     'editorOverviewRuler.modifiedForeground': '#FFCB6B',
     'editorOverviewRuler.addedForeground': '#ADDB67',
     'editorOverviewRuler.deletedForeground': '#FF5370',
     'editorOverviewRuler.errorForeground': '#FF5370',
     'editorOverviewRuler.warningForeground': '#FFCB6B',
-    'editorOverviewRuler.infoForeground': '#E1AB80',
+    'editorOverviewRuler.infoForeground': '#B7372F',
 
     // Diff Editor (GitHub Dark style)
     'diffEditor.insertedTextBackground': '#23863625',
@@ -367,8 +361,8 @@ export const BitFunDarkTheme: editor.IStandaloneThemeData = {
     'diffEditor.removedTextBorder': '#00000000',
     'diffEditorGutter.removedLineBackground': '#DA363338',
 
-    'diffEditor.modifiedTextBackground': '#1F6FEB20',
-    'diffEditor.modifiedLineBackground': '#1F6FEB28',
+    'diffEditor.modifiedTextBackground': '#B7372F22',
+    'diffEditor.modifiedLineBackground': '#B7372F28',
 
     'diffEditor.border': '#2A2D35',
     'diffEditor.diagonalFill': '#16181D',
@@ -380,10 +374,9 @@ export const BitFunDarkTheme: editor.IStandaloneThemeData = {
   }
 };
 
-export const BitFunDarkThemeMetadata = {
-  id: 'bitfun-dark',
+export const SparoOsDarkThemeMetadata = {
+  id: SPARO_BUILTIN_DARK_MONACO_THEME_ID,
   label: 'Dark',
-  description: 'Premium vibrant dark theme with modern multi-color palette',
-  author: 'BitFun Team',
-  version: '2.0.0',
+  description: 'Sparo OS built-in dark editor chrome with ink-red accents',
+  version: '2.1.0',
 };
