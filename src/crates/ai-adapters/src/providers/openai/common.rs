@@ -181,9 +181,13 @@ async fn list_codex_chatgpt_models(
 }
 
 pub(crate) fn extract_tool_name(tool: &serde_json::Value) -> String {
-    tool.get("function")
-        .and_then(|function| function.get("name"))
+    tool.get("name")
         .and_then(|name| name.as_str())
+        .or_else(|| {
+            tool.get("function")
+                .and_then(|function| function.get("name"))
+                .and_then(|name| name.as_str())
+        })
         .unwrap_or("unknown")
         .to_string()
 }

@@ -500,6 +500,43 @@ mod tests {
     }
 
     #[test]
+    fn build_responses_request_body_uses_flat_tool_schema() {
+        let client = make_test_client("responses", None);
+        let tools = Some(vec![ToolDefinition {
+            name: "get_weather".to_string(),
+            description: "Get the weather of a city".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "city": { "type": "string" }
+                },
+                "required": ["city"],
+                "additionalProperties": false
+            }),
+        }]);
+        let openai_tools = openai::OpenAIMessageConverter::convert_tools_for_responses(tools);
+
+        let request_body = openai::responses::build_request_body(
+            &client,
+            Some("Use tools when needed".to_string()),
+            vec![json!({
+                "role": "user",
+                "content": [{ "type": "input_text", "text": "weather in Beijing" }]
+            })],
+            openai_tools,
+            None,
+        );
+
+        assert_eq!(request_body["tools"][0]["type"], "function");
+        assert_eq!(request_body["tools"][0]["name"], "get_weather");
+        assert_eq!(request_body["tools"][0]["description"], "Get the weather of a city");
+        assert_eq!(request_body["tools"][0]["parameters"]["type"], "object");
+        assert_eq!(request_body["tools"][0]["strict"], false);
+        assert!(request_body["tools"][0].get("function").is_none());
+        assert_eq!(request_body["tool_choice"], "auto");
+    }
+
+    #[test]
     fn build_anthropic_request_body_uses_adaptive_reasoning_and_effort() {
         let client = AIClient::new(AIConfig {
             name: "anthropic".to_string(),

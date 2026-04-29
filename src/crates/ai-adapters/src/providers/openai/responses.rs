@@ -111,7 +111,7 @@ pub(crate) async fn send_stream(
 
     let (instructions, response_input) =
         OpenAIMessageConverter::convert_messages_to_responses_input(messages);
-    let openai_tools = OpenAIMessageConverter::convert_tools(tools);
+    let openai_tools = OpenAIMessageConverter::convert_tools_for_responses(tools);
     let request_body = build_request_body(
         client,
         instructions,
