@@ -109,6 +109,11 @@ impl Tool for LiveAppRecompileTool {
             "reason": "studio-recompile",
         });
         let _ = emit_global_event(BackendEvent::Custom {
+            event_name: "liveapp-runtime-errors-cleared".to_string(),
+            payload: json!({ "appId": app.id }),
+        })
+        .await;
+        let _ = emit_global_event(BackendEvent::Custom {
             event_name: "liveapp-recompiled".to_string(),
             payload: payload.clone(),
         })

@@ -1,6 +1,14 @@
 //! Live App API — Tauri commands for CRUD, JS Worker, and dialog.
 
 use crate::api::app_state::AppState;
+use crate::api::session_storage_path::{
+    desktop_effective_session_storage_path, SessionStorageScopeDto,
+};
+use bitfun_core::agentic::coordination::{
+    ConversationCoordinator, DialogScheduler, DialogSubmissionPolicy, DialogSubmitOutcome,
+    DialogTriggerSource,
+};
+use bitfun_core::agentic::core::{SessionConfig, SessionStorageScope};
 use bitfun_core::infrastructure::events::{emit_global_event, BackendEvent};
 use bitfun_core::live_app::{
     InstallResult as CoreInstallResult, LiveApp, LiveAppAiContext, LiveAppMeta, LiveAppPermissions,
@@ -14,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, State};
@@ -208,6 +216,77 @@ pub struct LiveAppClearRuntimeIssuesRequest {
     pub app_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppAgenticCreateSessionRequest {
+    pub app_id: String,
+    pub session_name: String,
+    #[serde(default)]
+    pub agent_type: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub workspace_path: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppAgenticSessionResponse {
+    pub session_id: String,
+    pub session_name: String,
+    pub agent_type: String,
+    pub workspace_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppAgenticSendMessageRequest {
+    pub app_id: String,
+    pub session_id: String,
+    pub prompt: String,
+    #[serde(default)]
+    pub original_prompt: Option<String>,
+    #[serde(default)]
+    pub agent_type: Option<String>,
+    #[serde(default)]
+    pub turn_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppAgenticSendMessageResponse {
+    pub session_id: String,
+    pub turn_id: String,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppAgenticSessionRequest {
+    pub app_id: String,
+    pub session_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppAgenticCancelTurnRequest {
+    pub app_id: String,
+    pub session_id: String,
+    pub turn_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppAgenticToolDecisionRequest {
+    pub app_id: String,
+    pub session_id: String,
+    pub tool_id: String,
+    #[serde(default)]
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub updated_input: Option<Value>,
+}
+
 fn live_app_payload(app: &LiveApp, reason: &str) -> Value {
     json!({
         "id": app.id,
@@ -233,11 +312,118 @@ async fn emit_live_app_event(event_name: &str, payload: Value) {
     .await;
 }
 
+async fn emit_live_app_runtime_issues_cleared(app_id: &str) {
+    emit_live_app_event(
+        "liveapp-runtime-errors-cleared",
+        json!({ "appId": app_id }),
+    )
+    .await;
+}
+
 fn workspace_root_from_input(workspace_path: Option<&str>) -> Option<PathBuf> {
     workspace_path
         .map(str::trim)
         .filter(|path| !path.is_empty())
         .map(PathBuf::from)
+}
+
+fn live_app_agentic_owner(app_id: &str) -> String {
+    format!("live-app:{}", app_id)
+}
+
+fn validate_live_app_agentic_access(app: &LiveApp) -> Result<(), String> {
+    let Some(agentic) = app.permissions.agentic.as_ref() else {
+        return Err("Agentic access is not enabled for this Live App".to_string());
+    };
+    if !agentic.enabled {
+        return Err("Agentic access is not enabled for this Live App".to_string());
+    }
+    Ok(())
+}
+
+fn validate_live_app_agent_type(app: &LiveApp, agent_type: &str) -> Result<(), String> {
+    let Some(agentic) = app.permissions.agentic.as_ref() else {
+        return Err("Agentic access is not enabled for this Live App".to_string());
+    };
+    if let Some(allowed) = agentic.allowed_agents.as_ref() {
+        if !allowed.is_empty() && !allowed.iter().any(|agent| agent == agent_type) {
+            return Err(format!(
+                "Agent '{}' is not allowed by this Live App's Agentic permissions",
+                agent_type
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn resolve_live_app_agentic_workspace(
+    state: &AppState,
+    app: &LiveApp,
+    workspace_path: Option<&str>,
+) -> Result<String, String> {
+    let explicit = workspace_path
+        .map(str::trim)
+        .filter(|path| !path.is_empty());
+    if let Some(path) = explicit {
+        let allowed = app
+            .permissions
+            .agentic
+            .as_ref()
+            .map(|agentic| agentic.allow_workspace)
+            .unwrap_or(false);
+        if !allowed {
+            return Err("This Live App is not allowed to bind Agentic sessions to a workspace".to_string());
+        }
+        return Ok(path.to_string());
+    }
+
+    Ok(state
+        .workspace_service
+        .path_manager()
+        .agentic_os_runtime_root()
+        .to_string_lossy()
+        .into_owned())
+}
+
+async fn count_live_app_agentic_sessions(
+    coordinator: &ConversationCoordinator,
+    state: &AppState,
+    app_id: &str,
+    workspace_path: &str,
+) -> Result<usize, String> {
+    let effective_path = desktop_effective_session_storage_path(
+        state,
+        Some(workspace_path),
+        None,
+        None,
+        Some(SessionStorageScopeDto::AgenticOs),
+    )
+    .await;
+    let owner = live_app_agentic_owner(app_id);
+    let sessions = coordinator
+        .list_sessions(&effective_path)
+        .await
+        .map_err(|e| format!("Failed to list Agentic sessions: {}", e))?;
+    Ok(sessions
+        .into_iter()
+        .filter(|session| session.created_by.as_deref() == Some(owner.as_str()))
+        .count())
+}
+
+fn ensure_live_app_owns_agentic_session(
+    coordinator: &ConversationCoordinator,
+    app_id: &str,
+    session_id: &str,
+) -> Result<bitfun_core::agentic::core::Session, String> {
+    let owner = live_app_agentic_owner(app_id);
+    let session = coordinator
+        .get_session_manager()
+        .get_session(session_id)
+        .ok_or_else(|| "Agentic session is not loaded".to_string())?;
+    if session.created_by.as_deref() != Some(owner.as_str()) {
+        return Err("This Live App does not own the Agentic session".to_string());
+    }
+    Ok(session)
 }
 
 async fn maybe_stop_worker(state: &State<'_, AppState>, app: &LiveApp) {
@@ -384,6 +570,7 @@ pub async fn update_live_app(
         .await
         .map_err(|e| e.to_string())?;
     maybe_stop_worker(&state, &app).await;
+    emit_live_app_runtime_issues_cleared(&app.id).await;
     emit_live_app_event("liveapp-updated", live_app_payload(&app, "update")).await;
     Ok(app)
 }
@@ -430,6 +617,7 @@ pub async fn rollback_live_app(
         .await
         .map_err(|e| e.to_string())?;
     maybe_stop_worker(&state, &app).await;
+    emit_live_app_runtime_issues_cleared(&app.id).await;
     emit_live_app_event("liveapp-rolled-back", live_app_payload(&app, "rollback")).await;
     emit_live_app_event("liveapp-updated", live_app_payload(&app, "rollback")).await;
     Ok(app)
@@ -513,6 +701,33 @@ pub async fn live_app_worker_call(
     state: State<'_, AppState>,
     request: LiveAppWorkerCallRequest,
 ) -> Result<Value, String> {
+    if request.method == "storage.get" {
+        let key = request
+            .params
+            .get("key")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "storage.get requires string key".to_string())?;
+        return state
+            .live_app_manager
+            .get_storage(&request.app_id, key)
+            .await
+            .map_err(|e| e.to_string());
+    }
+    if request.method == "storage.set" {
+        let key = request
+            .params
+            .get("key")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "storage.set requires string key".to_string())?;
+        let value = request.params.get("value").cloned().unwrap_or(Value::Null);
+        state
+            .live_app_manager
+            .set_storage(&request.app_id, key, value)
+            .await
+            .map_err(|e| e.to_string())?;
+        return Ok(Value::Null);
+    }
+
     let pool = state
         .js_worker_pool
         .as_ref()
@@ -635,6 +850,7 @@ pub async fn live_app_recompile(
         .recompile(&request.app_id, theme_type, workspace_root.as_deref())
         .await
         .map_err(|e| e.to_string())?;
+    emit_live_app_runtime_issues_cleared(&app.id).await;
     emit_live_app_event("liveapp-recompiled", live_app_payload(&app, "recompile")).await;
     emit_live_app_event("liveapp-updated", live_app_payload(&app, "recompile")).await;
     Ok(RecompileResult {
@@ -684,6 +900,7 @@ pub async fn live_app_sync_from_fs(
         .await
         .map_err(|e| e.to_string())?;
     maybe_stop_worker(&state, &app).await;
+    emit_live_app_runtime_issues_cleared(&app.id).await;
     emit_live_app_event("liveapp-updated", live_app_payload(&app, "sync-from-fs")).await;
     Ok(app)
 }
@@ -740,11 +957,7 @@ pub async fn live_app_clear_runtime_issues(
         .live_app_manager
         .clear_runtime_issues(&request.app_id)
         .await;
-    emit_live_app_event(
-        "liveapp-runtime-errors-cleared",
-        json!({ "appId": request.app_id }),
-    )
-    .await;
+    emit_live_app_runtime_issues_cleared(&request.app_id).await;
     Ok(())
 }
 
@@ -804,6 +1017,7 @@ static AI_STREAM_REGISTRY: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = O
 
 /// Per-app rate limiter state: app_id → (request_count, window_start_ms).
 static AI_RATE_LIMITER: OnceLock<Mutex<HashMap<String, (u32, u64)>>> = OnceLock::new();
+static LIVE_APP_AGENTIC_TURN_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 fn ai_stream_registry() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
     AI_STREAM_REGISTRY.get_or_init(|| Mutex::new(HashMap::new()))
@@ -1304,4 +1518,342 @@ pub async fn live_app_ai_list_models(
         .collect();
 
     Ok(models)
+}
+
+fn next_live_app_agentic_turn_id(app_id: &str) -> String {
+    let sequence = LIVE_APP_AGENTIC_TURN_COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("live-app-agentic-{}-{}", app_id, sequence)
+}
+
+// ============== Agentic commands ==============
+
+#[tauri::command]
+pub async fn live_app_agentic_create_session(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    state: State<'_, AppState>,
+    request: LiveAppAgenticCreateSessionRequest,
+) -> Result<LiveAppAgenticSessionResponse, String> {
+    let app = state
+        .live_app_manager
+        .get(&request.app_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    validate_live_app_agentic_access(&app)?;
+
+    let agent_type = request
+        .agent_type
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("agentic")
+        .to_string();
+    validate_live_app_agent_type(&app, &agent_type)?;
+
+    let workspace_path = resolve_live_app_agentic_workspace(
+        &state,
+        &app,
+        request.workspace_path.as_deref(),
+    )?;
+
+    if let Some(max_sessions) = app
+        .permissions
+        .agentic
+        .as_ref()
+        .and_then(|agentic| agentic.max_sessions)
+    {
+        let count = count_live_app_agentic_sessions(
+            &coordinator,
+            &state,
+            &request.app_id,
+            &workspace_path,
+        )
+        .await?;
+        if count >= max_sessions as usize {
+            return Err(format!(
+                "Live App Agentic session limit exceeded: max {} sessions",
+                max_sessions
+            ));
+        }
+    }
+
+    let allow_tools = app
+        .permissions
+        .agentic
+        .as_ref()
+        .and_then(|agentic| agentic.allow_tools)
+        .unwrap_or(true);
+    let config = SessionConfig {
+        workspace_path: Some(workspace_path.clone()),
+        storage_scope: Some(SessionStorageScope::AgenticOs),
+        model_id: request.model.filter(|value| !value.trim().is_empty()),
+        enable_tools: allow_tools,
+        safe_mode: true,
+        auto_compact: true,
+        enable_context_compression: true,
+        ..Default::default()
+    };
+
+    let session = coordinator
+        .create_session_with_workspace_and_creator(
+            None,
+            request.session_name,
+            agent_type,
+            config,
+            workspace_path.clone(),
+            Some(live_app_agentic_owner(&request.app_id)),
+        )
+        .await
+        .map_err(|e| format!("Failed to create Agentic session: {}", e))?;
+
+    Ok(LiveAppAgenticSessionResponse {
+        session_id: session.session_id,
+        session_name: session.session_name,
+        agent_type: session.agent_type,
+        workspace_path,
+    })
+}
+
+#[tauri::command]
+pub async fn live_app_agentic_send_message(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    scheduler: State<'_, Arc<DialogScheduler>>,
+    state: State<'_, AppState>,
+    request: LiveAppAgenticSendMessageRequest,
+) -> Result<LiveAppAgenticSendMessageResponse, String> {
+    let app = state
+        .live_app_manager
+        .get(&request.app_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    validate_live_app_agentic_access(&app)?;
+
+    let session = ensure_live_app_owns_agentic_session(
+        &coordinator,
+        &request.app_id,
+        &request.session_id,
+    )?;
+    let agent_type = request
+        .agent_type
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(&session.agent_type)
+        .to_string();
+    validate_live_app_agent_type(&app, &agent_type)?;
+
+    let prompt = request.prompt.trim();
+    if prompt.is_empty() {
+        return Err("prompt is required".to_string());
+    }
+    let turn_id = request
+        .turn_id
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| next_live_app_agentic_turn_id(&request.app_id));
+
+    let outcome = scheduler
+        .submit(
+            session.session_id.clone(),
+            prompt.to_string(),
+            request.original_prompt,
+            Some(turn_id.clone()),
+            agent_type,
+            None,
+            session.config.workspace_path.clone(),
+            DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi),
+            None,
+            None,
+        )
+        .await
+        .map_err(|e| format!("Failed to start Agentic dialog turn: {}", e))?;
+
+    let status = match outcome {
+        DialogSubmitOutcome::Started { .. } => "started",
+        DialogSubmitOutcome::Queued { .. } => "queued",
+    }
+    .to_string();
+
+    Ok(LiveAppAgenticSendMessageResponse {
+        session_id: session.session_id,
+        turn_id,
+        status,
+    })
+}
+
+#[tauri::command]
+pub async fn live_app_agentic_cancel_turn(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    state: State<'_, AppState>,
+    request: LiveAppAgenticCancelTurnRequest,
+) -> Result<(), String> {
+    let app = state
+        .live_app_manager
+        .get(&request.app_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    validate_live_app_agentic_access(&app)?;
+    ensure_live_app_owns_agentic_session(&coordinator, &request.app_id, &request.session_id)?;
+
+    coordinator
+        .cancel_dialog_turn(&request.session_id, &request.turn_id)
+        .await
+        .map_err(|e| format!("Failed to cancel Agentic dialog turn: {}", e))
+}
+
+#[tauri::command]
+pub async fn live_app_agentic_list_sessions(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    state: State<'_, AppState>,
+    app_id: String,
+) -> Result<Vec<LiveAppAgenticSessionResponse>, String> {
+    let app = state
+        .live_app_manager
+        .get(&app_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    validate_live_app_agentic_access(&app)?;
+
+    let workspace_path = resolve_live_app_agentic_workspace(&state, &app, None)?;
+    let effective_path = desktop_effective_session_storage_path(
+        &state,
+        Some(&workspace_path),
+        None,
+        None,
+        Some(SessionStorageScopeDto::AgenticOs),
+    )
+    .await;
+    let owner = live_app_agentic_owner(&app_id);
+    let sessions = coordinator
+        .list_sessions(&effective_path)
+        .await
+        .map_err(|e| format!("Failed to list Agentic sessions: {}", e))?;
+
+    Ok(sessions
+        .into_iter()
+        .filter(|session| session.created_by.as_deref() == Some(owner.as_str()))
+        .map(|session| LiveAppAgenticSessionResponse {
+            session_id: session.session_id,
+            session_name: session.session_name,
+            agent_type: session.agent_type,
+            workspace_path: workspace_path.clone(),
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub async fn live_app_agentic_restore_session(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    state: State<'_, AppState>,
+    request: LiveAppAgenticSessionRequest,
+) -> Result<LiveAppAgenticSessionResponse, String> {
+    let app = state
+        .live_app_manager
+        .get(&request.app_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    validate_live_app_agentic_access(&app)?;
+    let workspace_path = resolve_live_app_agentic_workspace(&state, &app, None)?;
+    let effective_path = desktop_effective_session_storage_path(
+        &state,
+        Some(&workspace_path),
+        None,
+        None,
+        Some(SessionStorageScopeDto::AgenticOs),
+    )
+    .await;
+    let session = coordinator
+        .restore_session(&effective_path, &request.session_id)
+        .await
+        .map_err(|e| format!("Failed to restore Agentic session: {}", e))?;
+
+    if session.created_by.as_deref() != Some(live_app_agentic_owner(&request.app_id).as_str()) {
+        return Err("This Live App does not own the Agentic session".to_string());
+    }
+
+    Ok(LiveAppAgenticSessionResponse {
+        session_id: session.session_id,
+        session_name: session.session_name,
+        agent_type: session.agent_type,
+        workspace_path,
+    })
+}
+
+#[tauri::command]
+pub async fn live_app_agentic_delete_session(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    state: State<'_, AppState>,
+    request: LiveAppAgenticSessionRequest,
+) -> Result<(), String> {
+    let app = state
+        .live_app_manager
+        .get(&request.app_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    validate_live_app_agentic_access(&app)?;
+    let session = ensure_live_app_owns_agentic_session(
+        &coordinator,
+        &request.app_id,
+        &request.session_id,
+    )?;
+    let workspace_path = session
+        .config
+        .workspace_path
+        .as_deref()
+        .ok_or_else(|| "Agentic session has no workspace path".to_string())?;
+    let effective_path = desktop_effective_session_storage_path(
+        &state,
+        Some(workspace_path),
+        None,
+        None,
+        Some(SessionStorageScopeDto::AgenticOs),
+    )
+    .await;
+    coordinator
+        .delete_session(&effective_path, &request.session_id)
+        .await
+        .map_err(|e| format!("Failed to delete Agentic session: {}", e))
+}
+
+#[tauri::command]
+pub async fn live_app_agentic_confirm_tool(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    state: State<'_, AppState>,
+    request: LiveAppAgenticToolDecisionRequest,
+) -> Result<(), String> {
+    let app = state
+        .live_app_manager
+        .get(&request.app_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    validate_live_app_agentic_access(&app)?;
+    ensure_live_app_owns_agentic_session(&coordinator, &request.app_id, &request.session_id)?;
+
+    coordinator
+        .confirm_tool(&request.tool_id, request.updated_input)
+        .await
+        .map_err(|e| format!("Confirm Agentic tool failed: {}", e))
+}
+
+#[tauri::command]
+pub async fn live_app_agentic_reject_tool(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    state: State<'_, AppState>,
+    request: LiveAppAgenticToolDecisionRequest,
+) -> Result<(), String> {
+    let app = state
+        .live_app_manager
+        .get(&request.app_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    validate_live_app_agentic_access(&app)?;
+    ensure_live_app_owns_agentic_session(&coordinator, &request.app_id, &request.session_id)?;
+
+    coordinator
+        .reject_tool(
+            &request.tool_id,
+            request
+                .reason
+                .unwrap_or_else(|| "Rejected by Live App".to_string()),
+        )
+        .await
+        .map_err(|e| format!("Reject Agentic tool failed: {}", e))
 }

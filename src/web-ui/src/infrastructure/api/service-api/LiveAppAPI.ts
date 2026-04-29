@@ -34,6 +34,13 @@ export interface LiveAppPermissions {
     max_tokens_per_request?: number;
     rate_limit_per_minute?: number;
   };
+  agentic?: {
+    enabled?: boolean;
+    allowed_agents?: string[];
+    allow_workspace?: boolean;
+    max_sessions?: number;
+    allow_tools?: boolean;
+  };
 }
 
 // ─── AI Types ─────────────────────────────────────────────────────────────────
@@ -75,6 +82,33 @@ export interface AiModelInfo {
   name: string;
   provider: string;
   isDefault: boolean;
+}
+
+export interface LiveAppAgenticSession {
+  sessionId: string;
+  sessionName: string;
+  agentType: string;
+  workspacePath: string;
+}
+
+export interface LiveAppAgenticCreateSessionOptions {
+  sessionName?: string;
+  name?: string;
+  agentType?: string;
+  model?: string;
+  workspacePath?: string;
+}
+
+export interface LiveAppAgenticSendMessageOptions {
+  originalPrompt?: string;
+  agentType?: string;
+  turnId?: string;
+}
+
+export interface LiveAppAgenticSendMessageResult {
+  sessionId: string;
+  turnId: string;
+  status: 'started' | 'queued' | string;
 }
 
 export interface LiveAppRuntimeState {
@@ -405,6 +439,106 @@ export class LiveAppAPI {
       return await api.invoke('live_app_ai_list_models', { request: { appId } });
     } catch (error) {
       throw createTauriCommandError('live_app_ai_list_models', error, { appId });
+    }
+  }
+
+  // ─── Agentic commands ──────────────────────────────────────────────────────
+
+  async agenticCreateSession(
+    appId: string,
+    options?: LiveAppAgenticCreateSessionOptions,
+  ): Promise<LiveAppAgenticSession> {
+    try {
+      return await api.invoke('live_app_agentic_create_session', {
+        request: {
+          appId,
+          sessionName: options?.sessionName ?? options?.name ?? 'Live App Session',
+          agentType: options?.agentType,
+          model: options?.model,
+          workspacePath: options?.workspacePath,
+        },
+      });
+    } catch (error) {
+      throw createTauriCommandError('live_app_agentic_create_session', error, { appId });
+    }
+  }
+
+  async agenticSendMessage(
+    appId: string,
+    sessionId: string,
+    prompt: string,
+    options?: LiveAppAgenticSendMessageOptions,
+  ): Promise<LiveAppAgenticSendMessageResult> {
+    try {
+      return await api.invoke('live_app_agentic_send_message', {
+        request: {
+          appId,
+          sessionId,
+          prompt,
+          originalPrompt: options?.originalPrompt,
+          agentType: options?.agentType,
+          turnId: options?.turnId,
+        },
+      });
+    } catch (error) {
+      throw createTauriCommandError('live_app_agentic_send_message', error, { appId, sessionId });
+    }
+  }
+
+  async agenticCancelTurn(appId: string, sessionId: string, turnId: string): Promise<void> {
+    try {
+      await api.invoke('live_app_agentic_cancel_turn', { request: { appId, sessionId, turnId } });
+    } catch (error) {
+      throw createTauriCommandError('live_app_agentic_cancel_turn', error, { appId, sessionId, turnId });
+    }
+  }
+
+  async agenticListSessions(appId: string): Promise<LiveAppAgenticSession[]> {
+    try {
+      return await api.invoke('live_app_agentic_list_sessions', { appId });
+    } catch (error) {
+      throw createTauriCommandError('live_app_agentic_list_sessions', error, { appId });
+    }
+  }
+
+  async agenticRestoreSession(appId: string, sessionId: string): Promise<LiveAppAgenticSession> {
+    try {
+      return await api.invoke('live_app_agentic_restore_session', { request: { appId, sessionId } });
+    } catch (error) {
+      throw createTauriCommandError('live_app_agentic_restore_session', error, { appId, sessionId });
+    }
+  }
+
+  async agenticDeleteSession(appId: string, sessionId: string): Promise<void> {
+    try {
+      await api.invoke('live_app_agentic_delete_session', { request: { appId, sessionId } });
+    } catch (error) {
+      throw createTauriCommandError('live_app_agentic_delete_session', error, { appId, sessionId });
+    }
+  }
+
+  async agenticConfirmTool(
+    appId: string,
+    sessionId: string,
+    toolId: string,
+    updatedInput?: unknown,
+  ): Promise<void> {
+    try {
+      await api.invoke('live_app_agentic_confirm_tool', {
+        request: { appId, sessionId, toolId, updatedInput },
+      });
+    } catch (error) {
+      throw createTauriCommandError('live_app_agentic_confirm_tool', error, { appId, sessionId, toolId });
+    }
+  }
+
+  async agenticRejectTool(appId: string, sessionId: string, toolId: string, reason?: string): Promise<void> {
+    try {
+      await api.invoke('live_app_agentic_reject_tool', {
+        request: { appId, sessionId, toolId, reason },
+      });
+    } catch (error) {
+      throw createTauriCommandError('live_app_agentic_reject_tool', error, { appId, sessionId, toolId });
     }
   }
 }
