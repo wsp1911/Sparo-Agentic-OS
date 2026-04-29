@@ -20,15 +20,15 @@ pub struct ThemeConfig {
 
 impl Default for ThemeConfig {
     fn default() -> Self {
-        Self::get_builtin_theme("bitfun-light").unwrap_or_else(|| Self {
-            id: "bitfun-light".to_string(),
-            bg_primary: "#f3f3f5".to_string(),
-            bg_secondary: "#ffffff".to_string(),
-            bg_scene: "#ffffff".to_string(),
+        Self::get_builtin_theme("light").unwrap_or_else(|| Self {
+            id: "light".to_string(),
+            bg_primary: "#F8FAFC".to_string(),
+            bg_secondary: "#FFFFFF".to_string(),
+            bg_scene: "#FFFFFF".to_string(),
             is_light: true,
-            text_primary: "#1e293b".to_string(),
-            text_muted: "#64748b".to_string(),
-            accent_color: "#64748b".to_string(),
+            text_primary: "#0F172A".to_string(),
+            text_muted: "#5B6B8C".to_string(),
+            accent_color: "#B7372F".to_string(),
         })
     }
 }
@@ -36,35 +36,25 @@ impl Default for ThemeConfig {
 impl ThemeConfig {
     pub fn get_builtin_theme(theme_id: &str) -> Option<Self> {
         match theme_id {
-            "bitfun-slate" => Some(Self {
+            "slate" | "bitfun-slate" => Some(Self {
                 id: theme_id.to_string(),
-                bg_primary: "#1a1c1e".to_string(),
-                bg_secondary: "#1a1c1e".to_string(),
-                bg_scene: "#1d2023".to_string(),
+                bg_primary: "#14161a".to_string(),
+                bg_secondary: "#22262c".to_string(),
+                bg_scene: "#22262c".to_string(),
                 is_light: false,
-                text_primary: "#e4e6e8".to_string(),
-                text_muted: "#8a8d92".to_string(),
-                accent_color: "#6b9bd5".to_string(),
+                text_primary: "#eef0f3".to_string(),
+                text_muted: "rgba(255, 255, 255, 0.4)".to_string(),
+                accent_color: "#B7372F".to_string(),
             }),
-            "bitfun-dark" => Some(Self {
+            "dark" | "bitfun-dark" => Some(Self {
                 id: theme_id.to_string(),
-                bg_primary: "#121214".to_string(),
-                bg_secondary: "#18181a".to_string(),
-                bg_scene: "#16161a".to_string(),
+                bg_primary: "#0e0e10".to_string(),
+                bg_secondary: "#1c1c1f".to_string(),
+                bg_scene: "#1c1c1f".to_string(),
                 is_light: false,
                 text_primary: "#e8e8e8".to_string(),
                 text_muted: "rgba(255, 255, 255, 0.4)".to_string(),
-                accent_color: "#60a5fa".to_string(),
-            }),
-            "bitfun-midnight" => Some(Self {
-                id: theme_id.to_string(),
-                bg_primary: "#2b2d30".to_string(),
-                bg_secondary: "#1e1f22".to_string(),
-                bg_scene: "#27292c".to_string(),
-                is_light: false,
-                text_primary: "#bcbec4".to_string(),
-                text_muted: "rgba(255, 255, 255, 0.4)".to_string(),
-                accent_color: "#6c9eff".to_string(),
+                accent_color: "#B7372F".to_string(),
             }),
             "bitfun-cyber" => Some(Self {
                 id: theme_id.to_string(),
@@ -86,15 +76,15 @@ impl ThemeConfig {
                 text_muted: "rgba(255, 255, 255, 0.4)".to_string(),
                 accent_color: "#c4a35a".to_string(),
             }),
-            "bitfun-light" => Some(Self {
+            "light" => Some(Self {
                 id: theme_id.to_string(),
-                bg_primary: "#f3f3f5".to_string(),
-                bg_secondary: "#ffffff".to_string(),
-                bg_scene: "#ffffff".to_string(),
+                bg_primary: "#F8FAFC".to_string(),
+                bg_secondary: "#FFFFFF".to_string(),
+                bg_scene: "#FFFFFF".to_string(),
                 is_light: true,
-                text_primary: "#1e293b".to_string(),
-                text_muted: "#64748b".to_string(),
-                accent_color: "#64748b".to_string(),
+                text_primary: "#0F172A".to_string(),
+                text_muted: "#5B6B8C".to_string(),
+                accent_color: "#B7372F".to_string(),
             }),
             "bitfun-china-style" => Some(Self {
                 id: theme_id.to_string(),
@@ -146,7 +136,7 @@ impl ThemeConfig {
             .themes
             .as_ref()
             .map(|t| t.current.as_str())
-            .unwrap_or("bitfun-light");
+            .unwrap_or("light");
 
         let resolved_id = Self::resolve_builtin_theme_id(theme_id);
 
@@ -162,10 +152,22 @@ impl ThemeConfig {
     /// Maps config `themes.current` to a built-in id for splash / window chrome.
     /// `system` follows OS light/dark (aligned with web-ui `getSystemPreferredDefaultThemeId`).
     fn resolve_builtin_theme_id(theme_id: &str) -> &str {
+        if theme_id == "sparo-light" || theme_id == "bitfun-light" {
+            return "light";
+        }
+        if theme_id == "bitfun-dark" {
+            return "dark";
+        }
+        if theme_id == "bitfun-slate" {
+            return "slate";
+        }
+        if theme_id == "bitfun-midnight" {
+            return "slate";
+        }
         if theme_id == "system" {
             return match dark_light::detect() {
-                Mode::Dark => "bitfun-dark",
-                Mode::Light | Mode::Default => "bitfun-light",
+                Mode::Dark => "dark",
+                Mode::Light | Mode::Default => "light",
             };
         }
         theme_id

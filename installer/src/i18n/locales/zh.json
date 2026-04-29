@@ -196,13 +196,12 @@
     "followSystem": "跟随系统",
     "skip": "跳过主题并启动",
     "themeNames": {
-      "bitfun-dark": "暗色",
-      "bitfun-light": "亮色",
-      "bitfun-midnight": "午夜",
+      "dark": "暗色",
+      "light": "亮色",
       "bitfun-china-style": "墨韵",
       "bitfun-china-night": "墨夜",
       "bitfun-cyber": "赛博",
-      "bitfun-slate": "石板灰"
+      "slate": "石板灰"
     }
   },
   "complete": {

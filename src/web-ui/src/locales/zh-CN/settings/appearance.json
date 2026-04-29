@@ -16,17 +16,13 @@
     "systemTheme": "跟随系统",
     "systemThemeDescription": "根据系统浅色/深色外观自动在亮暗主题间切换，并随系统切换而更新。",
     "presets": {
-      "bitfun-dark": {
+      "dark": {
         "name": "暗色",
-        "description": "默认暗色主题"
+        "description": "Sparo OS 默认暗色主题，印红色强调"
       },
-      "bitfun-light": {
+      "light": {
         "name": "亮色",
-        "description": "亮色主题 - 素雅高级，淡蓝灰调"
-      },
-      "bitfun-midnight": {
-        "name": "午夜",
-        "description": "午夜灰暗色主题 - 专业优雅，灵感来自 JetBrains IDE"
+        "description": "浅色主题 — 柔和底板、墨色文字、克制的强调色"
       },
       "bitfun-china-style": {
         "name": "墨韵",
@@ -40,13 +36,9 @@
         "name": "赛博",
         "description": "科技感主题 - 深邃黑洞，霓虹未来，极致科技美学"
       },
-      "bitfun-slate": {
+      "slate": {
         "name": "石板灰",
-        "description": "石板灰几何主题 - 极深沉浸，高对比度灰度美学"
-      },
-      "sparo-light": {
-        "name": "Sparo 浅色",
-        "description": "Sparo 品牌浅色主题 - 云白界面、墨色文字和印红信号"
+        "description": "石板灰几何风 — 冷色线条与 Sparo 印红强调"
       }
     },
     "fontSize": {

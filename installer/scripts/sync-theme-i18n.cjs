@@ -5,13 +5,12 @@ const INSTALLER_ROOT = path.resolve(__dirname, "..");
 const PROJECT_ROOT = path.resolve(INSTALLER_ROOT, "..");
 
 const THEME_IDS = [
-  "bitfun-dark",
-  "bitfun-light",
-  "bitfun-midnight",
+  "dark",
+  "light",
   "bitfun-china-style",
   "bitfun-china-night",
   "bitfun-cyber",
-  "bitfun-slate",
+  "slate",
 ];
 
 function readJson(filePath) {

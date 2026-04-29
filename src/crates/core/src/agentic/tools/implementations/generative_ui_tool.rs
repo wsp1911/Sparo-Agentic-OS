@@ -35,92 +35,75 @@ impl GenerativeUITool {
         "Architecture/codebase widget reminder: if the widget is a repo map, README architecture view, or module diagram, clickable nodes must carry verified file metadata on the clickable element itself. Use `data-file-path` for a REAL existing file and `data-line` for the exact definition line when the node represents code. Do not attach file metadata to abstract grouping nodes, package containers, or directories. If a node is conceptual or cannot be verified, leave it non-clickable."
     }
 
-    fn bitfun_design_system_reminder() -> &'static str {
-        "BitFun design-system reminder: when the widget should feel native to the host BitFun app, style it with BitFun theme tokens instead of hard-coded design values. Prefer CSS variables such as `var(--color-bg-primary)`, `var(--color-bg-secondary)`, `var(--color-bg-scene)`, `var(--color-bg-elevated)`, `var(--color-text-primary)`, `var(--color-text-secondary)`, `var(--color-text-muted)`, `var(--color-accent-500)`, `var(--color-accent-600)`, `var(--border-subtle)`, `var(--border-base)`, `var(--border-medium)`, `var(--element-bg-subtle)`, `var(--element-bg-soft)`, `var(--element-bg-base)`, `var(--element-bg-medium)`, `var(--shadow-*)`, `var(--radius-*)`, `var(--spacing-*)`, `var(--motion-*)`, `var(--easing-*)`, `var(--font-sans)`, and `var(--font-mono)`. Support both `bitfun-dark` and `bitfun-light`; do not assume dark-only, purple-only, or landing-page styling. Favor compact desktop workbench layouts, panel/card surfaces, strong information hierarchy, and reusable BitFun component patterns. Avoid hard-coded colors, arbitrary spacing, giant hero sections, fake mobile chrome, and full marketing-page shells; prefer understated, premium UI with layered surfaces, restrained contrast, subtle borders, and do not use thick left-accent emphasis blocks."
+    fn sparo_os_design_system_reminder() -> &'static str {
+        "Sparo OS design-system reminder: when the widget should feel native to Sparo OS, style it with Sparo OS theme tokens instead of hard-coded design values. Prefer CSS variables such as `var(--color-bg-primary)`, `var(--color-bg-secondary)`, `var(--color-bg-scene)`, `var(--color-bg-elevated)`, `var(--color-text-primary)`, `var(--color-text-secondary)`, `var(--color-text-muted)`, `var(--color-accent-500)`, `var(--color-accent-600)`, `var(--border-subtle)`, `var(--border-base)`, `var(--border-medium)`, `var(--element-bg-subtle)`, `var(--element-bg-soft)`, `var(--element-bg-base)`, `var(--element-bg-medium)`, `var(--shadow-*)`, `var(--radius-*)`, `var(--spacing-*)`, `var(--motion-*)`, `var(--easing-*)`, `var(--font-sans)`, and `var(--font-mono)`. Support both `dark` and `light` (and other built-in themes); do not assume dark-only, purple-only, or landing-page styling. Favor compact desktop workbench layouts, panel/card surfaces, strong information hierarchy, and reusable Sparo OS UI patterns. Avoid hard-coded colors, arbitrary spacing, giant hero sections, fake mobile chrome, and full marketing-page shells; prefer understated, premium UI with layered surfaces, restrained contrast, subtle borders, and do not use thick left-accent emphasis blocks."
     }
 
-    fn bitfun_widget_scaffold_reminder() -> &'static str {
-        "BitFun widget scaffold reminder: the host iframe already provides reusable utility classes. Prefer these host classes before inventing a new visual language: `bf-root`, `bf-stack`, `bf-row`, `bf-row-wrap`, `bf-toolbar`, `bf-section`, `bf-section-header`, `bf-title`, `bf-subtitle`, `bf-eyebrow`, `bf-card`, `bf-panel`, `bf-card-accent`, `bf-grid`, `bf-kpi`, `bf-kpi-label`, `bf-kpi-value`, `bf-kpi-meta`, `bf-badge`, `bf-badge-accent`, `bf-badge-success`, `bf-badge-warning`, `bf-badge-error`, `bf-button`, `bf-button-primary`, `bf-input`, `bf-textarea`, `bf-select`, `bf-list`, `bf-list-item`, `bf-table-wrap`, `bf-table`, `bf-empty`, `bf-divider`, `bf-code`, and `bf-mono`. Generate markup that composes these classes first, and only add small local CSS when the scaffold is insufficient."
+    fn sparo_os_widget_scaffold_reminder() -> &'static str {
+        "Sparo OS widget scaffold reminder: the host iframe already provides reusable utility classes. Prefer these host classes before inventing a new visual language: `bf-root`, `bf-stack`, `bf-row`, `bf-row-wrap`, `bf-toolbar`, `bf-section`, `bf-section-header`, `bf-title`, `bf-subtitle`, `bf-eyebrow`, `bf-card`, `bf-panel`, `bf-card-accent`, `bf-grid`, `bf-kpi`, `bf-kpi-label`, `bf-kpi-value`, `bf-kpi-meta`, `bf-badge`, `bf-badge-accent`, `bf-badge-success`, `bf-badge-warning`, `bf-badge-error`, `bf-button`, `bf-button-primary`, `bf-input`, `bf-textarea`, `bf-select`, `bf-list`, `bf-list-item`, `bf-table-wrap`, `bf-table`, `bf-empty`, `bf-divider`, `bf-code`, and `bf-mono`. Generate markup that composes these classes first, and only add small local CSS when the scaffold is insufficient."
     }
 
     fn combined_reminder() -> String {
         format!(
             "{} {} {}",
             Self::architecture_widget_reminder(),
-            Self::bitfun_design_system_reminder(),
-            Self::bitfun_widget_scaffold_reminder()
+            Self::sparo_os_design_system_reminder(),
+            Self::sparo_os_widget_scaffold_reminder()
         )
     }
 
     fn builtin_theme_snapshot(theme_id: &str) -> Option<ThemePromptSnapshot> {
         match theme_id {
-            "bitfun-dark" => Some(ThemePromptSnapshot {
-                id: "bitfun-dark",
+            "dark" | "bitfun-dark" => Some(ThemePromptSnapshot {
+                id: "dark",
                 theme_type: "dark",
                 bg_primary: "#0e0e10",
                 bg_secondary: "#1c1c1f",
                 bg_scene: "#1c1c1f",
                 text_primary: "#e8e8e8",
                 text_muted: "#858585",
-                accent_500: "#60a5fa",
-                accent_600: "#3b82f6",
+                accent_500: "#B7372F",
+                accent_600: "#9E2F29",
                 border_base: "rgba(255, 255, 255, 0.18)",
                 element_base: "rgba(255, 255, 255, 0.095)",
                 radius_base: "8px",
                 spacing_4: "16px",
                 shadow_base: "0 4px 8px rgba(0, 0, 0, 0.7)",
-                style_notes: "neutral dark workbench, low-chroma surfaces, blue accent used sparingly",
+                style_notes: "neutral dark workbench, restrained surfaces, Sparo ink-red accent used sparingly",
             }),
-            "bitfun-light" => Some(ThemePromptSnapshot {
-                id: "bitfun-light",
+            "light" | "bitfun-light" | "sparo-light" => Some(ThemePromptSnapshot {
+                id: "light",
                 theme_type: "light",
-                bg_primary: "#f3f3f5",
-                bg_secondary: "#ffffff",
-                bg_scene: "#ffffff",
-                text_primary: "#1e293b",
-                text_muted: "#64748b",
-                accent_500: "#64748b",
-                accent_600: "#475569",
-                border_base: "rgba(100, 116, 139, 0.22)",
-                element_base: "rgba(15, 23, 42, 0.09)",
-                radius_base: "8px",
+                bg_primary: "#F8FAFC",
+                bg_secondary: "#FFFFFF",
+                bg_scene: "#FFFFFF",
+                text_primary: "#0F172A",
+                text_muted: "#5B6B8C",
+                accent_500: "#B7372F",
+                accent_600: "#9E2F29",
+                border_base: "rgba(15, 23, 42, 0.12)",
+                element_base: "rgba(15, 23, 42, 0.075)",
+                radius_base: "6px",
                 spacing_4: "16px",
-                shadow_base: "0 4px 8px rgba(71, 85, 105, 0.10)",
-                style_notes: "neutral light workbench, soft gray chrome, restrained contrast, no glossy marketing feel",
+                shadow_base: "0 5px 12px rgba(15, 23, 42, 0.08)",
+                style_notes: "light theme — cloud surfaces, ink text, print-red accent, calm contrast",
             }),
-            "bitfun-slate" => Some(ThemePromptSnapshot {
-                id: "bitfun-slate",
+            "slate" | "bitfun-slate" | "bitfun-midnight" => Some(ThemePromptSnapshot {
+                id: "slate",
                 theme_type: "dark",
                 bg_primary: "#14161a",
                 bg_secondary: "#22262c",
                 bg_scene: "#22262c",
                 text_primary: "#eef0f3",
                 text_muted: "#9ea4ab",
-                accent_500: "#94a3b8",
-                accent_600: "#64748b",
+                accent_500: "#B7372F",
+                accent_600: "#9E2F29",
                 border_base: "rgba(255, 255, 255, 0.18)",
                 element_base: "rgba(255, 255, 255, 0.095)",
                 radius_base: "6px",
                 spacing_4: "16px",
                 shadow_base: "0 4px 8px rgba(0, 0, 0, 0.75)",
-                style_notes: "cool gray geometric chrome, crisp edges, restrained accent, dense desktop mood",
-            }),
-            "bitfun-midnight" => Some(ThemePromptSnapshot {
-                id: "bitfun-midnight",
-                theme_type: "dark",
-                bg_primary: "#2b2d30",
-                bg_secondary: "#1e1f22",
-                bg_scene: "#27292c",
-                text_primary: "#bcbec4",
-                text_muted: "#6f737a",
-                accent_500: "#58a6ff",
-                accent_600: "#3b82f6",
-                border_base: "rgba(255, 255, 255, 0.14)",
-                element_base: "rgba(255, 255, 255, 0.09)",
-                radius_base: "8px",
-                spacing_4: "16px",
-                shadow_base: "0 4px 8px rgba(0, 0, 0, 0.7)",
-                style_notes: "IDE-like dark gray theme, professional, sober, subtle blue focus accents",
+                style_notes: "cool gray geometric chrome, crisp edges, Sparo ink-red accent, dense desktop mood",
             }),
             "bitfun-cyber" => Some(ThemePromptSnapshot {
                 id: "bitfun-cyber",
@@ -199,10 +182,10 @@ impl GenerativeUITool {
     }
 
     fn baseline_theme_context() -> String {
-        let dark = Self::builtin_theme_snapshot("bitfun-dark")
+        let dark = Self::builtin_theme_snapshot("dark")
             .map(|snapshot| Self::format_theme_snapshot(&snapshot))
             .unwrap_or_default();
-        let light = Self::builtin_theme_snapshot("bitfun-light")
+        let light = Self::builtin_theme_snapshot("light")
             .map(|snapshot| Self::format_theme_snapshot(&snapshot))
             .unwrap_or_default();
         format!(
@@ -218,25 +201,25 @@ impl GenerativeUITool {
             .await
             .ok()
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "bitfun-light".to_string());
+            .unwrap_or_else(|| "light".to_string());
 
         if selected_theme_id == "system" {
             return Some(format!(
-                "BitFun active theme selection: system. Exact runtime resolution is host-dependent, so do not assume one palette. {}",
+                "Sparo OS active theme selection: system. Exact runtime resolution is host-dependent, so do not assume one palette. {}",
                 Self::baseline_theme_context()
             ));
         }
 
         if let Some(snapshot) = Self::builtin_theme_snapshot(&selected_theme_id) {
             return Some(format!(
-                "BitFun active theme snapshot: {}. {}",
+                "Sparo OS active theme snapshot: {}. {}",
                 Self::format_theme_snapshot(&snapshot),
                 Self::baseline_theme_context()
             ));
         }
 
         Some(format!(
-            "BitFun active theme selection: {}. Backend does not have an exact built-in snapshot for this theme, so use BitFun CSS variables strictly and avoid hard-coded fallback palettes. {}",
+            "Sparo OS active theme selection: {}. Backend does not have an exact built-in snapshot for this theme, so use Sparo OS CSS variables strictly and avoid hard-coded fallback palettes. {}",
             selected_theme_id,
             Self::baseline_theme_context()
         ))
@@ -293,9 +276,9 @@ Input rules:
 25. For charts, give charts a fixed-height wrapper and keep legends or summary numbers outside the canvas when possible.
 26. For mockups, use compact spacing and clear hierarchy. Avoid building full app chrome unless the chrome itself is the point.
 27. For lightweight generative art, prefer SVG and keep the output deterministic and performant.
-28. If the widget is meant to match BitFun's product UI, apply these reminders strictly: {} {}"#,
-            Self::bitfun_design_system_reminder(),
-            Self::bitfun_widget_scaffold_reminder()
+28. If the widget is meant to match Sparo OS product UI, apply these reminders strictly: {} {}"#,
+            Self::sparo_os_design_system_reminder(),
+            Self::sparo_os_widget_scaffold_reminder()
         ))
     }
 
@@ -328,7 +311,7 @@ Input rules:
                 "widget_code": {
                     "type": "string",
                     "description": format!(
-                        "Raw HTML fragment or raw SVG. No Markdown code fences. For HTML: no <!DOCTYPE>, <html>, <head>, or <body>. {} If the widget should match BitFun, rely on the host CSS variables instead of hard-coded colors or spacing. If the user asked for file navigation, do not finish this field until each clickable node has verified file metadata or is intentionally non-clickable.",
+                        "Raw HTML fragment or raw SVG. No Markdown code fences. For HTML: no <!DOCTYPE>, <html>, <head>, or <body>. {} If the widget should match Sparo OS, rely on the host CSS variables instead of hard-coded colors or spacing. If the user asked for file navigation, do not finish this field until each clickable node has verified file metadata or is intentionally non-clickable.",
                         Self::combined_reminder()
                     )
                 },
@@ -363,16 +346,16 @@ Input rules:
         let theme_context = self.build_theme_prompt_context().await;
         if let Some(obj) = schema.as_object_mut() {
             obj.insert(
-                "x-bitfun-reminder".to_string(),
+                "x-sparo-os-reminder".to_string(),
                 Value::String(Self::combined_reminder()),
             );
             obj.insert(
-                "x-bitfun-design-system".to_string(),
-                Value::String(Self::bitfun_design_system_reminder().to_string()),
+                "x-sparo-os-design-system".to_string(),
+                Value::String(Self::sparo_os_design_system_reminder().to_string()),
             );
             if let Some(theme_context) = theme_context {
                 obj.insert(
-                    "x-bitfun-theme-context".to_string(),
+                    "x-sparo-os-theme-context".to_string(),
                     Value::String(theme_context.clone()),
                 );
                 if let Some(description) = obj

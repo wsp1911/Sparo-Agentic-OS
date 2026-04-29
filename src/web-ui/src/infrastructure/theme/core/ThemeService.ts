@@ -13,7 +13,12 @@ import {
   SYSTEM_THEME_ID,
   ThemeSelectionId,
 } from '../types';
-import { builtinThemes, getSystemPreferredDefaultThemeId } from '../presets';
+import {
+  builtinThemes,
+  getSystemPreferredDefaultThemeId,
+  resolveThemeId,
+  resolveThemeSelectionId,
+} from '../presets';
 import { configAPI } from '@/infrastructure/api';
 import { monacoThemeSync } from '../integrations/MonacoThemeSync';
 import { createLogger } from '@/shared/utils/logger';
@@ -63,7 +68,7 @@ export class ThemeService {
    
   async initialize(): Promise<void> {
     try {
-      const saved = await this.loadThemeSelection();
+      const saved = resolveThemeSelectionId(await this.loadThemeSelection());
 
       if (saved === SYSTEM_THEME_ID) {
         await this.applyTheme(SYSTEM_THEME_ID);
@@ -71,8 +76,11 @@ export class ThemeService {
         await this.applyTheme(saved);
       } else {
         const preInjectedThemeId = document.documentElement.getAttribute('data-theme');
-        if (preInjectedThemeId && this.themes.has(preInjectedThemeId as ThemeId)) {
-          await this.applyTheme(preInjectedThemeId as ThemeId);
+        const normalizedPre = preInjectedThemeId
+          ? resolveThemeId(preInjectedThemeId as ThemeId)
+          : null;
+        if (normalizedPre && this.themes.has(normalizedPre)) {
+          await this.applyTheme(normalizedPre);
         } else {
           await this.applyTheme(SYSTEM_THEME_ID);
         }
@@ -277,6 +285,9 @@ export class ThemeService {
   }
 
   async applyTheme(themeId: ThemeId | typeof SYSTEM_THEME_ID): Promise<void> {
+    if (themeId !== SYSTEM_THEME_ID) {
+      themeId = resolveThemeId(themeId as ThemeId);
+    }
     if (themeId !== SYSTEM_THEME_ID && !this.themes.has(themeId)) {
       log.error('Theme not found', { id: themeId });
       throw new Error(`Theme ${themeId} not found`);

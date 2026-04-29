@@ -3,7 +3,7 @@
  */
 
 import * as monaco from 'monaco-editor';
-import { BitFunDarkTheme, BitFunDarkThemeMetadata } from './bitfun-dark.theme';
+import { SparoOsDarkTheme, SparoOsDarkThemeMetadata } from './sparo-dark.theme';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('ThemeRegistry');
@@ -56,17 +56,17 @@ export function getRegisteredThemes(): string[] {
 }
 
 export function initializeBuiltinThemes(): boolean {
-  return registerTheme(BitFunDarkThemeMetadata.id, BitFunDarkTheme);
+  return registerTheme(SparoOsDarkThemeMetadata.id, SparoOsDarkTheme);
 }
 
 export function ensureDefaultTheme(): void {
-  if (!registeredThemes.has(BitFunDarkThemeMetadata.id)) {
-    registerTheme(BitFunDarkThemeMetadata.id, BitFunDarkTheme);
+  if (!registeredThemes.has(SparoOsDarkThemeMetadata.id)) {
+    registerTheme(SparoOsDarkThemeMetadata.id, SparoOsDarkTheme);
   }
 }
 
 export function isThemesInitialized(): boolean {
-  return registeredThemes.has(BitFunDarkThemeMetadata.id);
+  return registeredThemes.has(SparoOsDarkThemeMetadata.id);
 }
 
 export function applyTheme(themeId: string): void {
@@ -78,7 +78,7 @@ export function applyTheme(themeId: string): void {
 }
 
 export function getDefaultThemeId(): string {
-  return BitFunDarkThemeMetadata.id;
+  return SparoOsDarkThemeMetadata.id;
 }
 
-export { BitFunDarkTheme, BitFunDarkThemeMetadata };
+export { SparoOsDarkTheme, SparoOsDarkThemeMetadata };

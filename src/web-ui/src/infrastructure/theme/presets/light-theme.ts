@@ -1,159 +1,149 @@
- 
-
 import { ThemeConfig } from '../types';
 
-export const bitfunLightTheme: ThemeConfig = {
-  
-  id: 'bitfun-light',
+export const lightTheme: ThemeConfig = {
+  id: 'light',
   name: 'Light',
   type: 'light',
-  description: 'Light theme - Neutral gray surfaces, black primary actions',
-  author: 'BitFun Team',
-  version: '2.3.0',
+  description: 'Light theme — calm surfaces, ink text, and restrained accent',
+  version: '1.0.0',
 
   layout: {
     sceneViewportBorder: false,
   },
-  
-  
+
   colors: {
     background: {
-      primary: '#f3f3f5',
-      secondary: '#ffffff',        
-      tertiary: '#e8eaee',         
-      quaternary: '#e0e3e8',       
-      elevated: '#ffffff',         
-      workbench: '#eceef1',        
-      scene: '#ffffff',
+      primary: '#F8FAFC',
+      secondary: '#FFFFFF',
+      tertiary: '#F1F5F9',
+      quaternary: '#E7ECF3',
+      elevated: '#FFFFFF',
+      workbench: '#F3F6FA',
+      scene: '#FFFFFF',
       tooltip: 'rgba(255, 255, 255, 0.98)',
     },
-    
+
     text: {
-      primary: '#1e293b',          
-      secondary: '#3d4f66',        
-      muted: '#64748b',            
-      disabled: '#94a3b8',         
+      primary: '#0F172A',
+      secondary: '#253044',
+      muted: '#5B6B8C',
+      disabled: 'rgba(91, 107, 140, 0.56)',
     },
-    
-    
+
     accent: {
-      50: 'rgba(15, 23, 42, 0.04)',
-      100: 'rgba(15, 23, 42, 0.07)',
-      200: 'rgba(15, 23, 42, 0.10)',
-      300: 'rgba(15, 23, 42, 0.16)',
-      400: 'rgba(15, 23, 42, 0.26)',
-      500: '#64748b',
-      600: '#475569',
-      700: 'rgba(71, 85, 105, 0.88)',
-      800: 'rgba(51, 65, 85, 0.94)',
+      50: 'rgba(183, 55, 47, 0.045)',
+      100: 'rgba(183, 55, 47, 0.08)',
+      200: 'rgba(183, 55, 47, 0.13)',
+      300: 'rgba(183, 55, 47, 0.22)',
+      400: 'rgba(183, 55, 47, 0.42)',
+      500: '#B7372F',
+      600: '#9E2F29',
+      700: 'rgba(158, 47, 41, 0.88)',
+      800: 'rgba(128, 36, 32, 0.94)',
     },
-    
-    
+
     purple: {
-      50: 'rgba(107, 90, 137, 0.04)',
-      100: 'rgba(107, 90, 137, 0.08)',
-      200: 'rgba(107, 90, 137, 0.14)',
-      300: 'rgba(107, 90, 137, 0.22)',
-      400: 'rgba(107, 90, 137, 0.36)',
-      500: '#7c6b99',              
-      600: '#655680',              
-      700: 'rgba(101, 86, 128, 0.8)',
-      800: 'rgba(101, 86, 128, 0.9)',
+      50: 'rgba(91, 107, 140, 0.045)',
+      100: 'rgba(91, 107, 140, 0.08)',
+      200: 'rgba(91, 107, 140, 0.13)',
+      300: 'rgba(91, 107, 140, 0.2)',
+      400: 'rgba(91, 107, 140, 0.34)',
+      500: '#5B6B8C',
+      600: '#253044',
+      700: 'rgba(37, 48, 68, 0.82)',
+      800: 'rgba(15, 23, 42, 0.9)',
     },
-    
-    
+
     semantic: {
-      success: '#5b9a6f',          
-      successBg: 'rgba(91, 154, 111, 0.08)',
-      successBorder: 'rgba(91, 154, 111, 0.25)',
-      
-      warning: '#c08c42',          
-      warningBg: 'rgba(192, 140, 66, 0.08)',
-      warningBorder: 'rgba(192, 140, 66, 0.25)',
-      
-      error: '#c26565',            
-      errorBg: 'rgba(194, 101, 101, 0.08)',
-      errorBorder: 'rgba(194, 101, 101, 0.25)',
-      
-      info: '#64748b',
-      infoBg: 'rgba(100, 116, 139, 0.10)',
-      infoBorder: 'rgba(100, 116, 139, 0.28)',
-      
-      
-      highlight: '#b8863a',
-      highlightBg: 'rgba(184, 134, 58, 0.12)',
+      success: '#4F8F67',
+      successBg: 'rgba(79, 143, 103, 0.09)',
+      successBorder: 'rgba(79, 143, 103, 0.25)',
+
+      warning: '#B8842B',
+      warningBg: 'rgba(184, 132, 43, 0.1)',
+      warningBorder: 'rgba(184, 132, 43, 0.28)',
+
+      error: '#B7372F',
+      errorBg: 'rgba(183, 55, 47, 0.09)',
+      errorBorder: 'rgba(183, 55, 47, 0.28)',
+
+      info: '#5B6B8C',
+      infoBg: 'rgba(91, 107, 140, 0.1)',
+      infoBorder: 'rgba(91, 107, 140, 0.25)',
+
+      highlight: '#B7372F',
+      highlightBg: 'rgba(183, 55, 47, 0.11)',
     },
-    
-    
+
     border: {
-      subtle: 'rgba(100, 116, 139, 0.15)',     
-      base: 'rgba(100, 116, 139, 0.22)',       
-      medium: 'rgba(100, 116, 139, 0.32)',     
-      strong: 'rgba(100, 116, 139, 0.42)',     
-      prominent: 'rgba(100, 116, 139, 0.52)',  
+      subtle: 'rgba(15, 23, 42, 0.08)',
+      base: 'rgba(15, 23, 42, 0.12)',
+      medium: 'rgba(15, 23, 42, 0.18)',
+      strong: 'rgba(15, 23, 42, 0.28)',
+      prominent: 'rgba(15, 23, 42, 0.38)',
     },
-    
-    
+
     element: {
-      subtle: 'rgba(15, 23, 42, 0.045)',
-      soft: 'rgba(15, 23, 42, 0.065)',
-      base: 'rgba(15, 23, 42, 0.09)',
-      medium: 'rgba(15, 23, 42, 0.12)',
-      strong: 'rgba(15, 23, 42, 0.16)',
-      elevated: 'rgba(255, 255, 255, 0.92)',
+      subtle: 'rgba(15, 23, 42, 0.035)',
+      soft: 'rgba(15, 23, 42, 0.055)',
+      base: 'rgba(15, 23, 42, 0.075)',
+      medium: 'rgba(15, 23, 42, 0.105)',
+      strong: 'rgba(15, 23, 42, 0.145)',
+      elevated: 'rgba(255, 255, 255, 0.94)',
     },
-    
-    
+
     git: {
-      branch: 'rgb(71, 85, 105)',
-      branchBg: 'rgba(71, 85, 105, 0.10)',
-      changes: 'rgb(192, 140, 66)',            
-      changesBg: 'rgba(192, 140, 66, 0.08)',
-      added: 'rgb(91, 154, 111)',              
-      addedBg: 'rgba(91, 154, 111, 0.08)',
-      deleted: 'rgb(194, 101, 101)',           
-      deletedBg: 'rgba(194, 101, 101, 0.08)',
-      staged: 'rgb(91, 154, 111)',             
-      stagedBg: 'rgba(91, 154, 111, 0.08)',
+      branch: '#5B6B8C',
+      branchBg: 'rgba(91, 107, 140, 0.1)',
+      changes: '#B8842B',
+      changesBg: 'rgba(184, 132, 43, 0.09)',
+      added: '#4F8F67',
+      addedBg: 'rgba(79, 143, 103, 0.09)',
+      deleted: '#B7372F',
+      deletedBg: 'rgba(183, 55, 47, 0.09)',
+      staged: '#4F8F67',
+      stagedBg: 'rgba(79, 143, 103, 0.09)',
+    },
+
+    scrollbar: {
+      thumb: 'rgba(15, 23, 42, 0.14)',
+      thumbHover: 'rgba(15, 23, 42, 0.28)',
     },
   },
-  
-  
+
   effects: {
     shadow: {
-      
-      xs: '0 1px 2px rgba(71, 85, 105, 0.06)',
-      sm: '0 2px 4px rgba(71, 85, 105, 0.08)',
-      base: '0 4px 8px rgba(71, 85, 105, 0.10)',
-      lg: '0 8px 16px rgba(71, 85, 105, 0.12)',
-      xl: '0 12px 24px rgba(71, 85, 105, 0.14)',
-      '2xl': '0 16px 32px rgba(71, 85, 105, 0.16)',
+      xs: '0 1px 2px rgba(15, 23, 42, 0.04)',
+      sm: '0 2px 5px rgba(15, 23, 42, 0.06)',
+      base: '0 5px 12px rgba(15, 23, 42, 0.08)',
+      lg: '0 10px 22px rgba(15, 23, 42, 0.1)',
+      xl: '0 16px 34px rgba(15, 23, 42, 0.12)',
+      '2xl': '0 22px 48px rgba(15, 23, 42, 0.14)',
     },
-    
-    
+
     glow: {
-      blue: '0 8px 24px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.05), 0 2px 6px rgba(71, 85, 105, 0.04)',
-      purple: '0 8px 24px rgba(15, 23, 42, 0.07), 0 4px 12px rgba(100, 116, 139, 0.06), 0 2px 6px rgba(71, 85, 105, 0.04)',
-      mixed: '0 8px 24px rgba(15, 23, 42, 0.07), 0 4px 12px rgba(15, 23, 42, 0.05), 0 2px 6px rgba(71, 85, 105, 0.04)',
+      blue: '0 10px 28px rgba(15, 23, 42, 0.06), 0 4px 14px rgba(91, 107, 140, 0.06)',
+      purple: '0 10px 28px rgba(91, 107, 140, 0.08), 0 4px 14px rgba(15, 23, 42, 0.05)',
+      mixed: '0 10px 28px rgba(183, 55, 47, 0.08), 0 4px 14px rgba(15, 23, 42, 0.05)',
     },
-    
+
     blur: {
       subtle: 'blur(4px) saturate(1.02)',
-      base: 'blur(8px) saturate(1.05)',
-      medium: 'blur(12px) saturate(1.08)',
-      strong: 'blur(16px) saturate(1.10) brightness(1.02)',
-      intense: 'blur(20px) saturate(1.12) brightness(1.03)',
+      base: 'blur(8px) saturate(1.04)',
+      medium: 'blur(12px) saturate(1.06)',
+      strong: 'blur(16px) saturate(1.08) brightness(1.02)',
+      intense: 'blur(20px) saturate(1.1) brightness(1.03)',
     },
-    
+
     radius: {
-      sm: '6px',
-      base: '8px',
-      lg: '12px',
-      xl: '16px',
-      '2xl': '20px',
+      sm: '4px',
+      base: '6px',
+      lg: '8px',
+      xl: '12px',
+      '2xl': '16px',
       full: '9999px',
     },
-    
+
     spacing: {
       1: '4px',
       2: '8px',
@@ -166,25 +156,24 @@ export const bitfunLightTheme: ThemeConfig = {
       12: '48px',
       16: '64px',
     },
-    
+
     opacity: {
       disabled: 0.55,
       hover: 0.75,
       focus: 0.9,
-      overlay: 0.35,
+      overlay: 0.32,
     },
   },
-  
-  
+
   motion: {
     duration: {
       instant: '0.1s',
       fast: '0.15s',
-      base: '0.3s',
-      slow: '0.6s',
-      lazy: '1s',
+      base: '0.28s',
+      slow: '0.55s',
+      lazy: '0.9s',
     },
-    
+
     easing: {
       standard: 'cubic-bezier(0.4, 0, 0.2, 1)',
       decelerate: 'cubic-bezier(0, 0, 0.2, 1)',
@@ -193,21 +182,20 @@ export const bitfunLightTheme: ThemeConfig = {
       smooth: 'cubic-bezier(0.4, 0, 0.2, 1)',
     },
   },
-  
-  
+
   typography: {
     font: {
-      sans: "'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'SF Pro Display', Roboto, sans-serif",
+      sans: "'Inter', 'Geist', 'Noto Sans SC', 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       mono: "'FiraCode', 'JetBrains Mono', 'SF Mono', 'Consolas', 'Liberation Mono', monospace",
     },
-    
+
     weight: {
       normal: 400,
       medium: 500,
       semibold: 600,
       bold: 700,
     },
-    
+
     size: {
       xs: '12px',
       sm: '13px',
@@ -219,115 +207,110 @@ export const bitfunLightTheme: ThemeConfig = {
       '4xl': '26px',
       '5xl': '32px',
     },
-    
+
     lineHeight: {
       tight: 1.2,
       base: 1.5,
       relaxed: 1.6,
     },
   },
-  
-  
+
   components: {
-    
     windowControls: {
       minimize: {
-        dot: 'rgba(100, 116, 139, 0.5)',
-        dotShadow: '0 0 4px rgba(15, 23, 42, 0.12)',
-        hoverBg: 'rgba(15, 23, 42, 0.08)',
-        hoverColor: '#475569',
-        hoverBorder: 'rgba(100, 116, 139, 0.28)',
-        hoverShadow: '0 2px 8px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+        dot: 'rgba(91, 107, 140, 0.5)',
+        dotShadow: '0 0 4px rgba(15, 23, 42, 0.1)',
+        hoverBg: 'rgba(15, 23, 42, 0.07)',
+        hoverColor: '#253044',
+        hoverBorder: 'rgba(15, 23, 42, 0.14)',
+        hoverShadow: '0 2px 8px rgba(15, 23, 42, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
       },
       maximize: {
-        dot: 'rgba(100, 116, 139, 0.5)',
-        dotShadow: '0 0 4px rgba(15, 23, 42, 0.12)',
-        hoverBg: 'rgba(15, 23, 42, 0.08)',
-        hoverColor: '#475569',
-        hoverBorder: 'rgba(100, 116, 139, 0.28)',
-        hoverShadow: '0 2px 8px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+        dot: 'rgba(91, 107, 140, 0.5)',
+        dotShadow: '0 0 4px rgba(15, 23, 42, 0.1)',
+        hoverBg: 'rgba(15, 23, 42, 0.07)',
+        hoverColor: '#253044',
+        hoverBorder: 'rgba(15, 23, 42, 0.14)',
+        hoverShadow: '0 2px 8px rgba(15, 23, 42, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
       },
       close: {
-        dot: 'rgba(194, 101, 101, 0.55)',
-        dotShadow: '0 0 4px rgba(194, 101, 101, 0.20)',
-        hoverBg: 'rgba(194, 101, 101, 0.14)',
-        hoverColor: '#a85555',
-        hoverBorder: 'rgba(194, 101, 101, 0.25)',
-        hoverShadow: '0 2px 8px rgba(194, 101, 101, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+        dot: 'rgba(183, 55, 47, 0.55)',
+        dotShadow: '0 0 4px rgba(183, 55, 47, 0.18)',
+        hoverBg: 'rgba(183, 55, 47, 0.12)',
+        hoverColor: '#B7372F',
+        hoverBorder: 'rgba(183, 55, 47, 0.24)',
+        hoverShadow: '0 2px 8px rgba(183, 55, 47, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.85)',
       },
       common: {
-        defaultColor: 'rgba(30, 41, 59, 0.95)',
-        defaultDot: 'rgba(100, 116, 139, 0.28)',
-        disabledDot: 'rgba(100, 116, 139, 0.15)',
-        flowGradient: 'linear-gradient(90deg, transparent, rgba(100, 116, 139, 0.06), rgba(100, 116, 139, 0.10), rgba(100, 116, 139, 0.06), transparent)',
+        defaultColor: 'rgba(15, 23, 42, 0.92)',
+        defaultDot: 'rgba(91, 107, 140, 0.28)',
+        disabledDot: 'rgba(91, 107, 140, 0.16)',
+        flowGradient: 'linear-gradient(90deg, transparent, rgba(91, 107, 140, 0.05), rgba(183, 55, 47, 0.08), rgba(91, 107, 140, 0.05), transparent)',
       },
     },
-    
+
     button: {
-      
       default: {
-        background: 'rgba(15, 23, 42, 0.07)',
-        color: '#475569',
+        background: 'rgba(15, 23, 42, 0.06)',
+        color: '#253044',
         border: 'transparent',
         shadow: 'none',
       },
       hover: {
-        background: 'rgba(15, 23, 42, 0.11)',
-        color: '#334155',
+        background: 'rgba(15, 23, 42, 0.1)',
+        color: '#0F172A',
         border: 'transparent',
         shadow: 'none',
         transform: 'none',
       },
       active: {
-        background: 'rgba(15, 23, 42, 0.09)',
-        color: '#334155',
+        background: 'rgba(15, 23, 42, 0.08)',
+        color: '#0F172A',
         border: 'transparent',
         shadow: 'none',
         transform: 'none',
       },
-      
-      
+
       primary: {
         default: {
-          background: '#000000',
-          color: '#ffffff',
+          background: '#B7372F',
+          color: '#FFFFFF',
           border: 'transparent',
-          shadow: 'none',
+          shadow: '0 2px 8px rgba(183, 55, 47, 0.18)',
         },
         hover: {
-          background: '#262626',
-          color: '#ffffff',
+          background: '#9E2F29',
+          color: '#FFFFFF',
           border: 'transparent',
-          shadow: 'none',
+          shadow: '0 4px 14px rgba(183, 55, 47, 0.22)',
           transform: 'none',
         },
         active: {
-          background: '#1a1a1a',
-          color: '#ffffff',
+          background: '#802420',
+          color: '#FFFFFF',
           border: 'transparent',
-          shadow: 'none',
+          shadow: '0 2px 8px rgba(183, 55, 47, 0.18)',
           transform: 'none',
         },
       },
-      
-      
+
       ghost: {
         default: {
           background: 'transparent',
-          color: '#475569',
+          color: '#253044',
           border: 'transparent',
           shadow: 'none',
         },
         hover: {
-          background: 'rgba(15, 23, 42, 0.08)',
-          color: '#334155',
+          background: 'rgba(15, 23, 42, 0.07)',
+          color: '#0F172A',
           border: 'transparent',
           shadow: 'none',
           transform: 'none',
         },
         active: {
-          background: 'rgba(15, 23, 42, 0.055)',
-          color: '#334155',
+          background: 'rgba(15, 23, 42, 0.05)',
+          color: '#0F172A',
           border: 'transparent',
           shadow: 'none',
           transform: 'none',
@@ -335,47 +318,41 @@ export const bitfunLightTheme: ThemeConfig = {
       },
     },
   },
-  
-  
+
   monaco: {
     base: 'vs',
     inherit: true,
     rules: [
-      { token: 'comment', foreground: '94a3b8', fontStyle: 'italic' },      
-      { token: 'keyword', foreground: '6b5a89' },                           
-      { token: 'string', foreground: '5b9a6f' },                            
-      { token: 'number', foreground: 'b8863a' },                            
-      { token: 'type', foreground: '475569' },
-      { token: 'class', foreground: '475569' },
-      { token: 'function', foreground: '7c6b99' },                          
-      { token: 'variable', foreground: '475569' },                          
-      { token: 'constant', foreground: 'c08c42' },                          
-      { token: 'operator', foreground: '6b5a89' },                          
-      { token: 'tag', foreground: '475569' },
-      { token: 'attribute.name', foreground: '7c6b99' },                    
-      { token: 'attribute.value', foreground: '5b9a6f' },                   
+      { token: 'comment', foreground: '6B7890', fontStyle: 'italic' },
+      { token: 'keyword', foreground: '9E2F29' },
+      { token: 'string', foreground: '4F8F67' },
+      { token: 'number', foreground: 'B8842B' },
+      { token: 'type', foreground: '253044' },
+      { token: 'class', foreground: '253044' },
+      { token: 'function', foreground: 'B7372F' },
+      { token: 'variable', foreground: '253044' },
+      { token: 'constant', foreground: 'B8842B' },
+      { token: 'operator', foreground: '5B6B8C' },
+      { token: 'tag', foreground: '9E2F29' },
+      { token: 'attribute.name', foreground: '5B6B8C' },
+      { token: 'attribute.value', foreground: '4F8F67' },
     ],
     colors: {
-      background: '#f7f8fa',                      
-      foreground: '#1e293b',                      
-      lineHighlight: '#f0f4f8',                   
-      selection: 'rgba(15, 23, 42, 0.14)',
-      cursor: '#1e293b',
+      background: '#F8FAFC',
+      foreground: '#0F172A',
+      lineHighlight: '#F1F5F9',
+      selection: 'rgba(183, 55, 47, 0.16)',
+      cursor: '#B7372F',
 
-      'editor.selectionBackground': 'rgba(15, 23, 42, 0.14)',
-      'editor.selectionForeground': '#1e293b',
-      'editor.inactiveSelectionBackground': 'rgba(15, 23, 42, 0.09)',
-      'editor.selectionHighlightBackground': 'rgba(15, 23, 42, 0.10)',
-      'editor.selectionHighlightBorder': 'rgba(15, 23, 42, 0.22)',
-      'editorCursor.foreground': '#1e293b',
+      'editor.selectionBackground': 'rgba(183, 55, 47, 0.16)',
+      'editor.selectionForeground': '#0F172A',
+      'editor.inactiveSelectionBackground': 'rgba(15, 23, 42, 0.08)',
+      'editor.selectionHighlightBackground': 'rgba(183, 55, 47, 0.1)',
+      'editor.selectionHighlightBorder': 'rgba(183, 55, 47, 0.22)',
+      'editorCursor.foreground': '#B7372F',
 
-      'editor.wordHighlightBackground': 'rgba(15, 23, 42, 0.07)',
-      'editor.wordHighlightStrongBackground': 'rgba(15, 23, 42, 0.11)',
+      'editor.wordHighlightBackground': 'rgba(15, 23, 42, 0.06)',
+      'editor.wordHighlightStrongBackground': 'rgba(183, 55, 47, 0.1)',
     },
   },
 };
-
-
-
-
-

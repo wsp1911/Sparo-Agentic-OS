@@ -16,17 +16,13 @@
     "systemTheme": "Match system",
     "systemThemeDescription": "Use light or dark theme based on your OS appearance. Updates when the system switches.",
     "presets": {
-      "bitfun-dark": {
+      "dark": {
         "name": "Dark",
-        "description": "Default dark theme"
+        "description": "Default Sparo OS dark theme with ink-red accent"
       },
-      "bitfun-light": {
+      "light": {
         "name": "Light",
-        "description": "Light theme - Elegant and refined, soft blue-gray tones"
-      },
-      "bitfun-midnight": {
-        "name": "Midnight",
-        "description": "Midnight gray dark theme - Professional and elegant, inspired by JetBrains IDE"
+        "description": "Light theme — calm surfaces, ink text, restrained accent"
       },
       "bitfun-china-style": {
         "name": "Ink Charm",
@@ -40,13 +36,9 @@
         "name": "Cyber",
         "description": "Tech-style theme - Deep black hole, neon future, ultimate tech aesthetics"
       },
-      "bitfun-slate": {
+      "slate": {
         "name": "Slate",
-        "description": "Slate gray geometric theme - Deep immersion, high contrast grayscale aesthetics"
-      },
-      "sparo-light": {
-        "name": "Sparo Light",
-        "description": "Sparo brand light theme - Cloud surfaces, ink text, and print-red signals"
+        "description": "Slate gray geometric theme — cool chrome with Sparo ink-red accent"
       }
     },
     "fontSize": {

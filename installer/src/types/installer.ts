@@ -12,13 +12,12 @@ export interface InstallPathValidation {
 }
 
 export type ThemeId =
-  | 'bitfun-dark'
-  | 'bitfun-light'
-  | 'bitfun-midnight'
+  | 'dark'
+  | 'light'
+  | 'slate'
   | 'bitfun-china-style'
   | 'bitfun-china-night'
-  | 'bitfun-cyber'
-  | 'bitfun-slate';
+  | 'bitfun-cyber';
 
 /** Matches main app `themes.current` when following OS appearance. */
 export const SYSTEM_THEME_ID = 'system' as const;

@@ -4,7 +4,7 @@
  */
 
 import * as monaco from 'monaco-editor';
-import { BitFunDarkTheme, BitFunDarkThemeMetadata } from '../themes/bitfun-dark.theme';
+import { SparoOsDarkTheme, SparoOsDarkThemeMetadata } from '../themes/sparo-dark.theme';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('ThemeManager');
@@ -20,7 +20,7 @@ class ThemeManager {
   private static instance: ThemeManager;
   
   private registeredThemes = new Set<string>();
-  private currentThemeId: string = BitFunDarkThemeMetadata.id;
+  private currentThemeId: string = SparoOsDarkThemeMetadata.id;
   private listeners: ThemeChangeListener[] = [];
   private initialized = false;
   
@@ -41,7 +41,7 @@ class ThemeManager {
       return;
     }
     
-    this.registerTheme(BitFunDarkThemeMetadata.id, BitFunDarkTheme);
+    this.registerTheme(SparoOsDarkThemeMetadata.id, SparoOsDarkTheme);
     this.syncWithThemeService();
     
     this.initialized = true;
@@ -107,7 +107,7 @@ class ThemeManager {
   }
   
   public getDefaultThemeId(): string {
-    return BitFunDarkThemeMetadata.id;
+    return SparoOsDarkThemeMetadata.id;
   }
   
   public isThemeRegistered(id: string): boolean {

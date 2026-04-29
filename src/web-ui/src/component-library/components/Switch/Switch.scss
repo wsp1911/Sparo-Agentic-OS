@@ -240,7 +240,7 @@
   --bitfun-switch-on-thumb-bg: #ffffff;
 }
 
-:root[data-theme='bitfun-slate'] .bitfun-switch {
+:root[data-theme='slate'] .bitfun-switch {
   --bitfun-switch-on-bg: var(--color-purple-500, var(--color-accent-500));
   --bitfun-switch-on-hover-bg: var(--color-purple-600, var(--color-accent-600));
   --bitfun-switch-on-border: color-mix(in srgb, var(--color-purple-500, var(--color-accent-500)) 82%, #fff);
