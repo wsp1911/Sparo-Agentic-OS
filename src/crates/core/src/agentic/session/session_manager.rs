@@ -19,9 +19,7 @@ use crate::service::config::{
     get_app_language_code, get_global_config_service, short_model_user_language_instruction,
     subscribe_config_updates, ConfigUpdateEvent,
 };
-use crate::service::memory_store::{
-    memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
-};
+use crate::service::memory_store::MemoryScope;
 use crate::service::session::{
     DialogTurnData, DialogTurnKind, ModelRoundData, TextItemData, ToolResultData, TurnStatus,
     UserMessageData,
@@ -837,13 +835,12 @@ impl SessionManager {
             .load_dialog_turn(&storage_path, session_id, turn_index)
             .await?
             .ok_or_else(|| BitFunError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
+        let path_manager = self.persistence_manager.path_manager();
         let memory_dir = match memory_scope {
-            MemoryScope::WorkspaceProject => memory_store_dir_path_for_target(
-                MemoryStoreTarget::WorkspaceProject(workspace_root.as_path()),
-            ),
-            MemoryScope::GlobalAgenticOs => {
-                memory_store_dir_path_for_target(MemoryStoreTarget::GlobalAgenticOs)
+            MemoryScope::WorkspaceProject => {
+                path_manager.project_memory_dir(workspace_root.as_path())
             }
+            MemoryScope::GlobalAgenticOs => path_manager.agentic_os_memory_dir(),
         };
 
         for tool in turn
@@ -2576,9 +2573,7 @@ mod tests {
     use crate::agentic::persistence::PersistenceManager;
     use crate::agentic::session::SessionContextStore;
     use crate::infrastructure::PathManager;
-    use crate::service::memory_store::{
-        memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
-    };
+    use crate::service::memory_store::MemoryScope;
     use crate::service::session::{
         DialogTurnData, DialogTurnKind, ModelRoundData, ToolCallData, ToolItemData, TurnStatus,
         UserMessageData,
@@ -2589,32 +2584,41 @@ mod tests {
     use uuid::Uuid;
 
     struct TestWorkspace {
+        root: PathBuf,
         path: PathBuf,
     }
 
     impl TestWorkspace {
         fn new() -> Self {
-            let path = std::env::temp_dir()
+            let root = std::env::temp_dir()
                 .join(format!("bitfun-session-manager-test-{}", Uuid::new_v4()));
+            let path = root.join("workspace");
             std::fs::create_dir_all(&path).expect("test workspace should be created");
-            Self { path }
+            Self { root, path }
         }
 
         fn path(&self) -> &Path {
             &self.path
         }
+
+        fn path_manager(&self) -> Arc<PathManager> {
+            Arc::new(PathManager::with_user_root_for_tests(
+                self.root.join("config"),
+            ))
+        }
     }
 
     impl Drop for TestWorkspace {
         fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.path);
+            let _ = std::fs::remove_dir_all(&self.root);
         }
     }
 
-    fn build_test_session_manager() -> (Arc<PersistenceManager>, SessionManager) {
+    fn build_test_session_manager(
+        workspace: &TestWorkspace,
+    ) -> (Arc<PersistenceManager>, SessionManager) {
         let persistence_manager = Arc::new(
-            PersistenceManager::new(Arc::new(PathManager::new().expect("path manager")))
-                .expect("persistence manager"),
+            PersistenceManager::new(workspace.path_manager()).expect("persistence manager"),
         );
         let manager = SessionManager::new(
             Arc::new(SessionContextStore::new()),
@@ -2779,12 +2783,13 @@ mod tests {
     #[tokio::test]
     async fn turn_wrote_memory_for_workspace_scope_detects_memory_write_tool_call() {
         let workspace = TestWorkspace::new();
-        let (persistence_manager, manager) = build_test_session_manager();
+        let (persistence_manager, manager) = build_test_session_manager(&workspace);
         let (session_id, turn_id) = create_session_with_turn(&manager, workspace.path()).await;
 
-        let memory_file =
-            memory_store_dir_path_for_target(MemoryStoreTarget::WorkspaceProject(workspace.path()))
-                .join("user_pref.md");
+        let memory_file = persistence_manager
+            .path_manager()
+            .project_memory_dir(workspace.path())
+            .join("user_pref.md");
         let mut turn = persistence_manager
             .load_dialog_turn(workspace.path(), &session_id, 0)
             .await
@@ -2826,7 +2831,7 @@ mod tests {
     #[tokio::test]
     async fn turn_wrote_memory_for_workspace_scope_ignores_non_memory_write_tool_call() {
         let workspace = TestWorkspace::new();
-        let (persistence_manager, manager) = build_test_session_manager();
+        let (persistence_manager, manager) = build_test_session_manager(&workspace);
         let (session_id, turn_id) = create_session_with_turn(&manager, workspace.path()).await;
 
         let regular_file = workspace.path().join("src").join("lib.rs");
@@ -2871,11 +2876,13 @@ mod tests {
     #[tokio::test]
     async fn turn_wrote_memory_for_global_scope_detects_global_memory_write_tool_call() {
         let workspace = TestWorkspace::new();
-        let (persistence_manager, manager) = build_test_session_manager();
+        let (persistence_manager, manager) = build_test_session_manager(&workspace);
         let (session_id, turn_id) = create_session_with_turn(&manager, workspace.path()).await;
 
-        let memory_file =
-            memory_store_dir_path_for_target(MemoryStoreTarget::GlobalAgenticOs).join("user.md");
+        let memory_file = persistence_manager
+            .path_manager()
+            .agentic_os_memory_dir()
+            .join("user.md");
         let mut turn = persistence_manager
             .load_dialog_turn(workspace.path(), &session_id, 0)
             .await
@@ -2917,7 +2924,7 @@ mod tests {
     #[tokio::test]
     async fn note_auto_memory_eligible_turn_requires_threshold_before_scheduling() {
         let workspace = TestWorkspace::new();
-        let (_, manager) = build_test_session_manager();
+        let (_, manager) = build_test_session_manager(&workspace);
         let (session_id, first_turn_id) =
             create_session_with_turn(&manager, workspace.path()).await;
         complete_turn(&manager, &session_id, &first_turn_id).await;
@@ -2968,7 +2975,7 @@ mod tests {
     #[tokio::test]
     async fn note_auto_memory_eligible_turn_respects_cooldown_interval() {
         let workspace = TestWorkspace::new();
-        let (_, manager) = build_test_session_manager();
+        let (_, manager) = build_test_session_manager(&workspace);
         let (session_id, first_turn_id) =
             create_session_with_turn(&manager, workspace.path()).await;
         complete_turn(&manager, &session_id, &first_turn_id).await;
@@ -3018,7 +3025,7 @@ mod tests {
     #[tokio::test]
     async fn note_auto_memory_rollback_resets_eligible_turn_counter() {
         let workspace = TestWorkspace::new();
-        let (_, manager) = build_test_session_manager();
+        let (_, manager) = build_test_session_manager(&workspace);
         let (session_id, turn_id) = create_session_with_turn(&manager, workspace.path()).await;
         complete_turn(&manager, &session_id, &turn_id).await;
 
@@ -3046,7 +3053,7 @@ mod tests {
     #[tokio::test]
     async fn auto_memory_eligible_turn_counter_only_resets_after_extraction_commit() {
         let workspace = TestWorkspace::new();
-        let (_, manager) = build_test_session_manager();
+        let (_, manager) = build_test_session_manager(&workspace);
         let (session_id, first_turn_id) =
             create_session_with_turn(&manager, workspace.path()).await;
         complete_turn(&manager, &session_id, &first_turn_id).await;
@@ -3102,7 +3109,7 @@ mod tests {
     #[tokio::test]
     async fn note_auto_memory_eligible_turn_can_bypass_cooldown_when_pending_backlog_grows() {
         let workspace = TestWorkspace::new();
-        let (_, manager) = build_test_session_manager();
+        let (_, manager) = build_test_session_manager(&workspace);
         let (session_id, first_turn_id) =
             create_session_with_turn(&manager, workspace.path()).await;
         complete_turn(&manager, &session_id, &first_turn_id).await;
@@ -3151,7 +3158,7 @@ mod tests {
     #[tokio::test]
     async fn mark_auto_memory_consumed_through_turn_advances_cursor_to_latest_turn() {
         let workspace = TestWorkspace::new();
-        let (_, manager) = build_test_session_manager();
+        let (_, manager) = build_test_session_manager(&workspace);
         let (session_id, first_turn_id) =
             create_session_with_turn(&manager, workspace.path()).await;
         complete_turn(&manager, &session_id, &first_turn_id).await;

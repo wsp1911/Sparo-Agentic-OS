@@ -223,9 +223,7 @@ Parameters for "status":
             } else {
                 return ValidationResult {
                     result: false,
-                    message: Some(
-                        "agent_type is required when creating a new session".to_string(),
-                    ),
+                    message: Some("agent_type is required when creating a new session".to_string()),
                     error_code: Some(400),
                     meta: None,
                 };
@@ -236,7 +234,10 @@ Parameters for "status":
     }
 
     fn render_tool_use_message(&self, input: &Value, _options: &ToolRenderOptions) -> String {
-        let action = input.get("action").and_then(|value| value.as_str()).unwrap_or("?");
+        let action = input
+            .get("action")
+            .and_then(|value| value.as_str())
+            .unwrap_or("?");
         match action {
             "dispatch" => {
                 if let Some(session_id) = input.get("session_id").and_then(|value| value.as_str()) {
@@ -278,7 +279,9 @@ Parameters for "status":
                 let message = params
                     .message
                     .filter(|value| !value.trim().is_empty())
-                    .ok_or_else(|| BitFunError::tool("message is required for dispatch".to_string()))?;
+                    .ok_or_else(|| {
+                        BitFunError::tool("message is required for dispatch".to_string())
+                    })?;
                 let source_session_id =
                     dispatch_source_session_id(context, "AgentDispatch")?.to_string();
                 let source_workspace_path = dispatch_source_workspace(context, "AgentDispatch")?;
@@ -294,9 +297,7 @@ Parameters for "status":
                     })
                 } else {
                     AgentSessionDispatchTarget::New {
-                        agent_type: params
-                            .agent_type
-                            .unwrap_or_else(|| "agentic".to_string()),
+                        agent_type: params.agent_type.unwrap_or_else(|| "agentic".to_string()),
                         session_name: params.session_name,
                         created_by: Some(dispatch_creator_marker(context, "AgentDispatch")?),
                     }
@@ -349,7 +350,8 @@ Parameters for "status":
                 if let Some(ws_service) = get_global_workspace_service() {
                     let assistant_workspaces = ws_service.get_assistant_workspaces().await;
                     for workspace_info in &assistant_workspaces {
-                        let workspace_path = workspace_info.root_path.to_string_lossy().into_owned();
+                        let workspace_path =
+                            workspace_info.root_path.to_string_lossy().into_owned();
                         let path = Path::new(&workspace_path);
                         let sessions: Vec<SessionSummary> = if path.exists() {
                             coordinator.list_sessions(path).await.unwrap_or_default()
@@ -373,7 +375,8 @@ Parameters for "status":
 
                     let candidates = ws_service.list_workspace_routing_candidates().await;
                     for workspace_info in candidates {
-                        let workspace_path = workspace_info.root_path.to_string_lossy().into_owned();
+                        let workspace_path =
+                            workspace_info.root_path.to_string_lossy().into_owned();
                         let path = Path::new(&workspace_path);
 
                         let sessions: Vec<SessionSummary> = if path.exists() {
@@ -598,5 +601,4 @@ mod tests {
             Some("agent_type is only allowed when creating a new session")
         );
     }
-
 }

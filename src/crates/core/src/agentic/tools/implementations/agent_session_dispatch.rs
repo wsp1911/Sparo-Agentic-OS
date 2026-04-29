@@ -141,10 +141,7 @@ pub fn validate_session_id(session_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn dispatch_creator_marker(
-    context: &ToolUseContext,
-    tool_name: &str,
-) -> BitFunResult<String> {
+pub fn dispatch_creator_marker(context: &ToolUseContext, tool_name: &str) -> BitFunResult<String> {
     let session_id = context
         .session_id
         .as_ref()
