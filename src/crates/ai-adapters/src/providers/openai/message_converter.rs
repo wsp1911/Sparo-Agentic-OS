@@ -363,6 +363,23 @@ impl OpenAIMessageConverter {
                 .collect()
         })
     }
+
+    pub fn convert_tools_for_responses(tools: Option<Vec<ToolDefinition>>) -> Option<Vec<Value>> {
+        tools.map(|tool_defs| {
+            tool_defs
+                .into_iter()
+                .map(|tool| {
+                    json!({
+                        "type": "function",
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.parameters,
+                        "strict": false,
+                    })
+                })
+                .collect()
+        })
+    }
 }
 
 #[cfg(test)]
