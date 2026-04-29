@@ -23,18 +23,18 @@ function normalizeModelSelection(
   defaultModels: DefaultModelsConfig,
 ): string {
   const value = modelId?.trim();
-  if (!value || value === 'auto') return 'auto';
+  if (!value || value === 'default') return 'primary';
 
   if (value === 'primary' || value === 'fast') {
     const resolvedDefaultId = value === 'primary' ? defaultModels.primary : defaultModels.fast;
     const matchedModel = models.find(model => model.id === resolvedDefaultId);
-    return matchedModel ? value : 'auto';
+    return matchedModel ? value : 'primary';
   }
 
   const matchedModel = models.find(model =>
     model.id === value || model.name === value || model.model_name === value,
   );
-  return matchedModel ? value : 'auto';
+  return matchedModel ? value : 'primary';
 }
 
 interface UseMessageSenderProps {

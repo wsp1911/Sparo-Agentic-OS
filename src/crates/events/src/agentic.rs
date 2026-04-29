@@ -195,7 +195,7 @@ pub enum AgenticEvent {
         session_id: String,
         /// The model id the session was using before the migration.
         previous_model_id: String,
-        /// The model id (or selector such as `"auto"`) the session is now bound
+        /// The model id (or selector such as `"primary"` / `"fast"`) the session is now bound
         /// to. This is what `SessionConfig.model_id` was rewritten to.
         new_model_id: String,
         /// Why the migration happened, e.g. `"model_disabled"` or

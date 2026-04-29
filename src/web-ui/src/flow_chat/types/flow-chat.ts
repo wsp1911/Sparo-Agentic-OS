@@ -316,6 +316,8 @@ export interface ToolCardProps {
   onMcpAppMessage?: (params: import('@/infrastructure/api/service-api/MCPAPI').McpUiMessageParams) => Promise<import('@/infrastructure/api/service-api/MCPAPI').McpUiMessageResult>;
   /** Interruption / cancellation note; placement depends on tool card config. */
   interruptionNote?: string | null;
+  /** Parent Task card rendered immediately before a subagent group in the main flow. */
+  pairedSubagentGroup?: boolean;
 }
 
 // Flow Chat callbacks for layered events.

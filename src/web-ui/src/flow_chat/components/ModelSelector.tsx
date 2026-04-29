@@ -4,7 +4,7 @@
  *
  * Config linkage:
  * - Unified logic: all modes use ai.agent_models[mode_id]
- * - Supports 'auto' | 'primary' | 'fast' | specific model IDs
+ * - Supports 'primary' | 'fast' | specific model IDs
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -50,8 +50,8 @@ interface ModelInfo {
 }
 
 // Helper: identify special model IDs.
-const isSpecialModel = (value: string): value is 'auto' | 'primary' | 'fast' => {
-  return value === 'auto' || value === 'primary' || value === 'fast';
+const isSpecialModel = (value: string): value is 'primary' | 'fast' => {
+  return value === 'primary' || value === 'fast';
 };
 
 const formatContextWindow = (contextWindow?: number): string | null => {
@@ -98,22 +98,39 @@ const getModelDisplayLabel = (model: ModelInfo | null, fallback: string): string
 
 const getModelTooltipText = (model: ModelInfo | null, fallback: string): string => {
   if (!model) return fallback;
-  if (model.id === 'auto') return model.providerName;
   if (isSpecialModel(model.id)) {
     return buildResolvedModelTooltipText(model.modelName, model, fallback);
   }
   return buildModelMetaText(model);
 };
 
-const buildAutoModelInfo = (
+function buildPrimaryModelInfo(
   t: (key: string) => string,
-): ModelInfo => ({
-  id: 'auto',
-  configName: t('modelSelector.autoModel'),
-  modelName: t('modelSelector.autoModel'),
-  providerName: t('modelSelector.autoModelDesc'),
-  provider: 'auto',
-});
+  allModels: AIModelConfig[],
+  defaultModels: Record<string, string>,
+): ModelInfo {
+  const actualModelId = defaultModels.primary;
+  const model = actualModelId ? allModels.find(m => m.id === actualModelId) : undefined;
+  if (model) {
+    return {
+      id: 'primary',
+      configName: t('modelSelector.primaryModel'),
+      modelName: model.model_name,
+      providerName: getProviderDisplayName(model),
+      provider: model.provider,
+      contextWindow: model.context_window,
+      enableThinking: isReasoningVisiblyEnabled(getEffectiveReasoningMode(model)),
+      reasoningEffort: model.reasoning_effort,
+    };
+  }
+  return {
+    id: 'primary',
+    configName: t('modelSelector.primaryModel'),
+    modelName: t('modelSelector.modelNotConfigured'),
+    providerName: t('modelSelector.modelNotConfigured'),
+    provider: 'primary',
+  };
+}
 
 export const ModelSelector: React.FC<ModelSelectorProps> = ({
   currentMode,
@@ -192,30 +209,35 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   }, [dropdownOpen]);
   
   const getCurrentModelId = useCallback((): string => {
-    const configuredModelId = agentModels[currentMode] || 'auto';
-    if (configuredModelId === 'auto') return 'auto';
+    const raw = agentModels[currentMode] || 'primary';
+    const configuredModelId =
+      raw === 'default' ? 'primary' : raw;
     if (configuredModelId === 'primary' || configuredModelId === 'fast') {
-      const actualModelId = defaultModels[configuredModelId];
-      const model = allModels.find(m => m.id === actualModelId);
-      return model ? configuredModelId : 'auto';
+      return configuredModelId;
     }
     const model = allModels.find(m => m.id === configuredModelId);
-    return model ? configuredModelId : 'auto';
+    return model ? configuredModelId : 'primary';
   }, [allModels, currentMode, agentModels, defaultModels]);
   
   const currentModel = useMemo((): ModelInfo | null => {
     const modelId = getCurrentModelId();
 
-    if (modelId === 'auto') {
-      return buildAutoModelInfo(t);
-    }
-
     if (isSpecialModel(modelId)) {
       const actualModelId = defaultModels[modelId];
-      if (!actualModelId) return buildAutoModelInfo(t);
+      const model =
+        actualModelId ? allModels.find(m => m.id === actualModelId) : undefined;
 
-      const model = allModels.find(m => m.id === actualModelId);
-      if (!model) return buildAutoModelInfo(t);
+      if (!actualModelId || !model) {
+        return modelId === 'primary'
+          ? buildPrimaryModelInfo(t, allModels, defaultModels)
+          : {
+              id: 'fast',
+              configName: t('modelSelector.fastModel'),
+              modelName: t('modelSelector.modelNotConfigured'),
+              providerName: t('modelSelector.modelNotConfigured'),
+              provider: 'fast',
+            };
+      }
 
       return {
         id: modelId,
@@ -230,7 +252,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     }
 
     const model = allModels.find(m => m.id === modelId);
-    if (!model) return buildAutoModelInfo(t);
+    if (!model) return buildPrimaryModelInfo(t, allModels, defaultModels);
 
     return {
       id: model.id || '',
@@ -323,7 +345,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   const currentModelId = getCurrentModelId();
 
-  const fallbackTooltip = t('modelSelector.autoModelDesc');
+  const fallbackTooltip = t('modelSelector.modelNotConfigured');
   const baseTooltip = getModelTooltipText(currentModel, fallbackTooltip);
   const tooltipContent =
     currentTokens > 0 && maxTokens > 0
@@ -343,7 +365,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         >
           <Cpu size={10} className="bitfun-model-selector__icon" />
           <span className="bitfun-model-selector__name">
-            {getModelDisplayLabel(currentModel, t('modelSelector.autoModel'))}
+            {getModelDisplayLabel(currentModel, t('modelSelector.primaryModel'))}
           </span>
           {currentModel?.enableThinking && (
             <Sparkles size={9} className="bitfun-model-selector__thinking-icon" />
@@ -371,28 +393,14 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             </span>
           </div>
 
-          <Tooltip content={t('modelSelector.autoModelDesc')} placement="right">
-            <div
-              className={`bitfun-model-selector__option bitfun-model-selector__option--special ${currentModelId === 'auto' ? 'bitfun-model-selector__option--selected' : ''}`}
-              onClick={() => handleSelectModel('auto')}
-            >
-              <div className="bitfun-model-selector__option-main">
-                <span className="bitfun-model-selector__option-name">{t('modelSelector.autoModel')}</span>
-              </div>
-              {currentModelId === 'auto' && (
-                <Check size={14} className="bitfun-model-selector__option-check" />
-              )}
-            </div>
-          </Tooltip>
-
           {(() => {
             const primaryModel = allModels.find(m => m.id === defaultModels.primary);
             const primaryTooltip = primaryModel
               ? buildResolvedModelTooltipText(primaryModel.model_name, {
                 providerName: getProviderDisplayName(primaryModel),
                 contextWindow: primaryModel.context_window
-              }, t('modelSelector.autoModelDesc'))
-              : t('modelSelector.autoModelDesc');
+              }, fallbackTooltip)
+              : fallbackTooltip;
             return (
               <Tooltip content={primaryTooltip} placement="right">
                 <div
@@ -416,8 +424,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               ? buildResolvedModelTooltipText(fastModel.model_name, {
                 providerName: getProviderDisplayName(fastModel),
                 contextWindow: fastModel.context_window
-              }, t('modelSelector.autoModelDesc'))
-              : t('modelSelector.autoModelDesc');
+              }, fallbackTooltip)
+              : fallbackTooltip;
             return (
               <Tooltip content={fastTooltip} placement="right">
                 <div

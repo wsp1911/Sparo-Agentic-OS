@@ -1,5 +1,10 @@
 /* Task tool card styles (BaseToolCard). */
 .task-tool-display {
+  /* Failed tasks can still expand prompt/subagent; .status-error defaults to cursor: default */
+  &.base-tool-card-wrapper .base-tool-card.status-error.base-tool-card--header-expandable {
+    cursor: pointer;
+  }
+
   /* Match .base-tool-card-header: gap + icon rail like .tool-card-icon-slot. */
   .task-header-wrapper {
     display: flex;

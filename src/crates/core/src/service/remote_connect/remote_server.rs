@@ -111,12 +111,12 @@ async fn resolve_session_model_id(session_id: &str) -> Option<String> {
         Some(value) => {
             let trimmed = value.trim();
             if trimmed.is_empty() || trimmed == "default" {
-                Some("auto".to_string())
+                Some("primary".to_string())
             } else {
                 Some(trimmed.to_string())
             }
         }
-        None => Some("auto".to_string()),
+        None => Some("primary".to_string()),
     };
 
     if let Some(session) = session_manager.get_session(session_id) {
@@ -2674,9 +2674,9 @@ impl RemoteServer {
                 }
 
                 let normalized_model_id =
-                    if matches!(requested_model_id, "auto" | "default" | "primary" | "fast") {
+                    if matches!(requested_model_id, "default" | "primary" | "fast") {
                         if requested_model_id == "default" {
-                            "auto".to_string()
+                            "primary".to_string()
                         } else {
                             requested_model_id.to_string()
                         }

@@ -35,18 +35,18 @@ function normalizeModelSelection(
   defaultModels: DefaultModelsConfig,
 ): string {
   const value = modelId?.trim();
-  if (!value || value === 'auto') return 'auto';
+  if (!value || value === 'default') return 'primary';
 
   if (value === 'primary' || value === 'fast') {
     const resolvedDefaultId = value === 'primary' ? defaultModels.primary : defaultModels.fast;
     const matchedModel = models.find(model => model.id === resolvedDefaultId);
-    return matchedModel ? value : 'auto';
+    return matchedModel ? value : 'primary';
   }
 
   const matchedModel = models.find(model =>
     model.id === value || model.name === value || model.model_name === value,
   );
-  return matchedModel ? value : 'auto';
+  return matchedModel ? value : 'primary';
 }
 
 async function syncSessionModelSelection(
@@ -66,9 +66,8 @@ async function syncSessionModelSelection(
   ]);
 
   const desiredModelId = normalizeModelSelection(agentModels[agentType], allModels, defaultModels);
-  const currentModelId = (session.config.modelName || 'auto').trim() || 'auto';
-  const shouldForceAutoSync = desiredModelId === 'auto';
-  if (!shouldForceAutoSync && desiredModelId === currentModelId) {
+  const currentModelId = (session.config.modelName || 'primary').trim() || 'primary';
+  if (desiredModelId === currentModelId) {
     return;
   }
 
@@ -85,7 +84,6 @@ async function syncSessionModelSelection(
     agentType,
     previousModelId: currentModelId,
     nextModelId: desiredModelId,
-    forcedAutoSync: shouldForceAutoSync,
   });
 }
 

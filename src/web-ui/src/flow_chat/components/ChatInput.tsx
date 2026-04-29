@@ -234,7 +234,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => FlowChatStore.getInstance().getState());
   const currentSessionId = activeSessionState.sessionId;
   const currentSession = currentSessionId ? flowChatState.sessions.get(currentSessionId) : undefined;
-  const currentSessionModelId = currentSession?.config.modelName?.trim() || 'auto';
+  const currentSessionModelId = currentSession?.config.modelName?.trim() || 'primary';
   const isDispatcherSession = currentSession?.mode?.toLowerCase() === 'dispatcher';
   const activeBtwSessionData = activeBtwSessionTab?.content.data as
     | { childSessionId: string; parentSessionId: string; workspacePath?: string }

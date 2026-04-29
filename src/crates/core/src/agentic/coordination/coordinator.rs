@@ -664,7 +664,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
     pub async fn update_session_model(&self, session_id: &str, model_id: &str) -> BitFunResult<()> {
         let normalized_model_id = model_id.trim();
         let normalized_model_id = if normalized_model_id.is_empty() {
-            "auto"
+            "primary"
         } else {
             normalized_model_id
         };

@@ -1627,7 +1627,7 @@ const SparklesIcon: React.FC<{ className?: string; size?: number }> = ({ classNa
   </svg>
 );
 
-type ModelSelectionValue = 'auto' | 'primary' | 'fast' | string;
+type ModelSelectionValue = 'primary' | 'fast' | string;
 
 function formatProviderName(provider: string): string {
   const normalized = provider.trim();
@@ -1655,14 +1655,14 @@ function normalizeSelectedModelId(
   catalog: RemoteModelCatalog | null,
 ): string {
   const value = selectedModelId?.trim();
-  if (!value || value === 'auto' || value === 'default') return 'auto';
+  if (!value || value === 'default') return 'primary';
   if (value === 'primary' || value === 'fast') {
     const defaultId = value === 'primary'
       ? catalog?.default_models?.primary
       : catalog?.default_models?.fast;
-    return defaultId && resolveModelSelection(defaultId, catalog) ? value : 'auto';
+    return defaultId && resolveModelSelection(defaultId, catalog) ? value : 'primary';
   }
-  return resolveModelSelection(value, catalog) ? value : 'auto';
+  return resolveModelSelection(value, catalog) ? value : 'primary';
 }
 
 function loadLastSelectedModelId(): string | null {
@@ -1684,17 +1684,20 @@ function persistLastSelectedModelId(modelId: string): void {
 function resolvePreferredModelSelection(
   preferredModelId: string | null,
   catalog: RemoteModelCatalog | null,
-): { modelId: string | null; fellBackToAuto: boolean } {
+): { modelId: string | null; fellBackToPrimary: boolean } {
   const value = preferredModelId?.trim();
   if (!value) {
-    return { modelId: null, fellBackToAuto: false };
+    return { modelId: null, fellBackToPrimary: false };
   }
 
   const normalizedModelId = normalizeSelectedModelId(value, catalog);
-  const fellBackToAuto = normalizedModelId === 'auto' && value !== 'auto' && value !== 'default';
+  const fellBackToPrimary =
+    normalizedModelId === 'primary' &&
+    value !== 'primary' &&
+    value !== 'default';
   return {
     modelId: normalizedModelId,
-    fellBackToAuto,
+    fellBackToPrimary,
   };
 }
 
@@ -1737,14 +1740,6 @@ function getSelectedModelInfo(
   enableThinking: boolean;
   reasoningEffort?: string;
 } {
-  if (selectedModelId === 'auto') {
-    return {
-      label: t('chat.modelAuto'),
-      meta: t('chat.modelAutoDesc'),
-      enableThinking: false,
-    };
-  }
-
   if (selectedModelId === 'primary' || selectedModelId === 'fast') {
     const defaultId = selectedModelId === 'primary'
       ? catalog?.default_models?.primary
@@ -1753,8 +1748,8 @@ function getSelectedModelInfo(
     return {
       label: resolved
         ? (selectedModelId === 'primary' ? t('chat.modelPrimary') : t('chat.modelFast'))
-        : t('chat.modelAuto'),
-      meta: buildModelProviderMeta(resolved) || t('chat.modelAutoDesc'),
+        : t('chat.modelNotConfigured'),
+      meta: buildModelProviderMeta(resolved) || t('chat.modelNotConfigured'),
       enableThinking: isReasoningEnabled(resolved),
       reasoningEffort: resolved?.reasoning_effort,
     };
@@ -1763,8 +1758,8 @@ function getSelectedModelInfo(
   const resolved = resolveModelSelection(selectedModelId, catalog);
   if (!resolved) {
     return {
-      label: t('chat.modelAuto'),
-      meta: t('chat.modelAutoDesc'),
+      label: t('chat.modelNotConfigured'),
+      meta: t('chat.modelNotConfigured'),
       enableThinking: false,
     };
   }
@@ -1863,16 +1858,6 @@ const ModelSelectorPill: React.FC<{
         <div className="chat-model-selector__dropdown">
           <div className="chat-model-selector__header">{t('chat.modelSelection')}</div>
           <button
-            className={`chat-model-selector__option${normalizedSelectedModelId === 'auto' ? ' is-selected' : ''}`}
-            type="button"
-            onClick={() => void handleSelect('auto')}
-          >
-            <span className="chat-model-selector__option-main">
-              <span className="chat-model-selector__option-name">{t('chat.modelAuto')}</span>
-              <span className="chat-model-selector__option-meta">{t('chat.modelAutoDesc')}</span>
-            </span>
-          </button>
-          <button
             className={`chat-model-selector__option${normalizedSelectedModelId === 'primary' ? ' is-selected' : ''}`}
             type="button"
             onClick={() => void handleSelect('primary')}
@@ -1881,10 +1866,10 @@ const ModelSelectorPill: React.FC<{
               <span className="chat-model-selector__option-name">{t('chat.modelPrimary')}</span>
               <span className="chat-model-selector__option-meta chat-model-selector__option-meta--stacked">
                 <span className="chat-model-selector__option-meta-line">
-                  {getModelDisplayName(resolvedPrimaryModel) || t('chat.modelAuto')}
+                  {getModelDisplayName(resolvedPrimaryModel) || t('chat.modelNotConfigured')}
                 </span>
                 <span className="chat-model-selector__option-meta-line">
-                  {buildModelProviderMeta(resolvedPrimaryModel) || t('chat.modelAutoDesc')}
+                  {buildModelProviderMeta(resolvedPrimaryModel) || t('chat.modelNotConfigured')}
                 </span>
               </span>
             </span>
@@ -1898,10 +1883,10 @@ const ModelSelectorPill: React.FC<{
               <span className="chat-model-selector__option-name">{t('chat.modelFast')}</span>
               <span className="chat-model-selector__option-meta chat-model-selector__option-meta--stacked">
                 <span className="chat-model-selector__option-meta-line">
-                  {getModelDisplayName(resolvedFastModel) || t('chat.modelAuto')}
+                  {getModelDisplayName(resolvedFastModel) || t('chat.modelNotConfigured')}
                 </span>
                 <span className="chat-model-selector__option-meta-line">
-                  {buildModelProviderMeta(resolvedFastModel) || t('chat.modelAutoDesc')}
+                  {buildModelProviderMeta(resolvedFastModel) || t('chat.modelNotConfigured')}
                 </span>
               </span>
             </span>
@@ -1971,7 +1956,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
   const [agentMode, setAgentMode] = useState<AgentMode>('agentic');
   const [liveTitle, setLiveTitle] = useState(sessionName);
   const [modelCatalog, setModelCatalog] = useState<RemoteModelCatalog | null>(null);
-  const [selectedModelId, setSelectedModelId] = useState<string>('auto');
+  const [selectedModelId, setSelectedModelId] = useState<string>('primary');
   const [modelUpdating, setModelUpdating] = useState(false);
   const [pendingImages, setPendingImages] = useState<{ name: string; dataUrl: string }[]>([]);
   const [imageAnalyzing, setImageAnalyzing] = useState(false);
@@ -2050,19 +2035,19 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
       setModelCatalog(catalog);
       if (!modelSelectionInitializedRef.current) {
         const preferredSelection = resolvePreferredModelSelection(loadLastSelectedModelId(), catalog);
-        const sessionModelId = normalizeSelectedModelId(catalog.session_model_id || 'auto', catalog);
+        const sessionModelId = normalizeSelectedModelId(catalog.session_model_id || 'primary', catalog);
         const nextModelId = preferredSelection.modelId || sessionModelId;
 
         if (preferredSelection.modelId && preferredSelection.modelId !== sessionModelId) {
           const normalizedModelId = await sessionMgr.setSessionModel(sessionId, preferredSelection.modelId);
-          setSelectedModelId(normalizedModelId || 'auto');
-          if (preferredSelection.fellBackToAuto && (!normalizedModelId || normalizedModelId === 'auto')) {
-            persistLastSelectedModelId('auto');
+          setSelectedModelId(normalizedModelId || 'primary');
+          if (preferredSelection.fellBackToPrimary && (!normalizedModelId || normalizedModelId === 'primary')) {
+            persistLastSelectedModelId('primary');
           }
         } else {
-          setSelectedModelId(nextModelId || 'auto');
-          if (preferredSelection.fellBackToAuto && nextModelId === 'auto') {
-            persistLastSelectedModelId('auto');
+          setSelectedModelId(nextModelId || 'primary');
+          if (preferredSelection.fellBackToPrimary && nextModelId === 'primary') {
+            persistLastSelectedModelId('primary');
           }
         }
         modelSelectionInitializedRef.current = true;
@@ -2079,8 +2064,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
     setModelUpdating(true);
     try {
       const normalizedModelId = await sessionMgr.setSessionModel(sessionId, modelId);
-      setSelectedModelId(normalizedModelId || 'auto');
-      persistLastSelectedModelId(normalizedModelId || 'auto');
+      setSelectedModelId(normalizedModelId || 'primary');
+      persistLastSelectedModelId(normalizedModelId || 'primary');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -2154,7 +2139,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
     setHasMore(true);
     setIsLoadingMore(false);
     setModelCatalog(null);
-    setSelectedModelId('auto');
+    setSelectedModelId('primary');
   }, [sessionId]);
 
   useEffect(() => {
