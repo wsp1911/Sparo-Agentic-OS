@@ -32,7 +32,7 @@ export function buildRunningLiveAppItems(params: {
       id: app.id,
       title: app.name,
       description: normalizeDescription(app.description, app.tags),
-      icon: app.icon || 'box',
+      icon: app.icon || 'live-app',
       updatedAt: app.updated_at,
       overlayId: `live-app:${app.id}` as const,
       isRunning: true as const,

@@ -22,6 +22,7 @@ export * from './Switch';
 export * from './Textarea';
 
 export * from './Tooltip';
+export * from './DropdownMenu';
 
 export * from './Tabs';
 

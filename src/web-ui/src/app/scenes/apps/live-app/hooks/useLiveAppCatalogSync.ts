@@ -12,6 +12,7 @@ const log = createLogger('useLiveAppCatalogSync');
 export function useLiveAppCatalogSync() {
   const setApps = useLiveAppStore((state) => state.setApps);
   const setLoading = useLiveAppStore((state) => state.setLoading);
+  const setRuntimeStatus = useLiveAppStore((state) => state.setRuntimeStatus);
   const setRunningWorkerIds = useLiveAppStore((state) => state.setRunningWorkerIds);
   const markWorkerRunning = useLiveAppStore((state) => state.markWorkerRunning);
   const markWorkerStopped = useLiveAppStore((state) => state.markWorkerStopped);
@@ -38,9 +39,22 @@ export function useLiveAppCatalogSync() {
     }
   }, [setRunningWorkerIds]);
 
+  const refreshRuntimeStatus = useCallback(async () => {
+    try {
+      const status = await liveAppAPI.runtimeStatus();
+      setRuntimeStatus(status);
+    } catch (error) {
+      log.error('Failed to load live app runtime status', error);
+      setRuntimeStatus({
+        available: false,
+      });
+    }
+  }, [setRuntimeStatus]);
+
   useEffect(() => {
     void refreshApps();
     void refreshRunningWorkers();
+    void refreshRuntimeStatus();
 
     const unlistenCreated = api.listen<{ id?: string; sessionId?: string }>('liveapp-created', (payload) => {
       if (payload?.id && payload?.sessionId) {
@@ -49,6 +63,9 @@ export function useLiveAppCatalogSync() {
       void refreshApps();
     });
     const unlistenUpdated = api.listen('liveapp-updated', () => {
+      void refreshApps();
+    });
+    const unlistenRecompiled = api.listen('liveapp-recompiled', () => {
       void refreshApps();
     });
     const unlistenDeleted = api.listen<{ id?: string }>('liveapp-deleted', (payload) => {
@@ -71,14 +88,16 @@ export function useLiveAppCatalogSync() {
     return () => {
       unlistenCreated();
       unlistenUpdated();
+      unlistenRecompiled();
       unlistenDeleted();
       unlistenRestarted();
       unlistenStopped();
     };
-  }, [bindSessionApp, markWorkerRunning, markWorkerStopped, refreshApps, refreshRunningWorkers]);
+  }, [bindSessionApp, markWorkerRunning, markWorkerStopped, refreshApps, refreshRunningWorkers, refreshRuntimeStatus]);
 
   return {
     refreshApps,
     refreshRunningWorkers,
+    refreshRuntimeStatus,
   };
 }

@@ -2,11 +2,12 @@
  * Live App scene store — app catalog + lifecycle state.
  */
 import { create } from 'zustand';
-import type { LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
+import type { LiveAppMeta, RuntimeStatus } from '@/infrastructure/api/service-api/LiveAppAPI';
 
 interface LiveAppState {
   apps: LiveAppMeta[];
   loading: boolean;
+  runtimeStatus: RuntimeStatus | null;
   /** App IDs whose scenes are currently open in the viewport. */
   openedAppIds: string[];
   /** App IDs whose JS workers are currently running. */
@@ -16,6 +17,7 @@ interface LiveAppState {
 
   setApps: (apps: LiveAppMeta[]) => void;
   setLoading: (loading: boolean) => void;
+  setRuntimeStatus: (status: RuntimeStatus | null) => void;
   openApp: (id: string) => void;
   closeApp: (id: string) => void;
   setRunningWorkerIds: (ids: string[]) => void;
@@ -27,6 +29,7 @@ interface LiveAppState {
 export const useLiveAppStore = create<LiveAppState>((set) => ({
   apps: [],
   loading: false,
+  runtimeStatus: null,
   openedAppIds: [],
   runningWorkerIds: [],
   sessionAppIds: {},
@@ -41,6 +44,7 @@ export const useLiveAppStore = create<LiveAppState>((set) => ({
       };
     }),
   setLoading: (loading) => set({ loading }),
+  setRuntimeStatus: (runtimeStatus) => set({ runtimeStatus }),
 
   openApp: (id) =>
     set((state) =>

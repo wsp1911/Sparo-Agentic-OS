@@ -6,7 +6,7 @@ use crate::service::remote_ssh::workspace_state::{
     normalize_remote_workspace_path, LOCAL_WORKSPACE_SSH_HOST,
 };
 use crate::util::{errors::*, FrontMatterMarkdown};
-use log::{info, warn};
+use log::warn;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -452,58 +452,6 @@ impl WorkspaceManager {
             }
         }
         Ok(())
-    }
-
-    /// Migrates persisted local/assistant workspaces from legacy UUID ids to `local_*` stable ids.
-    /// Returns a map from **old** id to **new** id for callers that still hold persisted workspace ids.
-    pub fn migrate_local_workspace_ids_to_stable_storage(&mut self) -> HashMap<String, String> {
-        let mut id_remap: HashMap<String, String> = HashMap::new();
-        let old_ids: Vec<String> = self.workspaces.keys().cloned().collect();
-        for old_id in old_ids {
-            let Some(ws) = self.workspaces.get(&old_id).cloned() else {
-                continue;
-            };
-            if ws.workspace_kind == WorkspaceKind::Remote {
-                continue;
-            }
-            if old_id.starts_with("local_") {
-                continue;
-            }
-            let Ok(norm) = normalize_local_workspace_root_for_stable_id(&ws.root_path) else {
-                continue;
-            };
-            let new_id = local_workspace_stable_storage_id(&norm);
-            if new_id == old_id {
-                continue;
-            }
-            if self.workspaces.contains_key(&new_id) {
-                info!(
-                    "Dropping duplicate local workspace record (legacy id {}) in favor of stable id {}",
-                    old_id, new_id
-                );
-                self.workspaces.remove(&old_id);
-                self.opened_workspace_ids.retain(|x| x != &old_id);
-                self.recent_workspaces.retain(|x| x != &old_id);
-                self.recent_assistant_workspaces.retain(|x| x != &old_id);
-                if self.current_workspace_id.as_deref() == Some(old_id.as_str()) {
-                    self.current_workspace_id = Some(new_id.clone());
-                }
-                id_remap.insert(old_id, new_id);
-                continue;
-            }
-            match self.rekey_workspace_id(&old_id, new_id.clone()) {
-                Ok(()) => {
-                    id_remap.insert(old_id, new_id);
-                }
-                Err(e) => {
-                    warn!(
-                        "migrate_local_workspace_ids_to_stable_storage: failed to rekey {}: {}",
-                        old_id, e
-                    );
-                }
-            }
-        }
-        id_remap
     }
 
     /// Opens a workspace.

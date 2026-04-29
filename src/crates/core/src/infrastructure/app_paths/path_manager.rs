@@ -3,7 +3,7 @@
 //! Provides unified management for all app storage paths, supporting user, project, and temporary levels
 
 use crate::util::errors::*;
-use log::{debug, error, info, warn};
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -15,9 +15,6 @@ const MAX_PROJECT_SLUG_LEN: usize = 120;
 pub const APP_CONFIG_DIR_NAME: &str = "sparo_os";
 /// Workspace- and home-level hidden directory (e.g. `<workspace>/.sparo_os`, `~/.sparo_os`).
 pub const APP_HIDDEN_DIR_NAME: &str = ".sparo_os";
-/// Pre-rename name; used only for one-time migration from legacy BitFun paths.
-const LEGACY_APP_CONFIG_DIR_NAME: &str = "bitfun_agentic_os";
-const LEGACY_APP_HIDDEN_DIR_NAME: &str = ".bitfun_agentic_os";
 
 /// Storage level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -46,161 +43,9 @@ pub struct PathManager {
     project_runtime_slug_cache: Arc<Mutex<HashMap<PathBuf, String>>>,
 }
 
-/// Renames legacy `bitfun_agentic_os` storage directories to `sparo_os` when the new path is absent.
-fn migrate_legacy_storage_paths() {
-    if let Some(home) = dirs::home_dir() {
-        let new_path = home.join(APP_HIDDEN_DIR_NAME);
-        let old_path = home.join(LEGACY_APP_HIDDEN_DIR_NAME);
-        if !new_path.exists() && old_path.exists() {
-            if let Err(e) = std::fs::rename(&old_path, &new_path) {
-                warn!(
-                    "Failed to migrate legacy home data directory: from={} to={} error={}",
-                    old_path.display(),
-                    new_path.display(),
-                    e
-                );
-            } else {
-                info!(
-                    "Migrated legacy home data directory to {}",
-                    new_path.display()
-                );
-            }
-        }
-    }
-
-    if let Some(config_dir) = dirs::config_dir() {
-        let new_path = config_dir.join(APP_CONFIG_DIR_NAME);
-        let old_path = config_dir.join(LEGACY_APP_CONFIG_DIR_NAME);
-        if !new_path.exists() && old_path.exists() {
-            if let Err(e) = std::fs::rename(&old_path, &new_path) {
-                warn!(
-                    "Failed to migrate legacy config directory: from={} to={} error={}",
-                    old_path.display(),
-                    new_path.display(),
-                    e
-                );
-            } else {
-                info!("Migrated legacy config directory to {}", new_path.display());
-            }
-        }
-    }
-
-    if let Some(data_local) = dirs::data_local_dir() {
-        let new_path = data_local.join(APP_CONFIG_DIR_NAME);
-        let old_path = data_local.join(LEGACY_APP_CONFIG_DIR_NAME);
-        if !new_path.exists() && old_path.exists() {
-            if let Err(e) = std::fs::rename(&old_path, &new_path) {
-                warn!(
-                    "Failed to migrate legacy data_local directory: from={} to={} error={}",
-                    old_path.display(),
-                    new_path.display(),
-                    e
-                );
-            }
-        }
-    }
-
-    if cfg!(target_os = "windows") {
-        if let Some(data_dir) = dirs::data_dir() {
-            let new_path = data_dir.join(APP_CONFIG_DIR_NAME);
-            let old_path = data_dir.join(LEGACY_APP_CONFIG_DIR_NAME);
-            if !new_path.exists() && old_path.exists() {
-                let _ = std::fs::rename(&old_path, &new_path).map_err(|e| {
-                    warn!(
-                        "Failed to migrate legacy roaming data directory: from={} to={} error={}",
-                        old_path.display(),
-                        new_path.display(),
-                        e
-                    );
-                });
-            }
-        }
-    }
-
-    if cfg!(target_os = "macos") {
-        if let Some(home) = dirs::home_dir() {
-            let base = home.join("Library").join("Application Support");
-            let new_path = base.join(APP_CONFIG_DIR_NAME);
-            let old_path = base.join(LEGACY_APP_CONFIG_DIR_NAME);
-            if !new_path.exists() && old_path.exists() {
-                let _ = std::fs::rename(&old_path, &new_path).map_err(|e| {
-                    warn!(
-                        "Failed to migrate legacy Application Support directory: from={} to={} error={}",
-                        old_path.display(),
-                        new_path.display(),
-                        e
-                    );
-                });
-            }
-        }
-    }
-}
-
-fn fixup_legacy_paths_in_migrated_project_config(project_root: &Path) {
-    let config_dir = project_root.join("config");
-    if !config_dir.is_dir() {
-        return;
-    }
-    let Ok(entries) = std::fs::read_dir(&config_dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("json") {
-            continue;
-        }
-        let Ok(text) = std::fs::read_to_string(&path) else {
-            continue;
-        };
-        if !text.contains(LEGACY_APP_HIDDEN_DIR_NAME) {
-            continue;
-        }
-        let updated = text.replace(LEGACY_APP_HIDDEN_DIR_NAME, APP_HIDDEN_DIR_NAME);
-        if updated != text {
-            if let Err(e) = std::fs::write(&path, updated) {
-                warn!(
-                    "Failed to update legacy path references in config file: path={} error={}",
-                    path.display(),
-                    e
-                );
-            }
-        }
-    }
-}
-
 impl PathManager {
-    /// If the workspace still uses a `.bitfun_agentic_os` directory, rename it to `.sparo_os` and
-    /// best-effort fix stored paths under `config/*.json`.
-    pub fn migrate_legacy_project_hidden_dir(&self, workspace_path: &Path) {
-        if !workspace_path.is_dir() {
-            return;
-        }
-        let new_path = self.project_root(workspace_path);
-        if new_path.exists() {
-            return;
-        }
-        let old_path = workspace_path.join(LEGACY_APP_HIDDEN_DIR_NAME);
-        if !old_path.exists() {
-            return;
-        }
-        if let Err(e) = std::fs::rename(&old_path, &new_path) {
-            warn!(
-                "Failed to migrate project hidden directory: workspace={} error={}",
-                workspace_path.display(),
-                e
-            );
-            return;
-        }
-        info!(
-            "Migrated project storage directory to {}",
-            new_path.display()
-        );
-        fixup_legacy_paths_in_migrated_project_config(&new_path);
-    }
-
     /// Create a new path manager
     pub fn new() -> BitFunResult<Self> {
-        migrate_legacy_storage_paths();
         let user_root = Self::get_user_config_root()?;
 
         Ok(Self {
@@ -407,15 +252,8 @@ impl PathManager {
     }
 
     /// Live Apps root: `~/.config/bitfun/data/liveapps/`.
-    /// If the legacy `miniapps` folder exists and `liveapps` does not, it is renamed once.
     pub fn live_apps_dir(&self) -> PathBuf {
-        let root = self.user_data_dir();
-        let live = root.join("liveapps");
-        let legacy = root.join("miniapps");
-        if !live.exists() && legacy.exists() {
-            let _ = std::fs::rename(&legacy, &live);
-        }
-        live
+        self.user_data_dir().join("liveapps")
     }
 
     /// Per-app data: `~/.config/bitfun/data/liveapps/{app_id}/`

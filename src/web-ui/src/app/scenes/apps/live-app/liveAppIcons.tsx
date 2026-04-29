@@ -10,7 +10,42 @@ const ICON_GRADIENTS = [
   'linear-gradient(135deg, rgba(239,68,68,0.25) 0%, rgba(245,158,11,0.2) 100%)',
 ];
 
+interface LiveAppGlyphProps {
+  size?: number;
+  strokeWidth?: number;
+  className?: string;
+}
+
+export function LiveAppGlyph({
+  size = 28,
+  strokeWidth = 1.5,
+  className,
+}: LiveAppGlyphProps): React.ReactNode {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="2.35" fill="currentColor" stroke="none" />
+      <path d="M12 4.75a7.25 7.25 0 1 1-5.9 3.05" />
+      <path d="M6.1 5.8 4.75 7.2" />
+    </svg>
+  );
+}
+
 export function renderLiveAppIcon(name: string, size = 28): React.ReactNode {
+  if (name === 'live-app' || name === 'liveapp') {
+    return <LiveAppGlyph size={size} strokeWidth={1.5} />;
+  }
+
   const key = name
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -19,10 +54,14 @@ export function renderLiveAppIcon(name: string, size = 28): React.ReactNode {
 
   return Icon
     ? <Icon size={size} strokeWidth={1.5} />
-    : <LucideIcons.Box size={size} strokeWidth={1.5} />;
+    : <LiveAppGlyph size={size} strokeWidth={1.5} />;
 }
 
 export function getLiveAppIconGradient(icon: string): string {
+  if (icon === 'live-app' || icon === 'liveapp') {
+    return 'linear-gradient(135deg, rgba(56,189,248,0.34) 0%, rgba(59,130,246,0.22) 45%, rgba(168,85,247,0.22) 100%)';
+  }
+
   const idx = (icon.charCodeAt(0) || 0) % ICON_GRADIENTS.length;
   return ICON_GRADIENTS[idx];
 }

@@ -10,13 +10,13 @@ import {
   ChevronDown,
   Check,
   Orbit,
-  Sparkles,
   AppWindow,
   Palette,
   Bug,
   Gauge,
   type LucideIcon,
 } from 'lucide-react';
+import { LiveAppGlyph } from '@/app/scenes/apps/live-app/liveAppIcons';
 import { createLogger } from '@/shared/utils/logger';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import type { WorkspaceInfo } from '@/shared/types';
@@ -180,7 +180,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                 ) : isLiveAppStudioSession ? (
                   <>
                     <span className="welcome-panel__heading-icon welcome-panel__heading-icon--liveapp" aria-hidden>
-                      <Sparkles size={28} strokeWidth={2} />
+                      <LiveAppGlyph size={28} strokeWidth={1.5} />
                     </span>
                     {greeting.title}，{t(aiPartnerKey)}
                   </>

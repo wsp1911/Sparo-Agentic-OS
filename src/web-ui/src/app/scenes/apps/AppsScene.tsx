@@ -6,7 +6,7 @@
  *   search bar
  *   carousel  ← global featured banner, always visible on home
  *   [Agent App] [Live App] [Bridge App]  ← tab pills below carousel
- *   list  ← simple row list for the selected tab
+ *   list  ← 2×4 grid per page with pagination (8 items max per page)
  *
  * Clicking a row:
  *   Agent App  → in-scene detail page
@@ -15,16 +15,18 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Bot,
-  Box,
   Cable,
   ChevronLeft,
   ChevronRight,
   Cpu,
   FolderPlus,
   LayoutGrid,
+  PencilRuler,
   Play,
   Plus,
+  RefreshCw,
   Search as SearchIcon,
   Sparkles,
   Square,
@@ -40,27 +42,49 @@ import type { LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useOverlayManager } from '@/app/hooks/useOverlayManager';
 import { useOverlayStore } from '@/app/stores/overlayStore';
 import type { OverlaySceneId } from '@/app/overlay/types';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useCurrentWorkspace, useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { createLogger } from '@/shared/utils/logger';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
-import { getCardGradient, getCardColorRgb } from '@/shared/utils/cardGradients';
+import { notificationService } from '@/shared/notification-system';
+import { launchSessionForChoice } from '@/app/components/SessionCapsule/NewSessionDialog';
 import { useAppsStore, type AppsTab } from './appsStore';
 import { useAppsData } from './hooks/useAppsData';
 import type { AppCardModel } from './hooks/useAppsData';
 import { useLiveAppStore } from './live-app/liveAppStore';
 import { useLiveAppCatalogSync } from './live-app/hooks/useLiveAppCatalogSync';
+import LiveAppRuntimeBadges from './live-app/components/LiveAppRuntimeBadges';
+import {
+  buildLiveAppRuntimeSummary,
+  summarizeLiveAppPermissions,
+} from './live-app/liveAppRuntimeModel';
 import { renderLiveAppIcon, getLiveAppIconGradient } from './live-app/liveAppIcons';
 import { ModeAppDetailView, AgentDetailView } from './sections/AgentAppDetailViews';
 import './AppsScene.scss';
 
 const log = createLogger('AppsScene');
 const TAB_KEYS: AppsTab[] = ['agent-app', 'live-app', 'bridge-app'];
+/** Main list: 2 columns × 4 rows per page. */
+const LIST_PAGE_SIZE = 8;
 type AppsData = ReturnType<typeof useAppsData>;
+
+function formatUpdatedAt(timestamp: number): string {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(timestamp));
+  } catch {
+    return new Date(timestamp).toLocaleString();
+  }
+}
 
 const AppsListSkeleton: React.FC<{
   rowCount?: number;
   showActions?: boolean;
-}> = ({ rowCount = 4, showActions = false }) => (
+}> = ({ rowCount = LIST_PAGE_SIZE, showActions = false }) => (
   <div className="apps-scene__list apps-scene__list--skeleton" aria-busy="true">
     {Array.from({ length: rowCount }).map((_, index) => (
       <div
@@ -90,6 +114,41 @@ const AppsListSkeleton: React.FC<{
   </div>
 );
 
+const AppsListPagination: React.FC<{
+  pageIndex: number;
+  totalPages: number;
+  onPrev: () => void;
+  onNext: () => void;
+}> = ({ pageIndex, totalPages, onPrev, onNext }) => {
+  const { t } = useTranslation('scenes/apps');
+  if (totalPages <= 1) return null;
+  return (
+    <div className="apps-scene__list-pagination" role="navigation" aria-label={t('page.pagination.ariaLabel')}>
+      <button
+        type="button"
+        className="apps-scene__list-page-btn"
+        disabled={pageIndex <= 0}
+        onClick={onPrev}
+        aria-label={t('page.pagination.prev')}
+      >
+        <ChevronLeft size={16} />
+      </button>
+      <span className="apps-scene__list-page-indicator">
+        {t('page.pagination.pageOf', { current: pageIndex + 1, total: totalPages })}
+      </span>
+      <button
+        type="button"
+        className="apps-scene__list-page-btn"
+        disabled={pageIndex >= totalPages - 1}
+        onClick={onNext}
+        aria-label={t('page.pagination.next')}
+      >
+        <ChevronRight size={16} />
+      </button>
+    </div>
+  );
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // App Carousel  (global featured banner, always on home)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,21 +172,33 @@ const AppCarousel: React.FC<{
   }, [active, hovered, go, count]);
 
   const app = apps[active];
-  const gradient   = getCardGradient(app.id);
-  const rgb        = getCardColorRgb(app.id);
-  const accentColor = `rgb(${rgb})`;
   const Icon = app.kind === 'mode-app' ? Cpu : Bot;
 
   return (
     <div
       className="app-carousel"
-      style={{ '--slide-rgb': rgb, background: gradient } as React.CSSProperties}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {/* Sparo OS VI: a single quiet orbit + print-red ignition node */}
+      <svg
+        className="app-carousel__orbit"
+        viewBox="-230 -230 460 460"
+        aria-hidden
+        focusable="false"
+      >
+        <circle className="app-carousel__orbit-ring" r="120" />
+        <circle className="app-carousel__orbit-ring--dashed" r="180" />
+        {/* Short print-red arc — the only saturated mark */}
+        <path className="app-carousel__orbit-arc" d="M120 -22 A 122 122 0 0 1 96 78" />
+        {/* Ignition node + pulsing ring (centered) */}
+        <circle className="app-carousel__orbit-node--print" cx="0" cy="0" r="4" />
+        <circle className="app-carousel__orbit-node-ring" cx="0" cy="0" r="9" />
+      </svg>
+
       <button type="button" className="app-carousel__card" onClick={() => onOpenApp(app)}>
         <div className="app-carousel__left">
-          <span className="app-carousel__icon-wrap" style={{ background: `rgba(${rgb},0.18)`, color: accentColor }}>
+          <span className="app-carousel__icon-wrap">
             <Icon size={28} strokeWidth={1.4} />
           </span>
           <div className="app-carousel__text">
@@ -135,30 +206,36 @@ const AppCarousel: React.FC<{
             <span className="app-carousel__desc">{t(app.descriptionKey)}</span>
           </div>
         </div>
-        <span className="app-carousel__badge"
-          style={{ background: `rgba(${rgb},0.14)`, color: accentColor, borderColor: `rgba(${rgb},0.28)` }}>
-          {t(app.badgeKey)}
-        </span>
+        <span className="app-carousel__badge">{t(app.badgeKey)}</span>
       </button>
 
       {count > 1 && (
         <div className="app-carousel__controls">
-          <button type="button" className="app-carousel__arrow"
-            onClick={(e) => { e.stopPropagation(); go(active - 1); }} aria-label="上一个">
+          <button
+            type="button"
+            className="app-carousel__arrow"
+            onClick={(e) => { e.stopPropagation(); go(active - 1); }}
+            aria-label={t('hero.carousel.prev', { defaultValue: '上一个' })}
+          >
             <ChevronLeft size={14} />
           </button>
           <div className="app-carousel__dots">
             {apps.map((_, i) => (
-              <button key={i} type="button"
+              <button
+                key={i}
+                type="button"
                 className={`app-carousel__dot${i === active ? ' is-active' : ''}`}
-                style={i === active ? { background: accentColor } : undefined}
                 onClick={(e) => { e.stopPropagation(); go(i); }}
-                aria-label={`切换到第 ${i + 1} 项`}
+                aria-label={t('hero.carousel.goto', { defaultValue: '切换到第 {{n}} 项', n: i + 1 })}
               />
             ))}
           </div>
-          <button type="button" className="app-carousel__arrow"
-            onClick={(e) => { e.stopPropagation(); go(active + 1); }} aria-label="下一个">
+          <button
+            type="button"
+            className="app-carousel__arrow"
+            onClick={(e) => { e.stopPropagation(); go(active + 1); }}
+            aria-label={t('hero.carousel.next', { defaultValue: '下一个' })}
+          >
             <ChevronRight size={14} />
           </button>
         </div>
@@ -201,53 +278,104 @@ const AgentAppRow: React.FC<{ app: AppCardModel; onOpen: (app: AppCardModel) => 
 
 const LiveAppRow: React.FC<{
   app: LiveAppMeta;
+  isOpen: boolean;
   isRunning: boolean;
+  runtimeAvailable: boolean;
   onOpenDetails: (app: LiveAppMeta) => void;
   onOpen: (id: string) => void;
+  onInstallDeps: (id: string) => Promise<void>;
+  onRecompile: (id: string) => Promise<void>;
+  onSyncFromFs: (id: string) => Promise<void>;
   onStop: (id: string) => Promise<void>;
   onDelete: (id: string) => void;
-}> = ({ app, isRunning, onOpenDetails, onOpen, onStop, onDelete }) => {
+}> = ({
+  app,
+  isOpen,
+  isRunning,
+  runtimeAvailable,
+  onOpenDetails,
+  onOpen,
+  onInstallDeps,
+  onRecompile,
+  onSyncFromFs,
+  onStop,
+  onDelete,
+}) => {
   const { t } = useTranslation('scenes/apps');
+  const summary = buildLiveAppRuntimeSummary(app, {
+    isOpen,
+    isRunning,
+    runtimeStatus: { available: runtimeAvailable },
+  });
+  const primaryTitle = summary.depsDirty
+    ? t('liveApp.actions.installDeps')
+    : summary.workerRestartRequired
+      ? t('liveApp.actions.restartWorker')
+      : !summary.runtimeAvailable
+        ? t('liveApp.actions.openAnyway')
+        : t('liveApp.card.start');
 
   return (
     <div
-      className={`apps-list-row apps-list-row--live${isRunning ? ' is-running' : ''}`}
+      className={`apps-list-row apps-list-row--live${summary.isRunning ? ' is-running' : ''}${summary.hasAttention ? ' has-attention' : ''}`}
       onClick={() => onOpenDetails(app)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onOpenDetails(app)}
     >
       <span className="apps-list-row__icon apps-list-row__icon--live">
-        {renderLiveAppIcon(app.icon || 'box', 18)}
+        {renderLiveAppIcon(app.icon || 'live-app', 18)}
       </span>
       <span className="apps-list-row__body">
         <span className="apps-list-row__head">
           <span className="apps-list-row__name">{app.name}</span>
-          {isRunning && <span className="apps-list-row__run-dot" />}
+          {summary.isRunning && <span className="apps-list-row__run-dot" />}
           <span className="apps-list-row__version">v{app.version}</span>
         </span>
         {app.description ? <span className="apps-list-row__desc">{app.description}</span> : null}
+        <LiveAppRuntimeBadges summary={summary} t={t} className="apps-list-row__runtime" />
       </span>
       <div className="apps-list-row__actions" onClick={(e) => e.stopPropagation()}>
         <button
           type="button"
           className="apps-list-row__action apps-list-row__action--primary"
-          onClick={() => onOpen(app.id)}
-          title={t('liveApp.card.start')}
+          onClick={() => {
+            if (summary.depsDirty) {
+              void onInstallDeps(app.id);
+              return;
+            }
+            void onOpen(app.id);
+          }}
+          title={primaryTitle}
         >
-          <Play size={13} fill="currentColor" strokeWidth={0} />
+          {summary.depsDirty ? <RefreshCw size={13} /> : <Play size={13} fill="currentColor" strokeWidth={0} />}
         </button>
-        {isRunning ? (
+        {summary.isRunning ? (
           <button type="button" className="apps-list-row__action apps-list-row__action--stop"
             onClick={() => void onStop(app.id)} title={t('liveApp.card.stop')}>
             <Square size={12} />
           </button>
+        ) : summary.workerRestartRequired ? (
+          <button type="button" className="apps-list-row__action apps-list-row__action--stop"
+            onClick={() => void onOpen(app.id)} title={t('liveApp.actions.restartWorker')}>
+            <Play size={12} fill="currentColor" strokeWidth={0} />
+          </button>
         ) : (
+          <button type="button" className="apps-list-row__action"
+            onClick={() => void onSyncFromFs(app.id)} title={t('liveApp.actions.syncFromFs')}>
+            <RefreshCw size={12} />
+          </button>
+        )}
+        {!summary.isRunning && !summary.workerRestartRequired ? (
           <button type="button" className="apps-list-row__action apps-list-row__action--danger"
             onClick={() => onDelete(app.id)} title={t('liveApp.card.delete')}>
             <Trash2 size={12} />
           </button>
-        )}
+        ) : null}
+        <button type="button" className="apps-list-row__action"
+          onClick={() => void onRecompile(app.id)} title={t('liveApp.actions.recompile')}>
+          <RefreshCw size={12} />
+        </button>
       </div>
     </div>
   );
@@ -268,13 +396,17 @@ const AppsHomeView: React.FC<{
   // Live App state
   const liveApps         = useLiveAppStore((s) => s.apps);
   const liveLoading      = useLiveAppStore((s) => s.loading);
+  const runtimeStatus    = useLiveAppStore((s) => s.runtimeStatus);
+  const openedAppIds     = useLiveAppStore((s) => s.openedAppIds);
   const runningWorkerIds = useLiveAppStore((s) => s.runningWorkerIds);
   const setLiveApps      = useLiveAppStore((s) => s.setApps);
   const setLiveLoading   = useLiveAppStore((s) => s.setLoading);
+  const setRuntimeStatus = useLiveAppStore((s) => s.setRuntimeStatus);
   const setRunningIds    = useLiveAppStore((s) => s.setRunningWorkerIds);
   const markStopped      = useLiveAppStore((s) => s.markWorkerStopped);
 
   const { workspacePath }    = useCurrentWorkspace();
+  const { setActiveWorkspace } = useWorkspaceContext();
   const { openOverlay, activeOverlay } = useOverlayManager();
 
   const [liveSearch, setLiveSearch]           = useState('');
@@ -282,6 +414,7 @@ const AppsHomeView: React.FC<{
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const runningIdSet = useMemo(() => new Set(runningWorkerIds), [runningWorkerIds]);
+  const openedIdSet = useMemo(() => new Set(openedAppIds), [openedAppIds]);
   const openTabIds   = useMemo(() => new Set(activeOverlay ? [activeOverlay] : []), [activeOverlay]);
 
   const filteredLiveApps = useMemo(() => {
@@ -304,10 +437,116 @@ const AppsHomeView: React.FC<{
     );
   }, [appCards, searchQuery]);
 
+  const [listPage, setListPage] = useState(0);
+
+  useEffect(() => {
+    setListPage(0);
+  }, [activeTab, searchQuery, liveSearch]);
+
+  const agentListTotalPages = Math.max(1, Math.ceil(filteredAgentApps.length / LIST_PAGE_SIZE));
+  const liveListTotalPages = Math.max(1, Math.ceil(filteredLiveApps.length / LIST_PAGE_SIZE));
+
+  useEffect(() => {
+    if (activeTab !== 'agent-app' && activeTab !== 'live-app') return;
+    const total = activeTab === 'agent-app' ? agentListTotalPages : liveListTotalPages;
+    setListPage((p) => Math.min(p, total - 1));
+  }, [activeTab, agentListTotalPages, liveListTotalPages]);
+
+  const pagedAgentApps = useMemo(() => {
+    const start = listPage * LIST_PAGE_SIZE;
+    return filteredAgentApps.slice(start, start + LIST_PAGE_SIZE);
+  }, [filteredAgentApps, listPage]);
+
+  const pagedLiveApps = useMemo(() => {
+    const start = listPage * LIST_PAGE_SIZE;
+    return filteredLiveApps.slice(start, start + LIST_PAGE_SIZE);
+  }, [filteredLiveApps, listPage]);
+
+  const selectedRuntimeSummary = useMemo(() => {
+    if (!selectedLiveApp) return null;
+    return buildLiveAppRuntimeSummary(selectedLiveApp, {
+      isOpen: openedIdSet.has(selectedLiveApp.id),
+      isRunning: runningIdSet.has(selectedLiveApp.id),
+      runtimeStatus,
+    });
+  }, [openedIdSet, runningIdSet, runtimeStatus, selectedLiveApp]);
+
+  const selectedPermissionSummary = useMemo(() => {
+    return selectedLiveApp ? summarizeLiveAppPermissions(selectedLiveApp.permissions) : null;
+  }, [selectedLiveApp]);
+
   const handleOpenLiveApp = (appId: string) => {
     setSelectedLiveApp(null);
     openOverlay(`live-app:${appId}` as OverlaySceneId);
   };
+
+  const handleOpenStudio = useCallback(async () => {
+    try {
+      await launchSessionForChoice({
+        agentChoice: 'LiveAppStudio',
+        workspace: null,
+        setActiveWorkspace,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      notificationService.error(`${t('liveApp.openStudio')}: ${reason}`);
+    }
+  }, [setActiveWorkspace, t]);
+
+  const handleInstallDeps = useCallback(async (appId: string) => {
+    try {
+      setLiveLoading(true);
+      const result = await liveAppAPI.installDeps(appId);
+      if (!result.success) {
+        notificationService.error(result.stderr || result.stdout || t('liveApp.messages.installDepsFailedGeneric'));
+        return;
+      }
+      notificationService.success(t('liveApp.messages.installDepsOk'), { duration: 2500 });
+      const apps = await liveAppAPI.listLiveApps();
+      setLiveApps(apps);
+    } catch (error) {
+      notificationService.error(
+        t('liveApp.messages.installDepsFailed', {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    } finally {
+      setLiveLoading(false);
+    }
+  }, [setLiveApps, setLiveLoading, t]);
+
+  const handleRecompile = useCallback(async (appId: string) => {
+    try {
+      await liveAppAPI.recompile(appId, undefined, workspacePath || undefined);
+      notificationService.success(t('liveApp.messages.recompiled'), { duration: 2200 });
+    } catch (error) {
+      notificationService.error(
+        t('liveApp.messages.recompileFailed', {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
+  }, [t, workspacePath]);
+
+  const handleSyncFromFs = useCallback(async (appId: string) => {
+    try {
+      setLiveLoading(true);
+      const app = await liveAppAPI.syncFromFs(appId, undefined, workspacePath || undefined);
+      setLiveApps(liveApps.map((item) => item.id === app.id ? app : item));
+      notificationService.success(t('liveApp.messages.syncedFromFs'), { duration: 2200 });
+      if (selectedLiveApp?.id === app.id) {
+        setSelectedLiveApp(app);
+      }
+    } catch (error) {
+      notificationService.error(
+        t('liveApp.messages.syncFromFsFailed', {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    } finally {
+      setLiveLoading(false);
+    }
+  }, [liveApps, selectedLiveApp?.id, setLiveApps, setLiveLoading, t, workspacePath]);
 
   const handleStopLiveApp = async (appId: string) => {
     const overlayId = `live-app:${appId}` as OverlaySceneId;
@@ -340,19 +579,37 @@ const AppsHomeView: React.FC<{
       setLiveLoading(true);
       const app = await liveAppAPI.importFromPath(path, workspacePath || undefined);
       setLiveApps([app, ...liveApps]);
+      notificationService.success(
+        t('liveApp.messages.imported', {
+          name: app.name,
+        }),
+        { duration: 3200 },
+      );
       handleOpenLiveApp(app.id);
-    } catch (e) { log.error('Import failed', e); }
+    } catch (e) {
+      log.error('Import failed', e);
+      notificationService.error(
+        t('liveApp.messages.importFailed', {
+          error: e instanceof Error ? e.message : String(e),
+        }),
+      );
+    }
     finally { setLiveLoading(false); }
   };
 
   const refetchLive = useCallback(async () => {
     setLiveLoading(true);
     try {
-      const [apps, running] = await Promise.all([liveAppAPI.listLiveApps(), liveAppAPI.workerListRunning()]);
+      const [apps, running, runtime] = await Promise.all([
+        liveAppAPI.listLiveApps(),
+        liveAppAPI.workerListRunning(),
+        liveAppAPI.runtimeStatus(),
+      ]);
       setLiveApps(apps);
       setRunningIds(running);
+      setRuntimeStatus(runtime);
     } finally { setLiveLoading(false); }
-  }, [setLiveApps, setLiveLoading, setRunningIds]);
+  }, [setLiveApps, setLiveLoading, setRunningIds, setRuntimeStatus]);
 
   useGallerySceneAutoRefresh({ sceneId: 'apps', refetch: refetchLive });
 
@@ -369,6 +626,7 @@ const AppsHomeView: React.FC<{
   return (
     <div className="apps-scene">
       <div className="apps-scene__scroll">
+        <div className="apps-scene__scroll-inner">
 
         {/* ── Hero ─────────────────────────────────────────────── */}
         <header className="apps-scene__hero">
@@ -423,16 +681,37 @@ const AppsHomeView: React.FC<{
                   </button>
                 )}
                 {activeTab === 'live-app' && (
-                  <button
-                    type="button"
-                    className="apps-scene__list-action"
-                    onClick={handleAddFromFolder}
-                    disabled={liveLoading}
-                    title={t('liveApp.importFromFolder')}
-                  >
-                    <FolderPlus size={14} />
-                    <span>{t('liveApp.importFromFolder')}</span>
-                  </button>
+                  <div className="apps-scene__list-actions">
+                    <button
+                      type="button"
+                      className="apps-scene__list-action apps-scene__list-action--secondary"
+                      onClick={handleOpenStudio}
+                      title={t('liveApp.openStudio')}
+                    >
+                      <PencilRuler size={14} />
+                      <span>{t('liveApp.openStudio')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="apps-scene__list-action"
+                      onClick={handleAddFromFolder}
+                      disabled={liveLoading}
+                      title={t('liveApp.importFromFolder')}
+                    >
+                      <FolderPlus size={14} />
+                      <span>{t('liveApp.importFromFolder')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="apps-scene__list-action apps-scene__list-action--secondary"
+                      onClick={refetchLive}
+                      disabled={liveLoading}
+                      title={t('liveApp.actions.refreshCatalog')}
+                    >
+                      <RefreshCw size={14} />
+                      <span>{t('liveApp.actions.refreshCatalog')}</span>
+                    </button>
+                  </div>
                 )}
                 {activeTab === 'bridge-app' && (
                   <button type="button" className="apps-scene__list-action" disabled title={t('bridgeApp.comingSoon')}>
@@ -452,10 +731,18 @@ const AppsHomeView: React.FC<{
                     <p>{t('page.empty')}</p>
                   </div>
                 ) : (
-                  <div className="apps-scene__list">
-                    {filteredAgentApps.map((app) => (
-                      <AgentAppRow key={app.id} app={app} onOpen={handleOpenAgentApp} />
-                    ))}
+                  <div className="apps-scene__list-block">
+                    <div className="apps-scene__list">
+                      {pagedAgentApps.map((app) => (
+                        <AgentAppRow key={app.id} app={app} onOpen={handleOpenAgentApp} />
+                      ))}
+                    </div>
+                    <AppsListPagination
+                      pageIndex={listPage}
+                      totalPages={agentListTotalPages}
+                      onPrev={() => setListPage((p) => Math.max(0, p - 1))}
+                      onNext={() => setListPage((p) => Math.min(agentListTotalPages - 1, p + 1))}
+                    />
                   </div>
                 )
               )}
@@ -471,18 +758,31 @@ const AppsHomeView: React.FC<{
                       : <><LayoutGrid size={28} strokeWidth={1.5} /><p>{t('liveApp.empty.noMatch')}</p></>}
                   </div>
                 ) : (
-                  <div className="apps-scene__list">
-                    {filteredLiveApps.map((app) => (
-                      <LiveAppRow
-                        key={app.id}
-                        app={app}
-                        isRunning={runningIdSet.has(app.id)}
-                        onOpenDetails={setSelectedLiveApp}
-                        onOpen={handleOpenLiveApp}
-                        onStop={handleStopLiveApp}
-                        onDelete={setPendingDeleteId}
-                      />
-                    ))}
+                  <div className="apps-scene__list-block">
+                    <div className="apps-scene__list">
+                      {pagedLiveApps.map((app) => (
+                        <LiveAppRow
+                          key={app.id}
+                          app={app}
+                          isOpen={openedIdSet.has(app.id)}
+                          isRunning={runningIdSet.has(app.id)}
+                          runtimeAvailable={runtimeStatus?.available ?? false}
+                          onOpenDetails={setSelectedLiveApp}
+                          onOpen={handleOpenLiveApp}
+                          onInstallDeps={handleInstallDeps}
+                          onRecompile={handleRecompile}
+                          onSyncFromFs={handleSyncFromFs}
+                          onStop={handleStopLiveApp}
+                          onDelete={setPendingDeleteId}
+                        />
+                      ))}
+                    </div>
+                    <AppsListPagination
+                      pageIndex={listPage}
+                      totalPages={liveListTotalPages}
+                      onPrev={() => setListPage((p) => Math.max(0, p - 1))}
+                      onNext={() => setListPage((p) => Math.min(liveListTotalPages - 1, p + 1))}
+                    />
                   </div>
                 )
               )}
@@ -496,34 +796,97 @@ const AppsHomeView: React.FC<{
                 </div>
               )}
         </section>
+
+        </div>
       </div>
 
       {/* ── Live App detail modal ──────────────────────────────────── */}
       <GalleryDetailModal
         isOpen={Boolean(selectedLiveApp)}
         onClose={() => setSelectedLiveApp(null)}
-        icon={selectedLiveApp ? renderLiveAppIcon(selectedLiveApp.icon || 'box', 24) : <Box size={24} />}
-        iconGradient={selectedLiveApp ? getLiveAppIconGradient(selectedLiveApp.icon || 'box') : undefined}
+        icon={renderLiveAppIcon(selectedLiveApp?.icon || 'live-app', 24)}
+        iconGradient={getLiveAppIconGradient(selectedLiveApp?.icon || 'live-app')}
         title={selectedLiveApp?.name ?? ''}
         badges={selectedLiveApp?.category ? <Badge variant="info">{selectedLiveApp.category}</Badge> : null}
         description={selectedLiveApp?.description}
-        meta={selectedLiveApp ? <span>v{selectedLiveApp.version}</span> : null}
+        meta={selectedLiveApp ? <span>{t('liveApp.detail.versionMeta', { version: selectedLiveApp.version })}</span> : null}
         actions={selectedLiveApp ? (
           <>
-            {runningIdSet.has(selectedLiveApp.id) ? (
+            {selectedRuntimeSummary?.depsDirty ? (
+              <Button variant="secondary" size="small" onClick={() => void handleInstallDeps(selectedLiveApp.id)}>
+                <RefreshCw size={14} />{t('liveApp.actions.installDeps')}
+              </Button>
+            ) : null}
+            {selectedRuntimeSummary?.isRunning ? (
               <Button variant="secondary" size="small" onClick={() => void handleStopLiveApp(selectedLiveApp.id)}>
                 <Square size={14} />{t('liveApp.detail.stop')}
               </Button>
             ) : null}
+            <Button variant="secondary" size="small" onClick={() => void handleRecompile(selectedLiveApp.id)}>
+              <RefreshCw size={14} />{t('liveApp.actions.recompile')}
+            </Button>
+            <Button variant="secondary" size="small" onClick={() => void handleSyncFromFs(selectedLiveApp.id)}>
+              <RefreshCw size={14} />{t('liveApp.actions.syncFromFs')}
+            </Button>
             <Button variant="danger" size="small" onClick={() => setPendingDeleteId(selectedLiveApp.id)}>
               <Trash2 size={14} />{t('liveApp.detail.delete')}
             </Button>
             <Button variant="primary" size="small" onClick={() => handleOpenLiveApp(selectedLiveApp.id)}>
-              <Play size={14} />{t('liveApp.detail.open')}
+              <Play size={14} />
+              {selectedRuntimeSummary?.runtimeAvailable ? t('liveApp.detail.open') : t('liveApp.actions.openAnyway')}
             </Button>
           </>
         ) : null}
       >
+        {selectedRuntimeSummary ? (
+          <LiveAppRuntimeBadges summary={selectedRuntimeSummary} t={t} className="apps-scene__detail-runtime" />
+        ) : null}
+        {selectedLiveApp ? (
+          <div className="apps-scene__detail-grid">
+            <div className="apps-scene__detail-section">
+              <h4>{t('liveApp.detail.statusTitle')}</h4>
+              <div className="apps-scene__detail-copy">
+                <span>{t('liveApp.detail.updatedAt')}</span>
+                <strong>{formatUpdatedAt(selectedLiveApp.updated_at)}</strong>
+              </div>
+              {selectedRuntimeSummary?.runtimeAvailable ? null : (
+                <div className="apps-scene__detail-alert">
+                  <AlertTriangle size={14} />
+                  <span>{t('liveApp.detail.runtimeUnavailableHint')}</span>
+                </div>
+              )}
+            </div>
+
+            {selectedPermissionSummary ? (
+              <div className="apps-scene__detail-section">
+                <h4>{t('liveApp.detail.permissionsTitle')}</h4>
+                <div className="apps-scene__detail-permissions">
+                  <Badge variant={selectedPermissionSummary.readsWorkspace ? 'warning' : 'neutral'}>
+                    {selectedPermissionSummary.readsWorkspace ? t('liveApp.permissions.readWorkspace') : t('liveApp.permissions.noWorkspaceRead')}
+                  </Badge>
+                  <Badge variant={selectedPermissionSummary.writesWorkspace ? 'warning' : 'neutral'}>
+                    {selectedPermissionSummary.writesWorkspace ? t('liveApp.permissions.writeWorkspace') : t('liveApp.permissions.noWorkspaceWrite')}
+                  </Badge>
+                  <Badge variant={selectedPermissionSummary.shellEnabled ? 'warning' : 'neutral'}>
+                    {selectedPermissionSummary.shellEnabled ? t('liveApp.permissions.shellEnabled') : t('liveApp.permissions.shellDisabled')}
+                  </Badge>
+                  <Badge variant={selectedPermissionSummary.netEnabled ? 'info' : 'neutral'}>
+                    {selectedPermissionSummary.netEnabled ? t('liveApp.permissions.netEnabled') : t('liveApp.permissions.netDisabled')}
+                  </Badge>
+                  <Badge variant={selectedPermissionSummary.aiEnabled ? 'accent' : 'neutral'}>
+                    {selectedPermissionSummary.aiEnabled ? t('liveApp.permissions.aiEnabled') : t('liveApp.permissions.aiDisabled')}
+                  </Badge>
+                  <Badge variant={selectedPermissionSummary.nodeEnabled ? 'warning' : 'neutral'}>
+                    {selectedPermissionSummary.nodeEnabled ? t('liveApp.permissions.nodeEnabled') : t('liveApp.permissions.nodeDisabled')}
+                  </Badge>
+                </div>
+                {selectedLiveApp.permission_rationale ? (
+                  <p className="apps-scene__detail-rationale">{selectedLiveApp.permission_rationale}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {selectedLiveApp?.tags.length ? (
           <div className="apps-scene__detail-tags">
             {selectedLiveApp.tags.map((tag) => (
@@ -538,7 +901,12 @@ const AppsHomeView: React.FC<{
         onClose={() => setPendingDeleteId(null)}
         onConfirm={handleDeleteConfirm}
         title={t('liveApp.confirmDelete.title', { name: liveApps.find((a) => a.id === pendingDeleteId)?.name ?? '' })}
-        message={t('liveApp.confirmDelete.message')}
+        message={t('liveApp.confirmDelete.message', {
+          impact:
+            pendingDeleteId && (openedIdSet.has(pendingDeleteId) || runningIdSet.has(pendingDeleteId))
+              ? t('liveApp.confirmDelete.impactOpenOrRunning')
+              : t('liveApp.confirmDelete.impactIdle'),
+        })}
         type="warning"
         confirmDanger
         confirmText={t('liveApp.confirmDelete.confirm')}

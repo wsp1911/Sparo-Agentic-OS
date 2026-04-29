@@ -35,7 +35,7 @@ import { resolveSessionRelationship } from '../../../flow_chat/utils/sessionMeta
 import { compareSessionsForDisplay, findOpenedWorkspaceForSession } from '../../../flow_chat/utils/sessionOrdering';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import { createLogger } from '@/shared/utils/logger';
-import { renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIcons';
+import { LiveAppGlyph, renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIcons';
 import {
   resolveActiveRunningLiveAppId,
   useRunningLiveAppItems,
@@ -537,7 +537,11 @@ const SessionCapsule: React.FC = () => {
                         ].filter(Boolean).join(' ')}
                         aria-hidden
                       >
-                        <ModeIcon size={12} strokeWidth={2.4} />
+                        {mode === 'liveappstudio' ? (
+                          <LiveAppGlyph size={12} strokeWidth={1.8} />
+                        ) : (
+                          <ModeIcon size={12} strokeWidth={2.4} />
+                        )}
                       </span>
                       <span className="session-capsule__running-row-title">{title}</span>
                     </button>

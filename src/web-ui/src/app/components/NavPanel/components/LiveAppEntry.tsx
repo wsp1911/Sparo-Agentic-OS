@@ -83,7 +83,7 @@ const LiveAppEntry: React.FC<LiveAppEntryProps> = ({
                         'bitfun-nav-panel__live-app-bubble',
                         isAppActive && 'is-active',
                       ].filter(Boolean).join(' ')}
-                      style={{ background: getLiveAppIconGradient(app.icon || 'box') }}
+                      style={{ background: getLiveAppIconGradient(app.icon || 'live-app') }}
                       onClick={(event) => {
                         event.stopPropagation();
                         onOpenLiveApp(app.id);
@@ -100,7 +100,7 @@ const LiveAppEntry: React.FC<LiveAppEntryProps> = ({
                         }
                       }}
                     >
-                      {renderLiveAppIcon(app.icon || 'box', 14)}
+                      {renderLiveAppIcon(app.icon || 'live-app', 14)}
                     </span>
                   </Tooltip>
                 );

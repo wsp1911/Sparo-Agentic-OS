@@ -22,7 +22,7 @@ pub mod snapshot; // Snapshot-based change tracking
 pub mod system; // System command detection and execution
 pub mod token_usage; // Token usage tracking
 pub mod workspace; // Workspace management
-pub mod workspace_runtime; // Workspace runtime layout / migration / initialization
+pub mod workspace_runtime; // Workspace runtime layout and initialization
 
 // Terminal is a standalone crate; re-export it here.
 pub use terminal_core as terminal;
