@@ -22,6 +22,31 @@ fn serialize_default_config(section: &str, value: impl serde::Serialize) -> serd
     }
 }
 
+fn validate_auto_memory_scope_config(
+    scope_name: &str,
+    scope_config: &AutoMemoryScopeConfig,
+) -> BitFunResult<()> {
+    if scope_config.extract_every_eligible_turns == 0 {
+        return Err(BitFunError::validation(format!(
+            "AI auto_memory.{}.extract_every_eligible_turns must be greater than 0",
+            scope_name
+        )));
+    }
+
+    if let Some(force_extract_after_pending_eligible_turns) =
+        scope_config.force_extract_after_pending_eligible_turns
+    {
+        if force_extract_after_pending_eligible_turns <= scope_config.extract_every_eligible_turns {
+            return Err(BitFunError::validation(format!(
+                "AI auto_memory.{}.force_extract_after_pending_eligible_turns must be greater than auto_memory.{}.extract_every_eligible_turns",
+                scope_name, scope_name
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 /// AI configuration provider.
 pub struct AIConfigProvider;
 
@@ -47,19 +72,8 @@ impl ConfigProvider for AIConfigProvider {
                 }
             }
 
-            if ai_config.auto_memory.global.extract_every_eligible_turns == 0 {
-                return Err(BitFunError::validation(
-                    "AI auto_memory.global.extract_every_eligible_turns must be greater than 0"
-                        .to_string(),
-                ));
-            }
-
-            if ai_config.auto_memory.workspace.extract_every_eligible_turns == 0 {
-                return Err(BitFunError::validation(
-                    "AI auto_memory.workspace.extract_every_eligible_turns must be greater than 0"
-                        .to_string(),
-                ));
-            }
+            validate_auto_memory_scope_config("global", &ai_config.auto_memory.global)?;
+            validate_auto_memory_scope_config("workspace", &ai_config.auto_memory.workspace)?;
 
             for (index, model) in ai_config.models.iter().enumerate() {
                 if model.name.trim().is_empty() {
@@ -710,5 +724,39 @@ impl ConfigProviderRegistry {
 impl Default for ConfigProviderRegistry {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_auto_memory_scope_config;
+    use crate::service::config::types::AutoMemoryScopeConfig;
+
+    #[test]
+    fn validates_force_extract_threshold_is_above_base_threshold() {
+        let result = validate_auto_memory_scope_config(
+            "workspace",
+            &AutoMemoryScopeConfig {
+                extract_every_eligible_turns: 3,
+                force_extract_after_pending_eligible_turns: Some(3),
+                ..AutoMemoryScopeConfig::default()
+            },
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn allows_disabling_force_extract_threshold() {
+        let result = validate_auto_memory_scope_config(
+            "workspace",
+            &AutoMemoryScopeConfig {
+                extract_every_eligible_turns: 3,
+                force_extract_after_pending_eligible_turns: None,
+                ..AutoMemoryScopeConfig::default()
+            },
+        );
+
+        assert!(result.is_ok());
     }
 }

@@ -487,6 +487,10 @@ pub struct AutoMemoryScopeConfig {
     /// Require at least this many seconds since the last memory-consuming
     /// extraction or direct memory write before scheduling another extraction.
     pub min_extract_interval_secs: u64,
+
+    /// If cooldown has not expired yet, force extraction once pending eligible
+    /// turns reach this backlog size.
+    pub force_extract_after_pending_eligible_turns: Option<u32>,
 }
 
 impl AIConfig {
@@ -627,11 +631,11 @@ fn default_skip_tool_confirmation() -> bool {
 }
 
 fn default_global_auto_memory_extract_every_eligible_turns() -> u32 {
-    6
+    10
 }
 
 fn default_workspace_auto_memory_extract_every_eligible_turns() -> u32 {
-    1
+    3
 }
 
 fn default_global_auto_memory_min_extract_interval_secs() -> u64 {
@@ -644,6 +648,14 @@ fn default_workspace_auto_memory_min_extract_interval_secs() -> u64 {
 
 fn default_auto_memory_enabled() -> bool {
     true
+}
+
+fn default_global_auto_memory_force_extract_after_pending_eligible_turns() -> Option<u32> {
+    Some(20)
+}
+
+fn default_workspace_auto_memory_force_extract_after_pending_eligible_turns() -> Option<u32> {
+    Some(6)
 }
 
 impl Default for ModeConfig {
@@ -1469,13 +1481,17 @@ impl Default for AutoMemoryConfig {
                 extract_every_eligible_turns:
                     default_global_auto_memory_extract_every_eligible_turns(),
                 min_extract_interval_secs: default_global_auto_memory_min_extract_interval_secs(),
+                force_extract_after_pending_eligible_turns:
+                    default_global_auto_memory_force_extract_after_pending_eligible_turns(),
             },
             workspace: AutoMemoryScopeConfig {
                 enabled: default_auto_memory_enabled(),
                 extract_every_eligible_turns:
                     default_workspace_auto_memory_extract_every_eligible_turns(),
-                min_extract_interval_secs:
-                    default_workspace_auto_memory_min_extract_interval_secs(),
+                min_extract_interval_secs: default_workspace_auto_memory_min_extract_interval_secs(
+                ),
+                force_extract_after_pending_eligible_turns:
+                    default_workspace_auto_memory_force_extract_after_pending_eligible_turns(),
             },
         }
     }
@@ -1488,6 +1504,8 @@ impl Default for AutoMemoryScopeConfig {
             extract_every_eligible_turns:
                 default_workspace_auto_memory_extract_every_eligible_turns(),
             min_extract_interval_secs: default_workspace_auto_memory_min_extract_interval_secs(),
+            force_extract_after_pending_eligible_turns:
+                default_workspace_auto_memory_force_extract_after_pending_eligible_turns(),
         }
     }
 }
@@ -1808,9 +1826,26 @@ mod tests {
         assert!(config.auto_memory.global.enabled);
         assert_eq!(config.auto_memory.global.extract_every_eligible_turns, 6);
         assert_eq!(config.auto_memory.global.min_extract_interval_secs, 60 * 60);
+        assert_eq!(
+            config
+                .auto_memory
+                .global
+                .force_extract_after_pending_eligible_turns,
+            Some(20)
+        );
         assert!(config.auto_memory.workspace.enabled);
         assert_eq!(config.auto_memory.workspace.extract_every_eligible_turns, 1);
-        assert_eq!(config.auto_memory.workspace.min_extract_interval_secs, 60 * 60);
+        assert_eq!(
+            config.auto_memory.workspace.min_extract_interval_secs,
+            60 * 60
+        );
+        assert_eq!(
+            config
+                .auto_memory
+                .workspace
+                .force_extract_after_pending_eligible_turns,
+            Some(5)
+        );
     }
 
     #[test]
@@ -1833,8 +1868,25 @@ mod tests {
         assert!(config.auto_memory.global.enabled);
         assert_eq!(config.auto_memory.global.extract_every_eligible_turns, 6);
         assert_eq!(config.auto_memory.global.min_extract_interval_secs, 60 * 60);
+        assert_eq!(
+            config
+                .auto_memory
+                .global
+                .force_extract_after_pending_eligible_turns,
+            Some(20)
+        );
         assert!(config.auto_memory.workspace.enabled);
         assert_eq!(config.auto_memory.workspace.extract_every_eligible_turns, 1);
-        assert_eq!(config.auto_memory.workspace.min_extract_interval_secs, 60 * 60);
+        assert_eq!(
+            config.auto_memory.workspace.min_extract_interval_secs,
+            60 * 60
+        );
+        assert_eq!(
+            config
+                .auto_memory
+                .workspace
+                .force_extract_after_pending_eligible_turns,
+            Some(5)
+        );
     }
 }

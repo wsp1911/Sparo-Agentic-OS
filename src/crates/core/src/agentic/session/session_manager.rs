@@ -4,6 +4,7 @@
 
 use crate::agentic::auto_memory::{
     AutoMemoryExtractionCursor, AutoMemoryScheduleDecision, AutoMemoryState,
+    AutoMemoryThrottlePolicy,
 };
 use crate::agentic::core::{
     CompressionState, DialogTurn, Message, MessageSemanticKind, ProcessingPhase, Session,
@@ -728,7 +729,10 @@ impl SessionManager {
 
         // 3. Persist to local path (handles remote workspaces correctly)
         if self.config.enable_persistence && Self::should_persist_session(&session) {
-            let session_to_persist = self.sessions.get(&session_id).map(|session| session.clone());
+            let session_to_persist = self
+                .sessions
+                .get(&session_id)
+                .map(|session| session.clone());
             if let Some(session) = session_to_persist.as_ref() {
                 self.persistence_manager
                     .save_session(&session_storage_path, session)
@@ -894,8 +898,7 @@ impl SessionManager {
     pub async fn note_auto_memory_eligible_turn(
         &self,
         session_id: &str,
-        extract_every_eligible_turns: usize,
-        min_extract_interval_secs: u64,
+        policy: AutoMemoryThrottlePolicy,
         now_ms: i64,
     ) -> BitFunResult<AutoMemoryScheduleDecision> {
         let effective_path = self.effective_session_workspace_path(session_id).await;
@@ -911,16 +914,11 @@ impl SessionManager {
         session
             .auto_memory_state
             .normalize_for_turn_count(turn_count);
-        let threshold = extract_every_eligible_turns.max(1);
         let next_unextracted_turn = session.auto_memory_state.next_unextracted_turn;
         let history_revision = session.auto_memory_state.history_revision;
         let schedule_decision = session
             .auto_memory_state
-            .note_eligible_turn_and_schedule_decision(
-                threshold,
-                min_extract_interval_secs,
-                now_ms,
-            );
+            .note_eligible_turn_and_schedule_decision(policy, now_ms);
 
         if self.config.enable_persistence {
             if let Some(ref workspace_path) = effective_path {
@@ -931,14 +929,18 @@ impl SessionManager {
         }
 
         debug!(
-            "Recorded auto memory eligible turn: session_id={}, turn_count={}, next_unextracted_turn={}, history_revision={}, eligible_turns_since_last_extraction={}, extract_every_eligible_turns={}, min_extract_interval_secs={}, schedule_decision={:?}",
+            "Recorded auto memory eligible turn: session_id={}, turn_count={}, next_unextracted_turn={}, history_revision={}, pending_eligible_turns={}, extract_every_eligible_turns={}, min_extract_interval_secs={}, force_extract_after_pending_eligible_turns={}, schedule_decision={:?}",
             session_id,
             turn_count,
             next_unextracted_turn,
             history_revision,
-            session.auto_memory_state.eligible_turns_since_last_extraction,
-            threshold,
-            min_extract_interval_secs,
+            session.auto_memory_state.pending_eligible_turns,
+            policy.extract_every_eligible_turns,
+            policy.min_extract_interval_secs,
+            policy
+                .force_extract_after_pending_eligible_turns
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "<disabled>".to_string()),
             schedule_decision
         );
 
@@ -948,8 +950,7 @@ impl SessionManager {
     pub fn auto_memory_schedule_decision(
         &self,
         session_id: &str,
-        extract_every_eligible_turns: usize,
-        min_extract_interval_secs: u64,
+        policy: AutoMemoryThrottlePolicy,
         now_ms: i64,
     ) -> BitFunResult<AutoMemoryScheduleDecision> {
         let Some(session) = self.sessions.get(session_id) else {
@@ -963,11 +964,7 @@ impl SessionManager {
         let mut state = session.auto_memory_state.clone();
         state.normalize_for_turn_count(turn_count);
 
-        Ok(state.schedule_decision(
-            extract_every_eligible_turns,
-            min_extract_interval_secs,
-            now_ms,
-        ))
+        Ok(state.schedule_decision(policy, now_ms))
     }
 
     pub async fn note_auto_memory_rollback(
@@ -1033,9 +1030,7 @@ impl SessionManager {
             .auto_memory_state
             .normalize_for_turn_count(turn_count);
         let previous_next_unextracted_turn = session.auto_memory_state.next_unextracted_turn;
-        let previous_eligible_turns = session
-            .auto_memory_state
-            .eligible_turns_since_last_extraction;
+        let previous_eligible_turns = session.auto_memory_state.pending_eligible_turns;
         let current_history_revision = session.auto_memory_state.history_revision;
 
         if current_history_revision != history_revision {
@@ -1063,14 +1058,14 @@ impl SessionManager {
         }
 
         debug!(
-            "Advanced auto memory cursor: session_id={}, through_turn={}, previous_next_unextracted_turn={}, next_unextracted_turn={}, history_revision={}, previous_eligible_turns={}, eligible_turns_since_last_extraction={}",
+            "Advanced auto memory cursor: session_id={}, through_turn={}, previous_next_unextracted_turn={}, next_unextracted_turn={}, history_revision={}, previous_pending_eligible_turns={}, pending_eligible_turns={}",
             session_id,
             through_turn,
             previous_next_unextracted_turn,
             session.auto_memory_state.next_unextracted_turn,
             session.auto_memory_state.history_revision,
             previous_eligible_turns,
-            session.auto_memory_state.eligible_turns_since_last_extraction
+            session.auto_memory_state.pending_eligible_turns
         );
 
         Ok(true)
@@ -2574,7 +2569,9 @@ impl SessionManager {
 #[cfg(test)]
 mod tests {
     use super::{SessionManager, SessionManagerConfig};
-    use crate::agentic::auto_memory::AutoMemoryScheduleDecision;
+    use crate::agentic::auto_memory::{
+        AutoMemoryReadyReason, AutoMemoryScheduleDecision, AutoMemoryThrottlePolicy,
+    };
     use crate::agentic::core::SessionConfig;
     use crate::agentic::persistence::PersistenceManager;
     use crate::agentic::session::SessionContextStore;
@@ -2926,7 +2923,11 @@ mod tests {
         complete_turn(&manager, &session_id, &first_turn_id).await;
 
         let first_ready = manager
-            .note_auto_memory_eligible_turn(&session_id, 2, 0, 1_000)
+            .note_auto_memory_eligible_turn(
+                &session_id,
+                AutoMemoryThrottlePolicy::new(2, 0, None),
+                1_000,
+            )
             .await
             .expect("first eligible turn should update state");
         assert_eq!(
@@ -2936,7 +2937,7 @@ mod tests {
         let after_first = manager
             .get_auto_memory_state(&session_id)
             .expect("state should exist");
-        assert_eq!(after_first.eligible_turns_since_last_extraction, 1);
+        assert_eq!(after_first.pending_eligible_turns, 1);
 
         let second_turn_id = manager
             .start_dialog_turn(&session_id, "second".to_string(), None, None, None)
@@ -2945,14 +2946,23 @@ mod tests {
         complete_turn(&manager, &session_id, &second_turn_id).await;
 
         let second_ready = manager
-            .note_auto_memory_eligible_turn(&session_id, 2, 0, 2_000)
+            .note_auto_memory_eligible_turn(
+                &session_id,
+                AutoMemoryThrottlePolicy::new(2, 0, None),
+                2_000,
+            )
             .await
             .expect("second eligible turn should update state");
-        assert_eq!(second_ready, AutoMemoryScheduleDecision::ReadyNow);
+        assert_eq!(
+            second_ready,
+            AutoMemoryScheduleDecision::ReadyNow {
+                reason: AutoMemoryReadyReason::ThresholdReached,
+            }
+        );
         let after_second = manager
             .get_auto_memory_state(&session_id)
             .expect("state should exist");
-        assert_eq!(after_second.eligible_turns_since_last_extraction, 2);
+        assert_eq!(after_second.pending_eligible_turns, 2);
     }
 
     #[tokio::test]
@@ -2976,18 +2986,33 @@ mod tests {
         complete_turn(&manager, &session_id, &second_turn_id).await;
 
         let decision = manager
-            .note_auto_memory_eligible_turn(&session_id, 1, 60, 30_000)
+            .note_auto_memory_eligible_turn(
+                &session_id,
+                AutoMemoryThrottlePolicy::new(1, 60, None),
+                30_000,
+            )
             .await
             .expect("eligible turn should update state");
         assert_eq!(
             decision,
-            AutoMemoryScheduleDecision::CoolingDown { ready_at_ms: 61_000 }
+            AutoMemoryScheduleDecision::CoolingDown {
+                ready_at_ms: 61_000
+            }
         );
 
         let decision = manager
-            .auto_memory_schedule_decision(&session_id, 1, 60, 61_000)
+            .auto_memory_schedule_decision(
+                &session_id,
+                AutoMemoryThrottlePolicy::new(1, 60, None),
+                61_000,
+            )
             .expect("schedule decision should load");
-        assert_eq!(decision, AutoMemoryScheduleDecision::ReadyNow);
+        assert_eq!(
+            decision,
+            AutoMemoryScheduleDecision::ReadyNow {
+                reason: AutoMemoryReadyReason::CooldownExpired,
+            }
+        );
     }
 
     #[tokio::test]
@@ -2998,7 +3023,11 @@ mod tests {
         complete_turn(&manager, &session_id, &turn_id).await;
 
         let ready = manager
-            .note_auto_memory_eligible_turn(&session_id, 3, 0, 1_000)
+            .note_auto_memory_eligible_turn(
+                &session_id,
+                AutoMemoryThrottlePolicy::new(3, 0, None),
+                1_000,
+            )
             .await
             .expect("eligible turn should update state");
         assert_eq!(ready, AutoMemoryScheduleDecision::NotReadyByEligibleTurns);
@@ -3011,7 +3040,7 @@ mod tests {
         let state = manager
             .get_auto_memory_state(&session_id)
             .expect("state should exist");
-        assert_eq!(state.eligible_turns_since_last_extraction, 0);
+        assert_eq!(state.pending_eligible_turns, 0);
     }
 
     #[tokio::test]
@@ -3029,20 +3058,33 @@ mod tests {
         complete_turn(&manager, &session_id, &second_turn_id).await;
 
         let ready = manager
-            .note_auto_memory_eligible_turn(&session_id, 2, 0, 1_000)
+            .note_auto_memory_eligible_turn(
+                &session_id,
+                AutoMemoryThrottlePolicy::new(2, 0, None),
+                1_000,
+            )
             .await
             .expect("first eligible turn should update state");
         assert_eq!(ready, AutoMemoryScheduleDecision::NotReadyByEligibleTurns);
         let ready = manager
-            .note_auto_memory_eligible_turn(&session_id, 2, 0, 2_000)
+            .note_auto_memory_eligible_turn(
+                &session_id,
+                AutoMemoryThrottlePolicy::new(2, 0, None),
+                2_000,
+            )
             .await
             .expect("second eligible turn should update state");
-        assert_eq!(ready, AutoMemoryScheduleDecision::ReadyNow);
+        assert_eq!(
+            ready,
+            AutoMemoryScheduleDecision::ReadyNow {
+                reason: AutoMemoryReadyReason::ThresholdReached,
+            }
+        );
 
         let before_commit = manager
             .get_auto_memory_state(&session_id)
             .expect("state should exist");
-        assert_eq!(before_commit.eligible_turns_since_last_extraction, 2);
+        assert_eq!(before_commit.pending_eligible_turns, 2);
 
         let committed = manager
             .complete_auto_memory_extraction_if_revision_matches(&session_id, 1, 0, 3_000)
@@ -3053,8 +3095,57 @@ mod tests {
         let after_commit = manager
             .get_auto_memory_state(&session_id)
             .expect("state should exist");
-        assert_eq!(after_commit.eligible_turns_since_last_extraction, 0);
+        assert_eq!(after_commit.pending_eligible_turns, 0);
         assert_eq!(after_commit.last_memory_consumed_at_ms, Some(3_000));
+    }
+
+    #[tokio::test]
+    async fn note_auto_memory_eligible_turn_can_bypass_cooldown_when_pending_backlog_grows() {
+        let workspace = TestWorkspace::new();
+        let (_, manager) = build_test_session_manager();
+        let (session_id, first_turn_id) =
+            create_session_with_turn(&manager, workspace.path()).await;
+        complete_turn(&manager, &session_id, &first_turn_id).await;
+
+        let committed = manager
+            .complete_auto_memory_extraction_if_revision_matches(&session_id, 0, 0, 1_000)
+            .await
+            .expect("initial commit should succeed");
+        assert!(committed);
+
+        for turn_index in 0..6 {
+            let turn_id = manager
+                .start_dialog_turn(
+                    &session_id,
+                    format!("turn {}", turn_index + 2),
+                    None,
+                    None,
+                    None,
+                )
+                .await
+                .expect("extra turn should start");
+            complete_turn(&manager, &session_id, &turn_id).await;
+        }
+
+        let policy = AutoMemoryThrottlePolicy::new(2, 60, Some(6));
+        let mut decision = AutoMemoryScheduleDecision::NotReadyByEligibleTurns;
+        for now_ms in [10_000, 15_000, 20_000, 25_000, 30_000, 35_000] {
+            decision = manager
+                .note_auto_memory_eligible_turn(&session_id, policy, now_ms)
+                .await
+                .expect("eligible turn should update state");
+        }
+
+        assert_eq!(
+            decision,
+            AutoMemoryScheduleDecision::ReadyNow {
+                reason: AutoMemoryReadyReason::CooldownBypassedByPendingEligibleTurns,
+            }
+        );
+        let state = manager
+            .get_auto_memory_state(&session_id)
+            .expect("state should exist");
+        assert_eq!(state.pending_eligible_turns, 6);
     }
 
     #[tokio::test]

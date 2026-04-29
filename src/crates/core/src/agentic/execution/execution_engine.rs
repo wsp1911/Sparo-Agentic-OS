@@ -100,9 +100,8 @@ impl ExecutionEngine {
         let visible_tool_names: HashSet<&str> = visible_tools.iter().map(String::as_str).collect();
         let mut next = restrictions.clone();
         let original_allowed = next.allowed_tool_names.clone();
-        next.allowed_tool_names.retain(|tool_name| {
-            visible_tool_names.contains(tool_name.as_str())
-        });
+        next.allowed_tool_names
+            .retain(|tool_name| visible_tool_names.contains(tool_name.as_str()));
         if next.allowed_tool_names.is_empty() {
             next.allowed_tool_names = original_allowed;
         }
@@ -1262,10 +1261,11 @@ impl ExecutionEngine {
         } else {
             (vec![], None)
         };
-        let runtime_tool_restrictions = Self::intersect_runtime_tool_restrictions_with_visible_tools(
-            &context.runtime_tool_restrictions,
-            &available_tools,
-        );
+        let runtime_tool_restrictions =
+            Self::intersect_runtime_tool_restrictions_with_visible_tools(
+                &context.runtime_tool_restrictions,
+                &available_tools,
+            );
 
         let enable_context_compression = session.config.enable_context_compression;
         let compression_threshold = session.config.compression_threshold;

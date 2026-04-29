@@ -10,7 +10,9 @@
       "extractEveryEligibleTurns": "全局记忆更新频率",
       "extractEveryEligibleTurnsDesc": "每完成 N 轮符合条件的对话，更新一次 agentic_os 记忆。",
       "minExtractIntervalMinutes": "最小更新时间间隔",
-      "minExtractIntervalMinutesDesc": "0 表示关闭冷却间隔。"
+      "minExtractIntervalMinutesDesc": "0 表示关闭冷却间隔。",
+      "forceExtractAfterPendingEligibleTurns": "冷却期间强制更新阈值",
+      "forceExtractAfterPendingEligibleTurnsDesc": "0 表示关闭该覆盖规则。否则当待处理的符合条件轮次达到该阈值时，即使冷却时间未到也会立即执行自动记忆。"
     },
     "workspace": {
       "sectionTitle": "工作区记忆",
@@ -20,10 +22,13 @@
       "extractEveryEligibleTurns": "工作区记忆更新频率",
       "extractEveryEligibleTurnsDesc": "每完成 N 轮符合条件的对话，更新一次工作区记忆。",
       "minExtractIntervalMinutes": "最小更新时间间隔",
-      "minExtractIntervalMinutesDesc": "0 表示关闭冷却间隔。"
+      "minExtractIntervalMinutesDesc": "0 表示关闭冷却间隔。",
+      "forceExtractAfterPendingEligibleTurns": "冷却期间强制更新阈值",
+      "forceExtractAfterPendingEligibleTurnsDesc": "0 表示关闭该覆盖规则。否则当待处理的符合条件轮次达到该阈值时，即使冷却时间未到也会立即执行自动记忆。"
     },
     "units": {
-      "minutes": "分钟"
+      "minutes": "分钟",
+      "turns": "轮"
     }
   },
   "loading": {
