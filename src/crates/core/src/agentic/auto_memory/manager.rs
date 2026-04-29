@@ -274,8 +274,12 @@ impl AutoMemoryManager {
                         workspace_key, session_id, executed, followup_action
                     );
                 }
-                WorkspaceLoopAction::Wait { ready_at_ms, notify } => {
-                    let sleep_duration_ms = ready_at_ms.saturating_sub(current_time_ms()).max(0) as u64;
+                WorkspaceLoopAction::Wait {
+                    ready_at_ms,
+                    notify,
+                } => {
+                    let sleep_duration_ms =
+                        ready_at_ms.saturating_sub(current_time_ms()).max(0) as u64;
                     let sleep_deadline = Instant::now() + Duration::from_millis(sleep_duration_ms);
                     debug!(
                         "Waiting for delayed auto memory session: workspace_key={}, ready_at_ms={}, sleep_duration_ms={}",

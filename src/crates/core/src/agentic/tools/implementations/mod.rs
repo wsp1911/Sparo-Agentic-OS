@@ -1,6 +1,7 @@
 //! Tool implementation module
 
 pub mod agent_dispatch_tool;
+pub mod agent_session_dispatch;
 pub mod ask_user_question_tool;
 pub mod bash_tool;
 pub mod code_review_tool;

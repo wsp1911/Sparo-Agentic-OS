@@ -120,27 +120,35 @@ mod tests {
     use uuid::Uuid;
 
     struct TestWorkspace {
+        root: PathBuf,
         path: PathBuf,
     }
 
     impl TestWorkspace {
         fn new() -> Self {
-            let path = std::env::temp_dir().join(format!(
+            let root = std::env::temp_dir().join(format!(
                 "bitfun-session-maintenance-test-{}",
                 Uuid::new_v4()
             ));
+            let path = root.join("workspace");
             std::fs::create_dir_all(&path).expect("test workspace should be created");
-            Self { path }
+            Self { root, path }
         }
 
         fn path(&self) -> &Path {
             &self.path
         }
+
+        fn path_manager(&self) -> Arc<PathManager> {
+            Arc::new(PathManager::with_user_root_for_tests(
+                self.root.join("config"),
+            ))
+        }
     }
 
     impl Drop for TestWorkspace {
         fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.path);
+            let _ = std::fs::remove_dir_all(&self.root);
         }
     }
 
@@ -148,8 +156,7 @@ mod tests {
     async fn workspace_maintenance_removes_hidden_sessions_once() {
         let workspace = TestWorkspace::new();
         let persistence_manager = Arc::new(
-            PersistenceManager::new(Arc::new(PathManager::new().expect("path manager")))
-                .expect("persistence manager"),
+            PersistenceManager::new(workspace.path_manager()).expect("persistence manager"),
         );
         let maintenance = SessionWorkspaceMaintenanceService::new(persistence_manager.clone());
 

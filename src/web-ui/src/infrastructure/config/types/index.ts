@@ -199,6 +199,7 @@ export interface AutoMemoryScopeConfig {
   enabled: boolean;
   extract_every_eligible_turns: number;
   min_extract_interval_secs: number;
+  force_extract_after_pending_eligible_turns?: number | null;
 }
 
 export interface StoredModeConfigItem {

@@ -224,7 +224,10 @@ impl HostAutoScanService {
 
     async fn run_loop(self: Arc<Self>) {
         if let Err(error) = self.reconcile_startup_state().await {
-            error!("Failed to reconcile host auto scan state on startup: {}", error);
+            error!(
+                "Failed to reconcile host auto scan state on startup: {}",
+                error
+            );
         }
 
         loop {
@@ -267,7 +270,10 @@ impl HostAutoScanService {
                     break;
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(count)) => {
-                    warn!("Host auto scan config listener lagged by {} messages", count);
+                    warn!(
+                        "Host auto scan config listener lagged by {} messages",
+                        count
+                    );
                 }
             }
         }
@@ -279,7 +285,9 @@ impl HostAutoScanService {
             let startup_status = read_host_overview_status().await.unwrap_or_default();
             let did_update_overview = state
                 .last_attempt_started_at_ms
-                .map(|started_at_ms| host_overview_was_updated_after_start(&startup_status, started_at_ms))
+                .map(|started_at_ms| {
+                    host_overview_was_updated_after_start(&startup_status, started_at_ms)
+                })
                 .unwrap_or(false);
             let recovered_status = if did_update_overview {
                 HostScanAttemptStatus::Ok
@@ -393,18 +401,17 @@ impl HostAutoScanService {
             .await
         {
             Ok(turn_id) => {
-                self.register_scan_turn(&turn_id, HostScanTrigger::Auto).await?;
+                self.register_scan_turn(&turn_id, HostScanTrigger::Auto)
+                    .await?;
                 info!(
                     "Started automatic host scan: request_id={}, turn_id={}",
-                    request_id,
-                    turn_id
+                    request_id, turn_id
                 );
             }
             Err(error) => {
                 warn!(
                     "Failed to start automatic host scan: request_id={}, error={}",
-                    request_id,
-                    error
+                    request_id, error
                 );
                 self.record_auto_launch_failure(error.to_string()).await?;
             }
@@ -545,10 +552,7 @@ fn effective_freshness_baseline_ms(
     state: &HostScanState,
     overview: &HostOverviewStatus,
 ) -> Option<i64> {
-    match (
-        state.last_successful_scan_at_ms,
-        overview.modified_at_ms,
-    ) {
+    match (state.last_successful_scan_at_ms, overview.modified_at_ms) {
         (Some(scan_at), Some(modified_at)) => Some(scan_at.max(modified_at)),
         (Some(scan_at), None) => Some(scan_at),
         (None, Some(modified_at)) => Some(modified_at),
@@ -579,13 +583,12 @@ fn reset_auto_failed_attempt_day_if_needed(state: &mut HostScanState, now_ms: i6
 }
 
 fn has_pending_auto_retry(state: &HostScanState) -> bool {
-    matches!(
-        state.last_attempt_trigger,
-        Some(HostScanTrigger::Auto)
-    ) && matches!(
-        state.last_attempt_status,
-        Some(HostScanAttemptStatus::Error | HostScanAttemptStatus::Cancelled)
-    ) && state.next_auto_scan_not_before_ms.is_some()
+    matches!(state.last_attempt_trigger, Some(HostScanTrigger::Auto))
+        && matches!(
+            state.last_attempt_status,
+            Some(HostScanAttemptStatus::Error | HostScanAttemptStatus::Cancelled)
+        )
+        && state.next_auto_scan_not_before_ms.is_some()
 }
 
 fn next_auto_retry_time_ms(auto_failed_attempts_today: u32, now_ms: i64) -> i64 {
@@ -687,7 +690,10 @@ fn host_overview_was_updated_since(
         return true;
     }
 
-    match (overview_before.modified_at_ms, overview_after.modified_at_ms) {
+    match (
+        overview_before.modified_at_ms,
+        overview_after.modified_at_ms,
+    ) {
         (Some(before_ms), Some(after_ms)) => after_ms > before_ms,
         (None, Some(after_ms)) => after_ms >= started_at_ms,
         _ => false,
@@ -714,9 +720,7 @@ fn local_day_key(timestamp_ms: i64) -> String {
 
 fn next_local_day_start_ms(timestamp_ms: i64) -> i64 {
     let date = local_datetime(timestamp_ms).date_naive();
-    let next_day = date
-        .succ_opt()
-        .unwrap_or_else(|| Local::now().date_naive());
+    let next_day = date.succ_opt().unwrap_or_else(|| Local::now().date_naive());
     let naive = next_day.and_hms_opt(0, 0, 0).unwrap_or_else(|| {
         Local::now()
             .date_naive()

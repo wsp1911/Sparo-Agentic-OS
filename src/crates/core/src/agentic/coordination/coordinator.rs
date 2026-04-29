@@ -6,8 +6,10 @@ use super::{scheduler::DialogSubmissionPolicy, turn_outcome::TurnOutcome};
 use crate::agentic::agents::get_agent_registry;
 use crate::agentic::auto_memory::{
     build_auto_memory_runtime_restrictions, build_extract_prompt,
-    count_recent_model_visible_messages, AutoMemoryManager, AutoMemoryQueueAction,
-    AutoMemoryScheduleDecision,
+    count_recent_model_visible_messages, handle_auto_memory_after_completed_turn,
+    queue_action_from_schedule_decision, resolve_auto_memory_runtime_context,
+    resolve_auto_memory_scope, resolve_local_auto_memory_context, session_can_consider_auto_memory,
+    AutoMemoryCompletedTurnFollowup, AutoMemoryManager, AutoMemoryQueueAction,
 };
 use crate::agentic::core::{
     has_prompt_markup, Message, MessageContent, ProcessingPhase, PromptEnvelope, Session,
@@ -28,12 +30,12 @@ use crate::agentic::tools::pipeline::{SubagentParentInfo, ToolPipeline};
 use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::agentic::WorkspaceBinding;
 use crate::infrastructure::get_path_manager_arc;
-use crate::service::host::{
-    build_host_scan_system_reminder, build_host_scan_user_prompt,
-    default_host_scan_session_name, host_scan_allowed_tools,
-};
 use crate::service::bootstrap::{
     ensure_workspace_persona_files_for_prompt, is_workspace_bootstrap_pending,
+};
+use crate::service::host::{
+    build_host_scan_system_reminder, build_host_scan_user_prompt, default_host_scan_session_name,
+    host_scan_allowed_tools,
 };
 use crate::service::memory_store::{
     build_memory_manifest_for_target, ensure_memory_store_for_target,
@@ -59,61 +61,6 @@ const AUTO_MEMORY_FORK_MAX_TURNS: usize = 5;
 const BACKGROUND_HOST_SCAN_PARENT_SESSION_ID: &str = "system-host-scan-parent";
 const BACKGROUND_HOST_SCAN_PARENT_SESSION_NAME: &str = "Host scan dispatcher";
 const BACKGROUND_HOST_SCAN_CHILD_SESSION_ID: &str = "system-host-scan-session";
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum AutoMemoryPostTurnAction {
-    Skip,
-    Schedule,
-}
-
-fn decide_auto_memory_post_turn_action(
-    session_kind: SessionKind,
-    turn_wrote_memory: Option<bool>,
-) -> AutoMemoryPostTurnAction {
-    if matches!(session_kind, SessionKind::Subagent) {
-        return AutoMemoryPostTurnAction::Skip;
-    }
-
-    match turn_wrote_memory {
-        Some(true) => AutoMemoryPostTurnAction::Skip,
-        Some(false) | None => AutoMemoryPostTurnAction::Schedule,
-    }
-}
-
-fn resolve_auto_memory_scope(agent_type: &str, workspace_path: &Path) -> MemoryScope {
-    get_agent_registry()
-        .get_agent(agent_type, Some(workspace_path))
-        .map(|agent| agent.memory_scope())
-        .unwrap_or(MemoryScope::WorkspaceProject)
-}
-
-fn resolve_session_auto_memory_scope(session: &Session) -> Option<MemoryScope> {
-    if session.config.remote_connection_id.is_some() {
-        return None;
-    }
-
-    session
-        .config
-        .workspace_path
-        .as_deref()
-        .map(|path| resolve_auto_memory_scope(&session.agent_type, Path::new(path)))
-}
-
-fn auto_memory_scope_config(
-    config: &crate::service::config::types::AutoMemoryConfig,
-    scope: MemoryScope,
-) -> &crate::service::config::types::AutoMemoryScopeConfig {
-    match scope {
-        MemoryScope::WorkspaceProject => &config.workspace,
-        MemoryScope::GlobalAgenticOs => &config.global,
-    }
-}
-
-fn build_auto_memory_store_key(target: MemoryStoreTarget<'_>) -> String {
-    memory_store_dir_path_for_target(target)
-        .to_string_lossy()
-        .replace('\\', "/")
-}
 
 fn current_time_ms() -> i64 {
     SystemTime::now()
@@ -1071,6 +1018,33 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         })
     }
 
+    fn schedule_auto_memory_queue_action(
+        session_id: &str,
+        store_key: &str,
+        queue_action: AutoMemoryQueueAction,
+    ) {
+        let Some(coordinator) = get_global_coordinator() else {
+            return;
+        };
+
+        match queue_action {
+            AutoMemoryQueueAction::Skip => {}
+            AutoMemoryQueueAction::QueueNow => coordinator.auto_memory_manager.schedule_now(
+                coordinator.clone(),
+                session_id.to_string(),
+                store_key.to_string(),
+            ),
+            AutoMemoryQueueAction::QueueAt { ready_at_ms } => {
+                coordinator.auto_memory_manager.schedule_at(
+                    coordinator.clone(),
+                    session_id.to_string(),
+                    store_key.to_string(),
+                    ready_at_ms,
+                )
+            }
+        }
+    }
+
     /// Start a new dialog turn
     /// Note: Events are sent to frontend via EventLoop, no Stream returned.
     /// Submission behavior is controlled by `submission_policy`, which provides
@@ -1764,21 +1738,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         let user_message_metadata_clone = user_message_metadata;
         let scheduler_notify_tx = self.scheduler_notify_tx.get().cloned();
         let session_kind = session.kind;
-        let auto_memory_scope = resolve_session_auto_memory_scope(&session);
-        let auto_memory_store_key = if session.config.remote_connection_id.is_none() {
-            session.config.workspace_path.as_deref().map(|path| {
-                let workspace_path = Path::new(path);
-                let target = match auto_memory_scope.unwrap_or(MemoryScope::WorkspaceProject) {
-                    MemoryScope::WorkspaceProject => {
-                        MemoryStoreTarget::WorkspaceProject(workspace_path)
-                    }
-                    MemoryScope::GlobalAgenticOs => MemoryStoreTarget::GlobalAgenticOs,
-                };
-                build_auto_memory_store_key(target)
-            })
-        } else {
-            None
-        };
+        let auto_memory_context = resolve_local_auto_memory_context(&session);
 
         tokio::spawn(async move {
             // Note: Don't check cancellation here as cancel token hasn't been created yet
@@ -1828,172 +1788,26 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                         .update_session_state(&session_id_clone, SessionState::Idle)
                         .await;
 
-                    let turn_wrote_memory = if matches!(session_kind, SessionKind::Subagent) {
-                        None
-                    } else if let Some(memory_scope) = auto_memory_scope {
-                        match session_manager
-                            .turn_wrote_memory_for_scope(
-                                &session_id_clone,
-                                &turn_id_clone,
-                                memory_scope,
-                            )
-                            .await
-                        {
-                            Ok(wrote_memory) => Some(wrote_memory),
-                            Err(error) => {
-                                warn!(
-                                    "Failed to inspect turn for direct memory writes; scheduling auto memory anyway: session_id={}, turn_id={}, scope={}, error={}",
-                                    session_id_clone, turn_id_clone, memory_scope.as_label(), error
-                                );
-                                None
-                            }
-                        }
-                    } else {
-                        None
-                    };
+                    let auto_memory_followup = handle_auto_memory_after_completed_turn(
+                        session_manager.as_ref(),
+                        &session_id_clone,
+                        &turn_id_clone,
+                        session_kind,
+                        auto_memory_context.clone(),
+                        current_time_ms(),
+                    )
+                    .await;
 
-                    match decide_auto_memory_post_turn_action(session_kind, turn_wrote_memory) {
-                        AutoMemoryPostTurnAction::Skip => {
-                            if matches!(turn_wrote_memory, Some(true)) {
-                                let consumed_at_ms = current_time_ms();
-                                debug!(
-                                    "Skipping auto memory extractor because the completed turn already updated memory files: session_id={}, turn_id={}, scope={}",
-                                    session_id_clone,
-                                    turn_id_clone,
-                                    auto_memory_scope
-                                        .unwrap_or(MemoryScope::WorkspaceProject)
-                                        .as_label()
-                                );
-                                match session_manager
-                                    .mark_auto_memory_consumed_through_turn(
-                                        &session_id_clone,
-                                        &turn_id_clone,
-                                        consumed_at_ms,
-                                    )
-                                    .await
-                                {
-                                    Ok(true) => {}
-                                    Ok(false) => {}
-                                    Err(error) => {
-                                        warn!(
-                                            "Failed to advance auto memory cursor after direct memory write: session_id={}, turn_id={}, error={}",
-                                            session_id_clone, turn_id_clone, error
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                        AutoMemoryPostTurnAction::Schedule => {
-                            if let (Some(memory_store_key), Some(auto_memory_scope)) =
-                                (auto_memory_store_key.as_ref(), auto_memory_scope)
-                            {
-                                let auto_memory_config = auto_memory_runtime_config().await;
-                                let scope_config = auto_memory_scope_config(
-                                    &auto_memory_config,
-                                    auto_memory_scope,
-                                );
-                                let extract_every_eligible_turns =
-                                    scope_config.extract_every_eligible_turns.max(1) as usize;
-                                let min_extract_interval_secs =
-                                    scope_config.min_extract_interval_secs;
-                                let now_ms = current_time_ms();
-                                match session_manager
-                                    .note_auto_memory_eligible_turn(
-                                        &session_id_clone,
-                                        extract_every_eligible_turns,
-                                        min_extract_interval_secs,
-                                        now_ms,
-                                    )
-                                    .await
-                                {
-                                    Ok(AutoMemoryScheduleDecision::ReadyNow) => {
-                                        if !scope_config.enabled {
-                                            debug!(
-                                                "Auto memory is disabled for scope; eligible-turn and interval thresholds have been reached but extraction will stay pending: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}",
-                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns, min_extract_interval_secs
-                                            );
-                                        } else {
-                                            debug!(
-                                                "Eligible-turn and interval thresholds reached; queueing auto memory extraction: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}",
-                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns, min_extract_interval_secs
-                                            );
-                                            if let Some(coordinator) = get_global_coordinator() {
-                                                coordinator
-                                                    .auto_memory_manager
-                                                    .schedule_now(
-                                                        coordinator.clone(),
-                                                        session_id_clone.clone(),
-                                                        memory_store_key.clone(),
-                                                    );
-                                            }
-                                        }
-                                    }
-                                    Ok(AutoMemoryScheduleDecision::CoolingDown { ready_at_ms }) => {
-                                        if !scope_config.enabled {
-                                            debug!(
-                                                "Recorded auto memory eligible turn while auto memory is disabled for scope: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}, ready_at_ms={}",
-                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns, min_extract_interval_secs, ready_at_ms
-                                            );
-                                        } else {
-                                            debug!(
-                                                "Eligible-turn threshold reached but auto memory is cooling down: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}, ready_at_ms={}",
-                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns, min_extract_interval_secs, ready_at_ms
-                                            );
-                                            if let Some(coordinator) = get_global_coordinator() {
-                                                coordinator
-                                                    .auto_memory_manager
-                                                    .schedule_at(
-                                                        coordinator.clone(),
-                                                        session_id_clone.clone(),
-                                                        memory_store_key.clone(),
-                                                        ready_at_ms,
-                                                    );
-                                            }
-                                        }
-                                    }
-                                    Ok(AutoMemoryScheduleDecision::NotReadyByEligibleTurns) => {
-                                        if !scope_config.enabled {
-                                            debug!(
-                                                "Recorded auto memory eligible turn while auto memory is disabled for scope: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}",
-                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns, min_extract_interval_secs
-                                            );
-                                        } else {
-                                            debug!(
-                                                "Deferred auto memory extraction until eligible-turn threshold is reached: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}",
-                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), extract_every_eligible_turns, min_extract_interval_secs
-                                            );
-                                        }
-                                    }
-                                    Err(error) => {
-                                        if !scope_config.enabled {
-                                            warn!(
-                                                "Failed to record auto memory eligible turn while auto memory is disabled for scope: session_id={}, turn_id={}, scope={}, error={}",
-                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), error
-                                            );
-                                        } else {
-                                            warn!(
-                                                "Failed to update auto memory eligible-turn throttle; scheduling immediately: session_id={}, turn_id={}, scope={}, error={}",
-                                                session_id_clone, turn_id_clone, auto_memory_scope.as_label(), error
-                                            );
-                                            if let Some(coordinator) = get_global_coordinator() {
-                                                coordinator
-                                                    .auto_memory_manager
-                                                    .schedule_now(
-                                                        coordinator.clone(),
-                                                        session_id_clone.clone(),
-                                                        memory_store_key.clone(),
-                                                    );
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                debug!(
-                                    "Skipping auto memory eligible-turn tracking because no local workspace key is available: session_id={}, turn_id={}",
-                                    session_id_clone, turn_id_clone
-                                );
-                            }
-                        }
+                    if let Some(AutoMemoryCompletedTurnFollowup {
+                        store_key,
+                        queue_action,
+                    }) = auto_memory_followup
+                    {
+                        Self::schedule_auto_memory_queue_action(
+                            &session_id_clone,
+                            &store_key,
+                            queue_action,
+                        );
                     }
 
                     if let Some(tx) = &scheduler_notify_tx {
@@ -2145,19 +1959,15 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             return AutoMemoryQueueAction::Skip;
         };
 
-        if matches!(session.kind, SessionKind::Subagent)
-            || session.config.remote_connection_id.is_some()
-            || matches!(session.state, SessionState::Processing { .. })
-        {
+        if !session_can_consider_auto_memory(&session) {
             return AutoMemoryQueueAction::Skip;
         }
 
-        let Some(auto_memory_scope) = resolve_session_auto_memory_scope(&session) else {
+        let Some(auto_memory_context) = resolve_auto_memory_runtime_context(&session).await else {
             return AutoMemoryQueueAction::Skip;
         };
 
-        let scope_config = auto_memory_scope_runtime_config(auto_memory_scope).await;
-        if !scope_config.enabled {
+        if !auto_memory_context.scope_config.enabled {
             return AutoMemoryQueueAction::Skip;
         }
 
@@ -2172,17 +1982,11 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         let now_ms = current_time_ms();
         match self.session_manager.auto_memory_schedule_decision(
             session_id,
-            scope_config.extract_every_eligible_turns.max(1) as usize,
-            scope_config.min_extract_interval_secs,
+            auto_memory_context.policy,
             now_ms,
         ) {
-            Ok(AutoMemoryScheduleDecision::ReadyNow) => AutoMemoryQueueAction::QueueNow,
-            Ok(AutoMemoryScheduleDecision::CoolingDown { ready_at_ms }) => {
-                AutoMemoryQueueAction::QueueAt { ready_at_ms }
-            }
-            Ok(AutoMemoryScheduleDecision::NotReadyByEligibleTurns) | Err(_) => {
-                AutoMemoryQueueAction::Skip
-            }
+            Ok(schedule_decision) => queue_action_from_schedule_decision(schedule_decision),
+            Err(_) => AutoMemoryQueueAction::Skip,
         }
     }
 
@@ -2208,14 +2012,11 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             return Ok(false);
         };
 
-        if matches!(session.kind, SessionKind::Subagent)
-            || session.config.remote_connection_id.is_some()
-            || matches!(session.state, SessionState::Processing { .. })
-        {
+        if !session_can_consider_auto_memory(&session) {
             return Ok(false);
         }
 
-        if resolve_session_auto_memory_scope(&session).is_none() {
+        if resolve_local_auto_memory_context(&session).is_none() {
             return Ok(false);
         }
 
@@ -3342,23 +3143,6 @@ async fn is_ai_session_title_generation_enabled() -> bool {
     }
 }
 
-async fn auto_memory_runtime_config() -> crate::service::config::types::AutoMemoryConfig {
-    match crate::service::config::get_global_config_service().await {
-        Ok(service) => service
-            .get_config::<crate::service::config::types::AutoMemoryConfig>(Some("ai.auto_memory"))
-            .await
-            .unwrap_or_default(),
-        Err(_) => crate::service::config::types::AutoMemoryConfig::default(),
-    }
-}
-
-async fn auto_memory_scope_runtime_config(
-    scope: MemoryScope,
-) -> crate::service::config::types::AutoMemoryScopeConfig {
-    let config = auto_memory_runtime_config().await;
-    auto_memory_scope_config(&config, scope).clone()
-}
-
 // Global coordinator singleton
 static GLOBAL_COORDINATOR: OnceLock<Arc<ConversationCoordinator>> = OnceLock::new();
 
@@ -3367,50 +3151,4 @@ static GLOBAL_COORDINATOR: OnceLock<Arc<ConversationCoordinator>> = OnceLock::ne
 /// Returns `None` if coordinator hasn't been initialized
 pub fn get_global_coordinator() -> Option<Arc<ConversationCoordinator>> {
     GLOBAL_COORDINATOR.get().cloned()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{decide_auto_memory_post_turn_action, AutoMemoryPostTurnAction};
-    use crate::agentic::core::SessionKind;
-
-    #[test]
-    fn auto_memory_post_turn_skips_for_subagent_sessions() {
-        assert_eq!(
-            decide_auto_memory_post_turn_action(SessionKind::Subagent, Some(false)),
-            AutoMemoryPostTurnAction::Skip
-        );
-        assert_eq!(
-            decide_auto_memory_post_turn_action(SessionKind::Subagent, Some(true)),
-            AutoMemoryPostTurnAction::Skip
-        );
-        assert_eq!(
-            decide_auto_memory_post_turn_action(SessionKind::Subagent, None),
-            AutoMemoryPostTurnAction::Skip
-        );
-    }
-
-    #[test]
-    fn auto_memory_post_turn_skips_when_main_turn_already_wrote_memory() {
-        assert_eq!(
-            decide_auto_memory_post_turn_action(SessionKind::Standard, Some(true)),
-            AutoMemoryPostTurnAction::Skip
-        );
-    }
-
-    #[test]
-    fn auto_memory_post_turn_schedules_when_main_turn_did_not_write_memory() {
-        assert_eq!(
-            decide_auto_memory_post_turn_action(SessionKind::Standard, Some(false)),
-            AutoMemoryPostTurnAction::Schedule
-        );
-    }
-
-    #[test]
-    fn auto_memory_post_turn_schedules_when_memory_write_detection_fails() {
-        assert_eq!(
-            decide_auto_memory_post_turn_action(SessionKind::Standard, None),
-            AutoMemoryPostTurnAction::Schedule
-        );
-    }
 }

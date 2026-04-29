@@ -128,9 +128,9 @@ If the question is:
   The next persisted turn index that still needs auto-memory processing.
 - `history_revision`
   Monotonic revision used to detect rollback races.
-- `eligible_turns_since_last_extraction`
-  Durable count of unextracted eligible turns since the last committed
-  extraction.
+- `pending_eligible_turns`
+  Durable count of eligible turns that have accumulated since the last
+  committed extraction or direct memory write consumed pending history.
 - `last_memory_consumed_at_ms`
   Timestamp of the last extraction commit or main-agent direct memory write
   that consumed pending history for cooldown gating.
@@ -184,7 +184,7 @@ An eligible turn is a completed top-level turn that:
 - did not already directly write workspace memory
 - is in a local session
 
-Eligible turns increment `eligible_turns_since_last_extraction`.
+Eligible turns increment `pending_eligible_turns`.
 
 If the configured threshold has not been reached yet, nothing is scheduled and
 the turn is simply counted toward the next extraction.
@@ -196,9 +196,11 @@ Global config lives under:
 - `ai.auto_memory.global.enabled`
 - `ai.auto_memory.global.extract_every_eligible_turns`
 - `ai.auto_memory.global.min_extract_interval_secs`
+- `ai.auto_memory.global.force_extract_after_pending_eligible_turns`
 - `ai.auto_memory.workspace.enabled`
 - `ai.auto_memory.workspace.extract_every_eligible_turns`
 - `ai.auto_memory.workspace.min_extract_interval_secs`
+- `ai.auto_memory.workspace.force_extract_after_pending_eligible_turns`
 
 Behavior:
 
@@ -219,18 +221,29 @@ Behavior:
 - `min_extract_interval_secs = T`
   Require at least T seconds since the last extraction commit or direct memory
   write before the next auto-memory run may start.
+- `force_extract_after_pending_eligible_turns = null`
+  Disable cooldown bypass by pending backlog size.
+- `force_extract_after_pending_eligible_turns = M`
+  If at least `extract_every_eligible_turns` pending eligible turns have
+  accumulated but cooldown has not expired yet, force extraction once pending
+  backlog reaches M turns.
 
 This is modeled after Claude's "every N eligible turns" extraction throttle,
 but implemented durably on the session state instead of a transient closure
 counter. Sparo OS extends that with a durable cooldown gate so scheduling can
-respect both:
+respect all of:
 
 - enough eligible turns have accumulated
 - enough time has passed since the last memory-consuming update
+- or pending eligible-turn backlog has grown large enough to bypass cooldown
 
 If the turn threshold is met but cooldown has not expired yet, the session is
 kept in the workspace worker's delayed queue and automatically wakes once the
 cooldown deadline is reached, even if no new dialog turn arrives.
+
+If pending backlog keeps growing while the session is cooling down and reaches
+the configured force-extract threshold, the delayed session is promoted to run
+immediately instead of waiting for the cooldown deadline.
 
 ## Scheduling and Concurrency
 

@@ -19,8 +19,6 @@ impl DispatcherMode {
             default_tools: vec![
                 // Delegation tool for specialized agent work
                 "AgentDispatch".to_string(),
-                // Communicate with existing sessions
-                "SessionMessage".to_string(),
                 "SessionHistory".to_string(),
                 // Information gathering - read-only file access
                 "Read".to_string(),

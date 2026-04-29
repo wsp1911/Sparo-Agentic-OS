@@ -10,7 +10,9 @@
       "extractEveryEligibleTurns": "How often to update global memory",
       "extractEveryEligibleTurnsDesc": "Update agentic_os memory once every N eligible conversations.",
       "minExtractIntervalMinutes": "Minimum time between updates",
-      "minExtractIntervalMinutesDesc": "Set to 0 to disable the cooldown."
+      "minExtractIntervalMinutesDesc": "Set to 0 to disable the cooldown.",
+      "forceExtractAfterPendingEligibleTurns": "Force update during cooldown",
+      "forceExtractAfterPendingEligibleTurnsDesc": "Set to 0 to disable this override. Otherwise, auto memory runs immediately once pending eligible turns reach this threshold, even if the cooldown has not expired."
     },
     "workspace": {
       "sectionTitle": "Workspace memory",
@@ -20,14 +22,22 @@
       "extractEveryEligibleTurns": "How often to update workspace memory",
       "extractEveryEligibleTurnsDesc": "Update workspace memory once every N eligible conversations.",
       "minExtractIntervalMinutes": "Minimum time between updates",
-      "minExtractIntervalMinutesDesc": "Set to 0 to disable the cooldown."
+      "minExtractIntervalMinutesDesc": "Set to 0 to disable the cooldown.",
+      "forceExtractAfterPendingEligibleTurns": "Force update during cooldown",
+      "forceExtractAfterPendingEligibleTurnsDesc": "Set to 0 to disable this override. Otherwise, auto memory runs immediately once pending eligible turns reach this threshold, even if the cooldown has not expired."
     },
     "units": {
-      "minutes": "min"
+      "minutes": "min",
+      "turns": "turns"
     }
   },
   "loading": {
     "text": "Loading configuration..."
+  },
+  "actions": {
+    "disableAll": "Disable",
+    "enableAll": "Enable",
+    "resetAll": "Reset"
   },
   "hostScan": {
     "title": "Host Scan",
@@ -57,6 +67,12 @@
   "messages": {
     "loadFailed": "Failed to load configuration",
     "saveSuccess": "Settings saved",
-    "saveFailed": "Save failed"
+    "saveFailed": "Save failed",
+    "disableAllSuccess": "Auto memory and host scan disabled",
+    "disableAllFailed": "Failed to disable settings",
+    "enableAllSuccess": "Auto memory and host scan enabled",
+    "enableAllFailed": "Failed to enable settings",
+    "resetAllSuccess": "Memory settings reset to defaults",
+    "resetAllFailed": "Failed to reset settings"
   }
 }

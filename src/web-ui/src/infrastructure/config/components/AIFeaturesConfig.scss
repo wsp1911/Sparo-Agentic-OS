@@ -7,12 +7,55 @@
     gap: $size-gap-6;
   }
 
+  &__page-actions {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-2;
+    flex-wrap: wrap;
+  }
+
   &__row-control {
     width: auto;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
     gap: $size-gap-2;
+  }
+
+  &__label-with-info {
+    display: inline-flex;
+    align-items: center;
+    gap: $size-gap-2;
+  }
+
+  &__info-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: help;
+    opacity: 0;
+    pointer-events: none;
+    transition: color 0.16s ease, background-color 0.16s ease;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--color-text);
+      background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+      outline: none;
+    }
+  }
+
+  .bitfun-config-page-row:hover &__info-button,
+  .bitfun-config-page-row:focus-within &__info-button {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   /** Computer use: authorized status label (Granted) */
@@ -58,6 +101,11 @@
 
 @container config-panel (max-width: 520px) {
   .bitfun-func-agent-config {
+    &__page-actions {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
     &__row-control {
       align-items: flex-start;
     }
