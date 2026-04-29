@@ -246,6 +246,7 @@ pub async fn dispatch(
                     original_user_input,
                     turn_id,
                     agent_type,
+                    None,
                     workspace_path,
                     DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopUi),
                     None,

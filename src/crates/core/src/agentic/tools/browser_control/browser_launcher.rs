@@ -70,6 +70,20 @@ pub struct BrowserInfo {
 pub struct BrowserLauncher;
 
 impl BrowserLauncher {
+    /// Stable app-managed profile directory used by ControlHub's default
+    /// browser mode. This keeps browser automation reliable without touching
+    /// the user's day-to-day browser profile.
+    pub fn managed_user_data_dir(profile_name: &str) -> BitFunResult<String> {
+        let mut root = dirs::config_dir().unwrap_or_else(std::env::temp_dir);
+        root.push("sparo_os");
+        root.push("browser");
+        root.push(profile_name);
+        std::fs::create_dir_all(&root).map_err(|e| {
+            BitFunError::tool(format!("Failed to create managed browser profile: {}", e))
+        })?;
+        Ok(root.to_string_lossy().to_string())
+    }
+
     /// Check if a CDP debug port is already listening.
     pub async fn is_cdp_available(port: u16) -> bool {
         let url = format!("http://127.0.0.1:{}/json/version", port);
@@ -391,6 +405,54 @@ impl BrowserLauncher {
             }
             Err(e) => Err(BitFunError::tool(format!(
                 "Failed to launch {}: {}",
+                kind, e
+            ))),
+        }
+    }
+
+    /// Launch a dedicated headless browser with CDP enabled.
+    pub async fn launch_headless_with_cdp(
+        kind: &BrowserKind,
+        port: u16,
+        user_data_dir: &str,
+    ) -> BitFunResult<LaunchResult> {
+        if Self::is_cdp_available(port).await {
+            info!("CDP already available on port {} for headless {}", port, kind);
+            return Ok(LaunchResult::AlreadyConnected);
+        }
+
+        let exe = Self::browser_executable(kind);
+        info!(
+            "Launching headless {} with CDP on port {} (user_data_dir={})",
+            kind, port, user_data_dir
+        );
+        let result = silent_command(&exe)
+            .arg(format!("--remote-debugging-port={}", port))
+            .arg(format!("--user-data-dir={}", user_data_dir))
+            .arg("--headless=new")
+            .arg("--disable-gpu")
+            .arg("--no-first-run")
+            .arg("--no-default-browser-check")
+            .arg("about:blank")
+            .spawn();
+
+        match result {
+            Ok(_child) => {
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                if Self::is_cdp_available(port).await {
+                    Ok(LaunchResult::Launched)
+                } else {
+                    Ok(LaunchResult::LaunchedButCdpNotReady {
+                        port,
+                        message: format!(
+                            "Headless {} was launched but CDP is not yet responding on port {}.",
+                            kind, port
+                        ),
+                    })
+                }
+            }
+            Err(e) => Err(BitFunError::tool(format!(
+                "Failed to launch headless {}: {}",
                 kind, e
             ))),
         }

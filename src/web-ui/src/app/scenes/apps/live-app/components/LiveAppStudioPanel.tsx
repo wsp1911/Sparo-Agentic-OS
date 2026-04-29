@@ -297,9 +297,13 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
     const reload = (payload?: { id?: string }) => {
       if (shouldHandle(payload)) void load();
     };
-
+    const reloadAfterRecompile = (payload?: { id?: string }) => {
+      if (!shouldHandle(payload)) return;
+      setIssues([]);
+      reload(payload);
+    };
     const unlistenUpdated = api.listen<{ id?: string }>('liveapp-updated', reload);
-    const unlistenRecompiled = api.listen<{ id?: string }>('liveapp-recompiled', reload);
+    const unlistenRecompiled = api.listen<{ id?: string }>('liveapp-recompiled', reloadAfterRecompile);
     const unlistenIssue = api.listen<RuntimeIssue>('liveapp-runtime-error', (payload) => {
       if (payload?.appId !== appId || payload.severity === 'noise') return;
       setIssues((current) => [payload, ...current].slice(0, MAX_VISIBLE_ISSUES));

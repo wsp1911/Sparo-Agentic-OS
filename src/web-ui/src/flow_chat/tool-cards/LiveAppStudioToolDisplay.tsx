@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { AppWindow, Camera, Check, ChevronRight, Clock, Loader2, RefreshCw, ShieldAlert, X } from 'lucide-react';
+import { AppWindow, Camera, Check, ChevronDown, ChevronRight, Clock, Loader2, RefreshCw, ShieldAlert, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
@@ -35,6 +35,44 @@ function formatByteSize(bytes: number, locale: string): string {
 
   const maximumFractionDigits = unitIndex === 0 || value >= 10 ? 0 : 1;
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits }).format(value)} ${units[unitIndex]}`;
+}
+
+function formatIssueValue(issue: unknown): string {
+  if (!issue || typeof issue !== 'object') return String(issue ?? '');
+  const value = issue as Record<string, unknown>;
+  const category = typeof value.category === 'string' ? value.category : 'runtime';
+  const message = typeof value.message === 'string' ? value.message : 'Unknown runtime issue';
+  const source = typeof value.source === 'string' && value.source ? `\nSource: ${value.source}` : '';
+  const stack = typeof value.stack === 'string' && value.stack ? `\nStack:\n${value.stack}` : '';
+  return `[${category}] ${message}${source}${stack}`;
+}
+
+function renderProbeIssues(result: Record<string, unknown>): React.ReactNode {
+  const fatal = Array.isArray(result.fatal) ? result.fatal : [];
+  const warning = Array.isArray(result.warning) ? result.warning : [];
+  const groups = [
+    { key: 'fatal', issues: fatal },
+    { key: 'warning', issues: warning },
+  ].filter((group) => group.issues.length > 0);
+
+  if (groups.length === 0) return null;
+
+  return (
+    <div className="live-app-studio-probe-details">
+      {groups.map((group) => (
+        <section key={group.key} className={`live-app-studio-probe-group is-${group.key}`}>
+          <div className="live-app-studio-probe-group__title">
+            {group.key} · {group.issues.length}
+          </div>
+          {group.issues.map((issue, index) => (
+            <pre key={`${group.key}-${index}`} className="live-app-studio-probe-issue">
+              {formatIssueValue(issue)}
+            </pre>
+          ))}
+        </section>
+      ))}
+    </div>
+  );
 }
 
 export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionId }) => {
@@ -113,6 +151,8 @@ export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, se
     .filter(([, value]) => value !== null && value !== undefined)
     .slice(0, 8);
   const hasExpandableDetails = detailRows.length > 0;
+  const probeDetails = toolName === 'LiveAppRuntimeProbe' ? renderProbeIssues(result) : null;
+  const hasProbeDetails = Boolean(probeDetails);
 
   const handleCardClick = useCallback(() => {
     if (!hasExpandableDetails) return;
@@ -123,9 +163,11 @@ export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, se
     return (
       <CompactToolCard
         status={status}
-        isExpanded={false}
+        isExpanded={isExpanded && hasProbeDetails}
         className="live-app-studio-probe-compact"
-        clickable={false}
+        clickable={hasProbeDetails}
+        onClick={hasProbeDetails ? handleCardClick : undefined}
+        expandedContent={probeDetails}
         header={
           <CompactToolCardHeader
             statusIcon={statusIcon}
@@ -136,6 +178,7 @@ export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, se
                 <span className="command-text">{summary}</span>
               </span>
             }
+            rightIcon={hasProbeDetails ? <ChevronDown size={13} /> : undefined}
           />
         }
       />
