@@ -303,7 +303,7 @@ export async function createChatSession(
         remoteSshHost,
         storageScope,
         config: {
-          modelName: config.modelName || 'auto',
+          modelName: config.modelName || 'primary',
           enableTools: true,
           safeMode: true,
           autoCompact: true,
@@ -577,7 +577,7 @@ export async function ensureBackendSession(
       remoteSshHost: latestSession.remoteSshHost,
       storageScope: latestSession.storageScope,
       config: {
-        modelName: latestSession.config.modelName || 'auto',
+        modelName: latestSession.config.modelName || 'primary',
         enableTools: true,
         safeMode: true,
         remoteConnectionId: latestSession.remoteConnectionId,
@@ -619,7 +619,7 @@ export async function retryCreateBackendSession(
     remoteSshHost: session.remoteSshHost,
     storageScope: session.storageScope,
     config: {
-      modelName: session.config.modelName || 'auto',
+      modelName: session.config.modelName || 'primary',
       enableTools: true,
       safeMode: true,
       remoteConnectionId: session.remoteConnectionId,

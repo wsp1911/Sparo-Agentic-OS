@@ -44,6 +44,11 @@ export interface BaseToolCardProps {
   /** Whether user confirmation is required (for highlighting border) */
   requiresConfirmation?: boolean;
   /**
+   * When true, expanded content still renders if `isFailed` (default hides body on failure).
+   * Used for Task cards that show prompt/subagent preview after failure.
+   */
+  allowExpandedContentWhenFailed?: boolean;
+  /**
    * When set, controls hover chevron on the left tool icon.
    * When omitted: true if the card is clickable, not failed, and expandedContent is passed and truthy.
    * (Some cards pass expandedContent only while expanded; set this explicitly for those.)
@@ -66,10 +71,13 @@ export const BaseToolCard: React.FC<BaseToolCardProps> = ({
   errorContent,
   isFailed = false,
   requiresConfirmation = false,
+  allowExpandedContentWhenFailed = false,
   headerExpandAffordance: headerExpandAffordanceProp,
   headerAffordanceKind: headerAffordanceKindProp = 'expand',
 }) => {
-  const hasExpandedContent = isExpanded && expandedContent && !isFailed;
+  const hasExpandedContent =
+    Boolean(isExpanded && expandedContent) &&
+    (!isFailed || allowExpandedContentWhenFailed);
   const showConfirmationHighlight = requiresConfirmation && 
     status !== 'completed' && 
     status !== 'confirmed' &&

@@ -292,16 +292,21 @@ impl ExecutionEngine {
         model_id: &str,
     ) -> String {
         let trimmed = model_id.trim();
-        if trimmed.is_empty() || trimmed == "auto" || trimmed == "default" {
-            return "auto".to_string();
-        }
-        ai_config
-            .resolve_model_selection(trimmed)
-            .unwrap_or_else(|| "auto".to_string())
-    }
+        let selector = if trimmed.is_empty() || trimmed == "default" {
+            "primary"
+        } else {
+            trimmed
+        };
 
-    fn should_use_fast_auto_model(turn_index: usize, original_user_input: &str) -> bool {
-        turn_index == 0 && original_user_input.chars().count() <= 10
+        let resolved = ai_config.resolve_model_selection(selector);
+        if let Some(id) = resolved {
+            return id;
+        }
+
+        ai_config
+            .resolve_model_selection("primary")
+            .or_else(|| ai_config.first_enabled_model_id())
+            .unwrap_or_else(|| selector.to_string())
     }
 
     async fn build_prompt_context(
@@ -382,8 +387,8 @@ impl ExecutionEngine {
         session: &Session,
         agent_type: &str,
         workspace: Option<&WorkspaceBinding>,
-        original_user_input: &str,
-        turn_index: usize,
+        _original_user_input: &str,
+        _turn_index: usize,
     ) -> BitFunResult<String> {
         let agent_registry = get_agent_registry();
         let fallback_model_id = agent_registry
@@ -411,34 +416,7 @@ impl ExecutionEngine {
         let resolved_configured_model_id =
             Self::resolve_configured_model_id(&ai_config, &configured_model_id);
 
-        let model_id = if configured_model_id == "auto" || resolved_configured_model_id == "auto" {
-            let use_fast_model = Self::should_use_fast_auto_model(turn_index, original_user_input);
-            let fallback_model = if use_fast_model { "fast" } else { "primary" };
-            let resolved_model_id = ai_config.resolve_model_selection(fallback_model);
-
-            if let Some(resolved_model_id) = resolved_model_id {
-                info!(
-                    "Auto model resolved without locking session: session_id={}, turn_index={}, user_input_chars={}, strategy={}, resolved_model_id={}",
-                    session.session_id,
-                    turn_index,
-                    original_user_input.chars().count(),
-                    fallback_model,
-                    resolved_model_id
-                );
-
-                resolved_model_id
-            } else {
-                warn!(
-                    "Auto model strategy unresolved, keeping symbolic selector: session_id={}, strategy={}",
-                    session.session_id, fallback_model
-                );
-                fallback_model.to_string()
-            }
-        } else {
-            resolved_configured_model_id
-        };
-
-        Ok(model_id)
+        Ok(resolved_configured_model_id)
     }
 
     /// Omit from model request: UI-only verification frames and legacy auto desktop snapshots.
@@ -1824,22 +1802,19 @@ mod tests {
     }
 
     #[test]
-    fn auto_model_uses_fast_for_short_first_message() {
-        assert!(ExecutionEngine::should_use_fast_auto_model(0, "你好"));
-        assert!(ExecutionEngine::should_use_fast_auto_model(0, "1234567890"));
-    }
+    fn resolve_empty_selector_maps_to_primary_model_id() {
+        let mut ai_config = AIConfig::default();
+        ai_config.models = vec![build_model("model-primary", "Primary", "claude-sonnet-4.5")];
+        ai_config.default_models.primary = Some("model-primary".to_string());
 
-    #[test]
-    fn auto_model_uses_primary_for_long_first_message() {
-        assert!(!ExecutionEngine::should_use_fast_auto_model(
-            0,
-            "12345678901"
-        ));
-    }
-
-    #[test]
-    fn auto_model_uses_primary_after_first_turn() {
-        assert!(!ExecutionEngine::should_use_fast_auto_model(1, "短消息"));
+        assert_eq!(
+            ExecutionEngine::resolve_configured_model_id(&ai_config, ""),
+            "model-primary"
+        );
+        assert_eq!(
+            ExecutionEngine::resolve_configured_model_id(&ai_config, "primary"),
+            "model-primary"
+        );
     }
 
     #[test]

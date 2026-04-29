@@ -381,7 +381,7 @@ impl ConfigService {
             // Special selectors are always considered active; their actual
             // resolution happens at runtime against the (already reconciled)
             // default slots.
-            matches!(reference, "auto" | "primary" | "fast") || active_refs.contains(reference)
+            matches!(reference, "primary" | "fast") || active_refs.contains(reference)
         };
 
         let classify_invalid = |reference: &str, invalidated: &mut HashSet<String>| -> bool {

@@ -28,6 +28,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
   onOpenInPanel,
   sessionId,
   interruptionNote,
+  pairedSubagentGroup = false,
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status, requiresConfirmation, userConfirmed } = toolItem;
@@ -185,16 +186,31 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
       return;
     }
 
-    if (isFailed) {
+    if (
+      isFailed &&
+      !pairedSubagentGroup &&
+      !hasRealPrompt &&
+      !interruptionNote
+    ) {
       return;
     }
 
     // Pause auto-scroll while the user toggles the card.
     updateCardExpandedState(!isExpanded);
-  }, [isFailed, isExpanded, updateCardExpandedState]);
+  }, [
+    isFailed,
+    pairedSubagentGroup,
+    hasRealPrompt,
+    interruptionNote,
+    isExpanded,
+    updateCardExpandedState,
+  ]);
 
   const showHeaderExpandHint =
-    !isFailed && (hasRealPrompt || needsConfirmation || Boolean(interruptionNote));
+    hasRealPrompt ||
+    needsConfirmation ||
+    Boolean(interruptionNote) ||
+    pairedSubagentGroup;
 
   const taskHeaderLine = useMemo(() => {
     const desc =
@@ -305,13 +321,51 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
   );
 
   const renderExpandedContent = () => {
-    /* Failure only in header badge; do not keep prompt/confirm in expanded body. */
-    if (isFailed) {
+    if (!hasRealPrompt && !needsConfirmation && !interruptionNote) {
       return null;
     }
 
-    if (!hasRealPrompt && !needsConfirmation && !interruptionNote) {
-      return null;
+    if (isFailed) {
+      if (!hasRealPrompt && !interruptionNote) {
+        return null;
+      }
+      const hasBodyBelowInterruption = Boolean(hasRealPrompt);
+      return (
+        <div className="task-expanded-content">
+          {interruptionNote && (
+            <div
+              className={
+                'task-tool-card-interruption' +
+                (hasBodyBelowInterruption ? ' task-tool-card-interruption--has-below' : '')
+              }
+            >
+              <div className="flow-tool-card-note" role="note">
+                <AlertTriangle size={13} strokeWidth={2} aria-hidden />
+                {interruptionNote}
+              </div>
+            </div>
+          )}
+          {hasRealPrompt && (
+            <div
+              className={`thinking-content-wrapper${promptScrollState.hasScroll ? ' has-scroll' : ''}${
+                promptScrollState.atTop ? ' at-top' : ''
+              }${promptScrollState.atBottom ? ' at-bottom' : ''}`}
+            >
+              <div
+                ref={promptContentRef}
+                className="thinking-content expanded"
+                onScroll={checkPromptScrollState}
+              >
+                <Markdown
+                  content={taskInput!.prompt}
+                  isStreaming={false}
+                  className="thinking-markdown"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      );
     }
 
     const hasBodyBelowInterruption = Boolean(hasRealPrompt || needsConfirmation);
@@ -387,6 +441,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
         expandedContent={renderExpandedContent()}
         headerExpandAffordance={showHeaderExpandHint}
         isFailed={isFailed}
+        allowExpandedContentWhenFailed
         requiresConfirmation={requiresConfirmation && !userConfirmed}
       />
     </div>

@@ -472,7 +472,7 @@ impl SessionManager {
     /// Decide whether the given session model id is still usable.
     ///
     /// `model_id` is treated as "usable" when:
-    /// - it is a special selector (`auto` / `primary` / `fast` / `default` /
+    /// - it is a special selector (`primary` / `fast` / `default` /
     ///   empty) — these are evaluated again at request time against
     ///   `default_models`, so their long-term validity is governed elsewhere;
     /// - it resolves to a model that exists AND is enabled.
@@ -482,7 +482,6 @@ impl SessionManager {
     ) -> bool {
         let trimmed = model_id.trim();
         if trimmed.is_empty()
-            || trimmed == "auto"
             || trimmed == "default"
             || trimmed == "primary"
             || trimmed == "fast"
@@ -493,7 +492,7 @@ impl SessionManager {
     }
 
     /// Reset every active session whose bound model id is in
-    /// `invalidated_model_ids` back to `"auto"`. Persists the change and emits
+    /// `invalidated_model_ids` back to `"primary"`. Persists the change and emits
     /// `AgenticEvent::SessionModelAutoMigrated` for every migrated session so
     /// the UI can refresh its model selector and surface a notice.
     async fn migrate_sessions_off_invalidated_models(
@@ -527,7 +526,7 @@ impl SessionManager {
         }
 
         for (session_id, previous_model_id) in affected {
-            if let Err(e) = self.update_session_model_id(&session_id, "auto").await {
+            if let Err(e) = self.update_session_model_id(&session_id, "primary").await {
                 warn!(
                     "Failed to auto-migrate session model after reconcile: session_id={}, previous={}, error={}",
                     session_id, previous_model_id, e
@@ -535,7 +534,7 @@ impl SessionManager {
                 continue;
             }
             info!(
-                "Session model auto-migrated to 'auto': session_id={}, previous_model_id={}, reason={}",
+                "Session model auto-migrated to 'primary': session_id={}, previous_model_id={}, reason={}",
                 session_id, previous_model_id, reason
             );
 
@@ -544,7 +543,7 @@ impl SessionManager {
                     .emit_session_model_auto_migrated(
                         &session_id,
                         &previous_model_id,
-                        "auto",
+                        "primary",
                         reason,
                     )
                     .await;
@@ -1400,8 +1399,8 @@ impl SessionManager {
 
         // Lazy migration: if the persisted model_id is no longer usable
         // (model deleted or disabled while the session was on disk), repoint
-        // it to "auto" before the session re-enters memory. The next request
-        // will pick a model via the normal auto/agent/default pipeline.
+        // it to "primary" before the session re-enters memory. The next request
+        // will resolve the selector via default_models / agent mapping.
         if let Some(persisted_model_id) = session.config.model_id.as_deref() {
             let trimmed = persisted_model_id.trim();
             let needs_migration = if trimmed.is_empty() {
@@ -1419,18 +1418,18 @@ impl SessionManager {
 
             if needs_migration {
                 warn!(
-                    "Session restore detected stale model_id; migrating to auto: session_id={}, previous_model_id={}",
+                    "Session restore detected stale model_id; migrating to primary: session_id={}, previous_model_id={}",
                     session_id, trimmed
                 );
                 let previous_model_id = trimmed.to_string();
-                session.config.model_id = Some("auto".to_string());
+                session.config.model_id = Some("primary".to_string());
 
                 if let Some(coordinator) = crate::agentic::coordination::get_global_coordinator() {
                     coordinator
                         .emit_session_model_auto_migrated(
                             session_id,
                             &previous_model_id,
-                            "auto",
+                            "primary",
                             "model_unavailable_on_restore",
                         )
                         .await;

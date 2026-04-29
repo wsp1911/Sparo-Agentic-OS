@@ -355,6 +355,7 @@ export const ModelRoundItem = React.memo<ModelRoundItemProps>(
                       turnId={turnId}
                       roundId={round.id}
                       isLastItem={false}
+                      pairedSubagentGroup
                     />
                     {subagentContainer}
                   </div>
@@ -607,10 +608,12 @@ interface FlowItemRendererProps {
   turnId: string;
   roundId: string;
   isLastItem?: boolean;
+  /** Task tool rendered with a following subagent group (main flow pairing). */
+  pairedSubagentGroup?: boolean;
 }
 
 // Do not memoize: streaming content updates frequently.
-const FlowItemRenderer: React.FC<FlowItemRendererProps> = ({ item, isLastItem }) => {
+const FlowItemRenderer: React.FC<FlowItemRendererProps> = ({ item, isLastItem, pairedSubagentGroup }) => {
   const {
     onToolConfirm,
     onToolReject,
@@ -674,6 +677,7 @@ const FlowItemRenderer: React.FC<FlowItemRendererProps> = ({ item, isLastItem })
         <div className="flowchat-flow-item" data-flow-item-id={item.id} data-flow-item-type="tool">
           <FlowToolCard
             toolItem={item as FlowToolItem}
+            pairedSubagentGroup={pairedSubagentGroup}
             onConfirm={async (toolId: string, updatedInput?: any) => {
               if (onToolConfirm) {
                 await onToolConfirm(toolId, updatedInput);

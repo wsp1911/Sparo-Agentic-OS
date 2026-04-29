@@ -214,7 +214,7 @@ export function createTransientBtwSession(params: {
 
   const childSessionId = safeUuid('btw_session');
   const childSessionName = params.childSessionName.trim() || 'Side thread';
-  const inheritedModelId = params.modelId?.trim() || parentSession.config.modelName?.trim() || 'auto';
+  const inheritedModelId = params.modelId?.trim() || parentSession.config.modelName?.trim() || 'primary';
 
   flowChatStore.addExternalSession(
     childSessionId,
@@ -262,7 +262,7 @@ export async function sendMessageToTransientBtwSession(params: {
     childSessionId: params.childSessionId,
     childSessionName: params.childSessionName || childSession.title || 'Side thread',
     question,
-    modelId: params.modelId ?? childSession.config.modelName ?? 'auto',
+    modelId: params.modelId ?? childSession.config.modelName ?? 'primary',
   });
   if (params.modelId?.trim()) {
     flowChatStore.updateSessionModelName(params.childSessionId, params.modelId.trim());

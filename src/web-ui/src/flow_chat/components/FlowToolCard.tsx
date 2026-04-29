@@ -22,6 +22,8 @@ interface FlowToolCardProps {
   onExpand?: (toolId: string) => void;
   sessionId?: string;
   className?: string;
+  /** Set when this Task tool is paired with a subagent block in the transcript. */
+  pairedSubagentGroup?: boolean;
 }
 
 export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
@@ -32,7 +34,8 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
   onOpenInPanel,
   onExpand,
   sessionId,
-  className = ''
+  className = '',
+  pairedSubagentGroup,
 }) => {
   const { t } = useTranslation('flow-chat');
   const config = getToolCardConfig(toolItem.toolName);
@@ -74,6 +77,7 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
           onExpand={handleExpand}
           sessionId={sessionId}
           interruptionNote={interruptionNote}
+          pairedSubagentGroup={pairedSubagentGroup}
         />
       </FlowToolCardErrorBoundary>
       {interruptionNote && !config.inlineInterruptionNote && (
@@ -98,6 +102,7 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
     prevProps.toolItem.isParamsStreaming === nextProps.toolItem.isParamsStreaming &&
     prevProgress === nextProgress &&
     prevProps.toolItem.partialParams === nextProps.toolItem.partialParams &&
-    prevProps.toolItem.toolResult === nextProps.toolItem.toolResult
+    prevProps.toolItem.toolResult === nextProps.toolItem.toolResult &&
+    prevProps.pairedSubagentGroup === nextProps.pairedSubagentGroup
   );
 });

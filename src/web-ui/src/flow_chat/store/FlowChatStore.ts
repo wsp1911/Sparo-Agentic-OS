@@ -445,8 +445,8 @@ export class FlowChatStore {
       const session = prev.sessions.get(sessionId);
       if (!session) return prev;
 
-      const normalizedModelName = modelName.trim() || 'auto';
-      if ((session.config.modelName || 'auto') === normalizedModelName) {
+      const normalizedModelName = modelName.trim() || 'primary';
+      if ((session.config.modelName || 'primary') === normalizedModelName) {
         return prev;
       }
 

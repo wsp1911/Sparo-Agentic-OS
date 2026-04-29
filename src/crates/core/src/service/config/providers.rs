@@ -119,7 +119,6 @@ impl ConfigProvider for AIConfigProvider {
 
             for (agent_name, model_id) in &ai_config.agent_models {
                 if !ai_config.models.iter().any(|m| m.id == *model_id)
-                    && model_id != "auto"
                     && model_id != "primary"
                     && model_id != "fast"
                 {

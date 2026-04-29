@@ -127,12 +127,8 @@ pub struct CustomSubagentDetail {
     pub level: String,
 }
 
-fn default_model_id_for_builtin_agent(agent_type: &str) -> &'static str {
-    match agent_type {
-        "agentic" | "Cowork" | "ComputerUse" | "Plan" | "debug" | "Claw" | "DeepResearch"
-        | "Team" | "Design" | "Dispatcher" | "LiveAppStudio" => "auto",
-        _ => "primary",
-    }
+fn default_model_id_for_builtin_agent(_agent_type: &str) -> &'static str {
+    "primary"
 }
 
 async fn get_mode_configs() -> HashMap<String, ModeConfig> {
@@ -1080,7 +1076,7 @@ mod tests {
     use super::{default_model_id_for_builtin_agent, merge_dynamic_mcp_tools, AgentRegistry};
 
     #[test]
-    fn top_level_modes_default_to_auto() {
+    fn builtin_agents_default_to_primary_model_selector() {
         for agent_type in [
             "agentic",
             "Cowork",
@@ -1091,7 +1087,7 @@ mod tests {
             "Dispatcher",
             "LiveAppStudio",
         ] {
-            assert_eq!(default_model_id_for_builtin_agent(agent_type), "auto");
+            assert_eq!(default_model_id_for_builtin_agent(agent_type), "primary");
         }
     }
 

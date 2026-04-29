@@ -42,7 +42,7 @@ export function createTransientHostScanSession(params: {
   const childSessionName =
     params.childSessionName?.trim() ||
     i18nService.t('flow-chat:hostScan.threadLabel', { defaultValue: 'Host scan' });
-  const inheritedModelId = params.modelId?.trim() || parentSession.config.modelName?.trim() || 'auto';
+  const inheritedModelId = params.modelId?.trim() || parentSession.config.modelName?.trim() || 'primary';
 
   flowChatStore.addExternalSession(
     childSessionId,
