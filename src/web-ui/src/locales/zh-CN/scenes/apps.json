@@ -2,29 +2,35 @@
   "tabs": {
     "label": "应用类型",
     "agent-app": "智能体应用",
-    "live-app": "灵动应用",
+    "live-app": "Live App",
     "bridge-app": "桥接应用",
     "searchPlaceholder": {
-      "agent-app": "搜索智能体应用…",
-      "live-app": "搜索灵动应用…",
-      "bridge-app": "搜索桥接应用…"
+      "agent-app": "搜索智能体应用...",
+      "live-app": "搜索 Live App...",
+      "bridge-app": "搜索桥接应用..."
     }
   },
   "hero": {
-    "title": "打造自己专属的 Agentic OS",
-    "subtitle": "智能体应用、灵动应用与桥接应用，是 Agentic OS 的三类一等公民。选择并配置它们，让整个系统按你的方式运转。"
+    "title": "打造属于你的 Agentic OS",
+    "subtitle": "Agent App、Live App 和 Bridge App 是 Agentic OS 的三类一等公民。选择并配置它们，让整个系统按你的方式工作。"
   },
   "page": {
     "newAgentApp": "新建",
     "newBridgeApp": "新建",
     "heroTitle": "打造属于你的 Agentic OS",
-    "heroSubtitle": "智能体应用是 Agentic OS 的一等公民。选择并配置智能体应用，让整个系统按你的方式工作。",
-    "searchPlaceholder": "搜索智能体应用…",
+    "heroSubtitle": "智能体应用是 Agentic OS 的一等公民。选择并配置你的思考型应用，让整个系统按你的方式工作。",
+    "searchPlaceholder": "搜索智能体应用...",
     "sectionTitle": "智能体应用",
-    "empty": "暂未检测到可用的智能体应用",
+    "empty": "当前没有可用的智能体应用",
     "containsAgents": "包含 {{count}} 个 Agent",
-    "directAgentDetail": "打开后直达 Agent 详情",
-    "bannerPrompt": "打开 {{name}}，进入它的应用工作流"
+    "directAgentDetail": "可直接打开 Agent 详情",
+    "bannerPrompt": "打开 {{name}} 并进入它的应用工作流",
+    "pagination": {
+      "ariaLabel": "应用列表分页",
+      "prev": "上一页",
+      "next": "下一页",
+      "pageOf": "第 {{current}} / {{total}} 页"
+    }
   },
   "apps": {
     "badges": {
@@ -32,34 +38,34 @@
       "standaloneAgentApp": "单智能体"
     },
     "coding": {
-      "name": "编程应用",
-      "description": "由 Agentic、Plan、Debug 与 Team 组成的编程模式应用，覆盖实现、规划、排障与虚拟工程团队协作。"
+      "name": "Coding App",
+      "description": "由 Agentic、Plan、Debug 和 Team 组成的编程模式应用，覆盖实现、规划、排障与虚拟工程团队协作。"
     },
     "cowork": {
       "name": "Cowork",
-      "description": "面向办公协作的独立 Agent 应用，适合整理需求、起草内容与推进日常工作。"
+      "description": "面向办公协作、内容起草与日常推进的独立 Agent 应用。"
     },
     "design": {
       "name": "Design",
-      "description": "面向 HTML 原型、视觉稿与设计探索的独立 Agent 应用。"
+      "description": "面向 HTML 原型、视觉产物和设计探索的独立 Agent 应用。"
     },
     "claw": {
       "name": "Claw",
-      "description": "面向个人助理与持续协作场景的独立 Agent 应用，保留上下文与偏好。"
+      "description": "面向持续协作和个人助理场景的独立 Agent 应用，保留上下文与偏好。"
     },
     "deepResearch": {
       "name": "Deep Research",
-      "description": "面向开放式调研的独立 Agent 应用，并行派发子 Agent 并汇总为带来源的完整研究报告。"
+      "description": "面向开放式研究的独立 Agent 应用，可并行派发子 Agent 并整合带引用的完整报告。"
     },
     "liveAppStudio": {
-      "name": "灵动应用工坊",
-      "description": "面向 Live App 生成、调试与进化的独立 Agent 应用，一句话生成能运行且审美过关的小工具。"
+      "name": "Live App Studio",
+      "description": "面向 Live App 生成、调试与迭代的独立 Agent 应用，用一句话生成可运行的小工具。"
     }
   },
   "appDetail": {
-    "bannerPrompt": "此应用包含的 Agent 会按应用工作流协同工作",
+    "bannerPrompt": "此应用包含的 Agent 会作为工作流的一部分协同工作",
     "includedAgentsTitle": "包含的 Agent",
-    "includedAgentsSubtitle": "点击任一 Agent 查看其能力、工具与 Skills 配置"
+    "includedAgentsSubtitle": "打开任意 Agent 查看能力、工具和技能配置"
   },
   "agent": {
     "noDescription": "暂无描述",
@@ -72,18 +78,18 @@
     "sections": {
       "capabilities": "能力",
       "tools": "工具",
-      "skills": "Skills"
+      "skills": "技能"
     },
     "actions": {
       "editTools": "管理工具",
-      "editSkills": "管理 Skills",
-      "resetTools": "重置默认",
+      "editSkills": "管理技能",
+      "resetTools": "恢复默认",
       "cancel": "取消",
       "save": "保存"
     },
     "meta": {
       "enabled": "启用状态",
-      "readonly": "只读模式"
+      "readonly": "只读"
     },
     "skillGroups": {
       "computerUse": "Computer Use",
@@ -95,18 +101,19 @@
     }
   },
   "liveApp": {
-    "title": "灵动应用",
-    "subtitle": "以用户为中心、由 Agent 按需生成的可交互应用。每个灵动应用都拥有持久身份——它会生长、演化，随时可复用。",
-    "searchPlaceholder": "搜索灵动应用...",
+    "title": "Live Apps",
+    "subtitle": "由 Agent 按需生成、以用户为中心的小应用。每个 Live App 都可持续演化、复用与维护。",
+    "searchPlaceholder": "搜索 Live App...",
+    "openStudio": "打开 Studio",
     "importFromFolder": "从文件夹导入",
-    "running": "已启动",
+    "running": "运行中",
     "allApps": "全部应用",
     "noRunningApps": "暂无运行中的应用",
     "all": "全部",
-    "count": "{{count}} 个",
-    "selectFolderTitle": "选择灵动应用目录（需包含 meta.json 与 source/）",
+    "count": "{{count}}",
+    "selectFolderTitle": "选择 Live App 目录（需包含 meta.json 和 source/）",
     "empty": {
-      "generate": "边聊边生成，马上可用。和 AI 对话生成第一个灵动应用吧。",
+      "generate": "边聊边生成，马上可用。和 AI 对话来创建你的第一个 Live App。",
       "noMatch": "没有匹配的应用。"
     },
     "card": {
@@ -114,26 +121,77 @@
       "stop": "停止",
       "delete": "删除"
     },
+    "status": {
+      "open": "已打开",
+      "running": "Worker 运行中",
+      "depsDirty": "需要安装依赖",
+      "restartRequired": "需要重启",
+      "runtimeReady": "{{runtime}} 可用",
+      "runtimeUnavailable": "运行时不可用"
+    },
+    "actions": {
+      "installDeps": "安装依赖",
+      "restartWorker": "重启 Worker",
+      "recompile": "重新编译",
+      "syncFromFs": "从文件同步",
+      "openAnyway": "仍然打开",
+      "refreshCatalog": "刷新列表"
+    },
     "detail": {
+      "versionMeta": "v{{version}}",
       "stop": "停止",
       "delete": "删除",
-      "open": "打开"
+      "open": "打开",
+      "statusTitle": "状态",
+      "permissionsTitle": "权限",
+      "updatedAt": "更新时间",
+      "runtimeUnavailableHint": "这个应用仍可打开，但依赖 Worker 的能力在安装运行时前可能不可用。"
+    },
+    "permissions": {
+      "readWorkspace": "读取工作区",
+      "noWorkspaceRead": "不读工作区",
+      "writeWorkspace": "写入工作区",
+      "noWorkspaceWrite": "不写工作区",
+      "shellEnabled": "已启用 Shell",
+      "shellDisabled": "Shell 关闭",
+      "netEnabled": "已启用网络",
+      "netDisabled": "网络关闭",
+      "aiEnabled": "已启用 AI",
+      "aiDisabled": "AI 关闭",
+      "nodeEnabled": "Node Worker 开启",
+      "nodeDisabled": "仅 Host 模式"
+    },
+    "messages": {
+      "imported": "已导入“{{name}}”，正在打开。",
+      "importFailed": "导入 Live App 失败：{{error}}",
+      "installDepsOk": "依赖安装完成",
+      "installDepsFailed": "安装依赖失败：{{error}}",
+      "installDepsFailedGeneric": "依赖安装失败",
+      "recompiled": "Live App 已重新编译",
+      "recompileFailed": "重新编译 Live App 失败：{{error}}",
+      "syncedFromFs": "已从文件同步 Live App",
+      "syncFromFsFailed": "从文件同步失败：{{error}}",
+      "workerStopped": "Worker 已停止",
+      "workerStopFailed": "停止 Worker 失败：{{error}}"
     },
     "confirmDelete": {
-      "title": "删除 \"{{name}}\"？",
-      "message": "此操作不可撤销，应用及其所有数据将被永久删除。",
+      "title": "删除“{{name}}”？",
+      "message": "此操作不可撤销，应用及其数据会被永久删除。{{impact}}",
+      "impactOpenOrRunning": "它当前仍在打开或运行中，因此对应场景和 Worker 也会一并停止。",
+      "impactIdle": "它当前处于空闲状态。",
       "confirm": "删除",
       "cancel": "取消"
     },
     "scene": {
-      "loading": "加载中…",
+      "loading": "加载中...",
+      "updating": "正在更新预览...",
       "loadFailed": "加载失败：{{error}}",
       "retry": "重试",
-      "reload": "重新加载"
+      "reload": "刷新"
     }
   },
   "bridgeApp": {
     "title": "桥接应用",
-    "comingSoon": "桥接应用在传统 GUI 应用之上叠加操作 Agent，将存量软件接入 Agentic OS 生态。即将推出。"
+    "comingSoon": "Bridge App 用于把传统 GUI 软件接入 Agentic OS，由 Agent 提供操作层。敬请期待。"
   }
 }

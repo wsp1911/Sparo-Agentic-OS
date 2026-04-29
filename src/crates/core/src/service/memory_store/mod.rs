@@ -21,7 +21,6 @@ pub(crate) use prompt_context::{
 
 pub(crate) const MEMORY_INDEX_FILE: &str = "MEMORY.md";
 const MEMORY_DIR_NAME: &str = "memory";
-const LEGACY_MEMORY_INDEX_FILE: &str = "memory.md";
 const MEMORY_INDEX_TEMPLATE: &str = "";
 const MEMORY_INDEX_MAX_LINES: usize = 200;
 const MEMORY_MANIFEST_MAX_FILES: usize = 200;
@@ -70,28 +69,6 @@ pub(super) async fn ensure_markdown_placeholder(path: &Path, content: &str) -> B
         .map_err(|e| BitFunError::service(format!("Failed to create {}: {}", path.display(), e)))?;
 
     Ok(true)
-}
-
-pub(super) async fn migrate_legacy_memory_index(memory_dir: &Path) -> BitFunResult<()> {
-    let legacy_path = memory_dir.join(LEGACY_MEMORY_INDEX_FILE);
-    let canonical_path = memory_dir.join(MEMORY_INDEX_FILE);
-
-    if !legacy_path.exists() || canonical_path.exists() {
-        return Ok(());
-    }
-
-    fs::rename(&legacy_path, &canonical_path)
-        .await
-        .map_err(|e| {
-            BitFunError::service(format!(
-                "Failed to migrate legacy memory index {} -> {}: {}",
-                legacy_path.display(),
-                canonical_path.display(),
-                e
-            ))
-        })?;
-
-    Ok(())
 }
 
 pub(super) async fn list_memory_files_recursive(memory_dir: &Path) -> BitFunResult<Vec<PathBuf>> {

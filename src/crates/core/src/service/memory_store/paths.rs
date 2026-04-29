@@ -1,7 +1,6 @@
 use super::{
     ensure_markdown_placeholder, global_overview::ensure_global_memory_overview_files,
-    migrate_legacy_memory_index, MemoryStoreTarget, MEMORY_DIR_NAME, MEMORY_INDEX_FILE,
-    MEMORY_INDEX_TEMPLATE,
+    MemoryStoreTarget, MEMORY_DIR_NAME, MEMORY_INDEX_FILE, MEMORY_INDEX_TEMPLATE,
 };
 use crate::infrastructure::get_path_manager_arc;
 use crate::util::errors::*;
@@ -39,7 +38,6 @@ pub(crate) async fn ensure_memory_store_for_target(
             ))
         })?;
     }
-    migrate_legacy_memory_index(&memory_dir).await?;
     let created_memory_index =
         ensure_markdown_placeholder(&memory_dir.join(MEMORY_INDEX_FILE), MEMORY_INDEX_TEMPLATE)
             .await?;

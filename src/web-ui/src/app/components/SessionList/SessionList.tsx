@@ -33,7 +33,7 @@ import {
   useRunningLiveAppItems,
   type RunningLiveAppItem,
 } from '@/app/scenes/apps/live-app/liveAppTaskView';
-import { renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIcons';
+import { LiveAppGlyph, renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIcons';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
 import { stateMachineManager } from '@/flow_chat/state-machine';
@@ -572,23 +572,32 @@ const SessionList: React.FC<SessionListProps> = ({
                   ].join(' ')}
                 />
               ) : (
-                <SessionIcon
-                  size={14}
-                  className={[
-                    'bitfun-nav-panel__inline-item-icon',
-                    sessionModeKey === 'cowork'
-                      ? 'is-cowork'
-                      : sessionModeKey === 'design'
-                        ? 'is-design'
-                      : sessionModeKey === 'claw'
-                        ? 'is-claw'
-                      : sessionModeKey === 'deepresearch'
-                        ? 'is-deepresearch'
-                        : sessionModeKey === 'liveappstudio'
-                          ? 'is-liveappstudio'
-                        : 'is-code',
-                  ].join(' ')}
-                />
+                sessionModeKey === 'liveappstudio' ? (
+                  <LiveAppGlyph
+                    size={14}
+                    strokeWidth={1.7}
+                    className={[
+                      'bitfun-nav-panel__inline-item-icon',
+                      'is-liveappstudio',
+                    ].join(' ')}
+                  />
+                ) : (
+                  <SessionIcon
+                    size={14}
+                    className={[
+                      'bitfun-nav-panel__inline-item-icon',
+                      sessionModeKey === 'cowork'
+                        ? 'is-cowork'
+                        : sessionModeKey === 'design'
+                          ? 'is-design'
+                        : sessionModeKey === 'claw'
+                          ? 'is-claw'
+                        : sessionModeKey === 'deepresearch'
+                          ? 'is-deepresearch'
+                          : 'is-code',
+                    ].join(' ')}
+                  />
+                )
               )
             ) : null}
 

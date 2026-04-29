@@ -67,7 +67,7 @@ const LiveAppCard: React.FC<LiveAppCardProps> = ({
       <div className="live-app-card__header">
         <div className="live-app-card__icon-area">
           <div className="live-app-card__icon">
-            {renderLiveAppIcon(app.icon || 'box', 20)}
+            {renderLiveAppIcon(app.icon || 'live-app', 20)}
           </div>
         </div>
         <div className="live-app-card__title-group">
