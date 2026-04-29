@@ -1,0 +1,295 @@
+use super::util::normalize_path;
+use crate::agentic::coordination::{
+    get_global_coordinator, get_global_scheduler, AgentSessionReplyRoute, DialogSubmissionPolicy,
+    DialogTriggerSource,
+};
+use crate::agentic::core::{PromptEnvelope, SessionConfig};
+use crate::agentic::tools::framework::ToolUseContext;
+use crate::agentic::tools::workspace_paths::posix_style_path_is_absolute;
+use crate::agentic::SessionSummary;
+use crate::service::workspace::get_global_workspace_service;
+use crate::util::errors::{BitFunError, BitFunResult};
+use std::path::Path;
+
+pub const STANDARD_AGENT_TYPES: &[&str] = &["agentic", "Plan", "Cowork", "Design", "debug"];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentSessionDispatchKind {
+    Created,
+    Reused,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExistingAgentSessionDispatchTarget {
+    pub session_id: String,
+    pub agent_type: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum AgentSessionDispatchTarget {
+    New {
+        agent_type: String,
+        session_name: Option<String>,
+        created_by: Option<String>,
+    },
+    Existing(ExistingAgentSessionDispatchTarget),
+}
+
+#[derive(Debug, Clone)]
+pub struct AgentSessionDispatchRequest {
+    pub workspace: String,
+    pub message: String,
+    pub source_session_id: String,
+    pub source_workspace_path: String,
+    pub target: AgentSessionDispatchTarget,
+}
+
+#[derive(Debug, Clone)]
+pub struct AgentSessionDispatchOutcome {
+    pub kind: AgentSessionDispatchKind,
+    pub workspace: String,
+    pub session_id: String,
+    pub session_name: String,
+    pub agent_type: String,
+}
+
+pub async fn get_global_workspace_path() -> String {
+    if let Some(ws_service) = get_global_workspace_service() {
+        let assistants = ws_service.get_assistant_workspaces().await;
+        let global = assistants
+            .iter()
+            .find(|workspace| workspace.assistant_id.is_none())
+            .or_else(|| assistants.first());
+        if let Some(workspace) = global {
+            return workspace.root_path.to_string_lossy().into_owned();
+        }
+    }
+
+    dirs::home_dir()
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "/".to_string())
+}
+
+pub async fn resolve_dispatch_workspace(
+    workspace: &str,
+    context: &ToolUseContext,
+    allow_global: bool,
+) -> BitFunResult<String> {
+    let workspace = workspace.trim();
+    if workspace.is_empty() {
+        return Err(BitFunError::tool("workspace cannot be empty".to_string()));
+    }
+
+    if allow_global && workspace == "global" {
+        return Ok(get_global_workspace_path().await);
+    }
+
+    if context.is_remote() {
+        if !posix_style_path_is_absolute(workspace) {
+            return Err(BitFunError::tool(
+                "workspace must be an absolute POSIX path on the remote host".to_string(),
+            ));
+        }
+        return context.resolve_workspace_tool_path(workspace);
+    }
+
+    let path = Path::new(workspace);
+    if !path.is_absolute() {
+        let message = if allow_global {
+            "workspace must be an absolute path or the keyword 'global'"
+        } else {
+            "workspace must be an absolute path"
+        };
+        return Err(BitFunError::tool(message.to_string()));
+    }
+
+    let resolved = normalize_path(workspace);
+    let path = Path::new(&resolved);
+    if !path.exists() {
+        return Err(BitFunError::tool(format!(
+            "workspace does not exist: {}",
+            resolved
+        )));
+    }
+    if !path.is_dir() {
+        return Err(BitFunError::tool(format!(
+            "workspace is not a directory: {}",
+            resolved
+        )));
+    }
+
+    Ok(resolved)
+}
+
+pub fn validate_session_id(session_id: &str) -> Result<(), String> {
+    if session_id.is_empty() {
+        return Err("session_id cannot be empty".to_string());
+    }
+    if session_id == "." || session_id == ".." {
+        return Err("session_id cannot be '.' or '..'".to_string());
+    }
+    if session_id.contains('/') || session_id.contains('\\') {
+        return Err("session_id cannot contain path separators".to_string());
+    }
+    if !session_id
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
+    {
+        return Err("session_id can only contain ASCII letters, numbers, '-' and '_'".to_string());
+    }
+
+    Ok(())
+}
+
+pub fn dispatch_creator_marker(
+    context: &ToolUseContext,
+    tool_name: &str,
+) -> BitFunResult<String> {
+    let session_id = context
+        .session_id
+        .as_ref()
+        .ok_or_else(|| BitFunError::tool(format!("{} requires a session context", tool_name)))?;
+    Ok(format!("session-{}", session_id))
+}
+
+pub fn dispatch_source_session_id<'a>(
+    context: &'a ToolUseContext,
+    tool_name: &str,
+) -> BitFunResult<&'a str> {
+    context
+        .session_id
+        .as_deref()
+        .ok_or_else(|| BitFunError::tool(format!("{} requires a source session", tool_name)))
+}
+
+pub fn dispatch_source_workspace(
+    context: &ToolUseContext,
+    tool_name: &str,
+) -> BitFunResult<String> {
+    context
+        .workspace_root()
+        .map(|path| path.to_string_lossy().to_string())
+        .ok_or_else(|| BitFunError::tool(format!("{} requires a source workspace", tool_name)))
+}
+
+pub fn format_forwarded_agent_message(message: &str) -> String {
+    let mut envelope = PromptEnvelope::new();
+    envelope.push_system_reminder(
+        "This request was sent by another agent, not human user. Do not use interactive tools for this request. In particular, do not call AskUserQuestion."
+            .to_string(),
+    );
+    envelope.push_user_query(message.to_string());
+    envelope.render()
+}
+
+pub async fn find_existing_session(
+    workspace: &str,
+    session_id: &str,
+) -> BitFunResult<SessionSummary> {
+    validate_session_id(session_id).map_err(BitFunError::tool)?;
+
+    let coordinator = get_global_coordinator()
+        .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
+    let workspace_path = Path::new(workspace);
+    let sessions = coordinator.list_sessions(workspace_path).await?;
+
+    sessions
+        .into_iter()
+        .find(|session| session.session_id == session_id)
+        .ok_or_else(|| {
+            BitFunError::NotFound(format!(
+                "Session '{}' not found in workspace '{}'",
+                session_id, workspace
+            ))
+        })
+}
+
+pub async fn dispatch_to_agent_session(
+    request: AgentSessionDispatchRequest,
+) -> BitFunResult<AgentSessionDispatchOutcome> {
+    if request.message.trim().is_empty() {
+        return Err(BitFunError::tool("message cannot be empty".to_string()));
+    }
+
+    let coordinator = get_global_coordinator()
+        .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
+    let scheduler = get_global_scheduler()
+        .ok_or_else(|| BitFunError::tool("scheduler not initialized".to_string()))?;
+
+    let (kind, session_id, session_name, agent_type) = match request.target {
+        AgentSessionDispatchTarget::New {
+            agent_type,
+            session_name,
+            created_by,
+        } => {
+            let session_name = session_name
+                .filter(|name| !name.trim().is_empty())
+                .unwrap_or_else(|| format!("{} session", agent_type));
+            let session = coordinator
+                .create_session_with_workspace_and_creator(
+                    None,
+                    session_name.clone(),
+                    agent_type.clone(),
+                    SessionConfig {
+                        workspace_path: Some(request.workspace.clone()),
+                        ..Default::default()
+                    },
+                    request.workspace.clone(),
+                    created_by,
+                )
+                .await?;
+
+            (
+                AgentSessionDispatchKind::Created,
+                session.session_id,
+                session.session_name,
+                session.agent_type,
+            )
+        }
+        AgentSessionDispatchTarget::Existing(existing) => {
+            let session = find_existing_session(&request.workspace, &existing.session_id).await?;
+            let agent_type = existing.agent_type.unwrap_or_else(|| {
+                let persisted_agent_type = session.agent_type.trim();
+                if persisted_agent_type.is_empty() {
+                    "agentic".to_string()
+                } else {
+                    persisted_agent_type.to_string()
+                }
+            });
+
+            (
+                AgentSessionDispatchKind::Reused,
+                session.session_id,
+                session.session_name,
+                agent_type,
+            )
+        }
+    };
+
+    scheduler
+        .submit(
+            session_id.clone(),
+            format_forwarded_agent_message(&request.message),
+            Some(request.message),
+            None,
+            agent_type.clone(),
+            None,
+            Some(request.workspace.clone()),
+            DialogSubmissionPolicy::for_source(DialogTriggerSource::AgentSession),
+            Some(AgentSessionReplyRoute {
+                source_session_id: request.source_session_id,
+                source_workspace_path: request.source_workspace_path,
+            }),
+            None,
+        )
+        .await
+        .map_err(BitFunError::tool)?;
+
+    Ok(AgentSessionDispatchOutcome {
+        kind,
+        workspace: request.workspace,
+        session_id,
+        session_name,
+        agent_type,
+    })
+}

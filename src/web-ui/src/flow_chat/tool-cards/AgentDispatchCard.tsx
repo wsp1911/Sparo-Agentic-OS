@@ -36,11 +36,12 @@ function parseData<T>(value: unknown): T | null {
 }
 
 interface AgentDispatchInput {
-  action?: 'create' | 'list' | 'status';
+  action?: 'dispatch' | 'list' | 'status';
   workspace?: string;
+  session_id?: string;
   agent_type?: string;
   session_name?: string;
-  task_briefing?: string;
+  message?: string;
 }
 
 interface WorkspaceEntry {
@@ -64,8 +65,9 @@ interface DispatcherSession {
 }
 
 interface AgentDispatchResult {
-  action?: 'create' | 'list' | 'status';
+  action?: 'dispatch' | 'list' | 'status';
   success?: boolean;
+  dispatch_kind?: 'created' | 'reused';
   session_id?: string;
   session_name?: string;
   agent_type?: string;
@@ -160,7 +162,9 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
       [toolResult?.result]
     );
 
-    const action = resultData?.action ?? inputData.action ?? 'create';
+    const action = resultData?.action ?? inputData.action ?? 'dispatch';
+    const dispatchKind =
+      resultData?.dispatch_kind ?? (inputData.session_id ? 'reused' : 'created');
     const agentType = resultData?.agent_type ?? inputData.agent_type ?? '';
     const sessionName = resultData?.session_name ?? inputData.session_name ?? '';
     const workspace = resultData?.workspace ?? inputData.workspace ?? '';
@@ -199,9 +203,9 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
       }
     }, [status]);
 
-    /** After create completes, the rail reflects the child session execution state (live). */
+    /** After dispatch completes, the rail reflects the child session execution state (live). */
     const headerRailIcon = useMemo(() => {
-      if (action === 'create' && status === 'completed' && createdSessionId) {
+      if (action === 'dispatch' && status === 'completed' && createdSessionId) {
         if (runningSessionIds.has(createdSessionId)) {
           const runLabel = t('toolCards.agentDispatch.sessionRunning');
           return (
@@ -231,7 +235,26 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
         }
         return t('toolCards.agentDispatch.checkingStatus');
       }
-      // create — format mirrors TaskToolDisplay: "AgentType agent: SessionName"
+      if (action === 'dispatch') {
+        if (status === 'completed') {
+          if (dispatchKind === 'reused') {
+            return t('toolCards.agentDispatch.reusedSession', {
+              session: sessionName || createdSessionId || t('toolCards.agentDispatch.agent'),
+            });
+          }
+          return t('toolCards.agentDispatch.createdSession', {
+            agentType: agentType || t('toolCards.agentDispatch.agent'),
+            session: sessionName || t('toolCards.agentDispatch.agent'),
+          });
+        }
+
+        if (dispatchKind === 'reused') {
+          return t('toolCards.agentDispatch.reusingSession', {
+            session: sessionName || createdSessionId || t('toolCards.agentDispatch.agent'),
+          });
+        }
+      }
+
       const agentTypeLabel = agentType || t('toolCards.agentDispatch.agent');
       const sessionLabel = sessionName || t('toolCards.agentDispatch.agent');
       if (status === 'error' || status === 'cancelled') {
@@ -241,11 +264,9 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
         agentType: agentTypeLabel,
         session: sessionLabel,
       });
-    }, [action, agentType, resultData, sessionName, status, t]);
+    }, [action, agentType, createdSessionId, dispatchKind, resultData, sessionName, status, t]);
 
-    // Jump to the created session when the card is clicked (create action, completed)
-    const canNavigate =
-      action === 'create' && status === 'completed' && !!createdSessionId;
+    const canNavigate = action === 'dispatch' && status === 'completed' && !!createdSessionId;
 
     const openDispatchedSession = useCallback(
       async (sessionId: string, sessionWorkspace?: string) => {
@@ -271,11 +292,11 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
 
     const handleCardClick = useCallback(
       () => {
-        if (action === 'create' && status === 'completed' && createdSessionId) {
+        if (action === 'dispatch' && status === 'completed' && createdSessionId) {
           void openDispatchedSession(createdSessionId, workspace);
           return;
         }
-        if (action !== 'create' || !createdSessionId) {
+        if (action !== 'dispatch' || !createdSessionId) {
           applyExpandedState(isExpanded, !isExpanded, setIsExpanded);
         }
       },
@@ -284,7 +305,7 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
 
     // Expanded content (for list/status or create details)
     const expandedContent = useMemo(() => {
-      if (action === 'create') {
+      if (action === 'dispatch') {
         if (!workspace && !createdSessionId) return null;
         return (
           <div className="agent-dispatch-details">
@@ -403,7 +424,7 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
         {/* Main content */}
         <div className="agent-dispatch-body">
           <span className="agent-dispatch-label">{headerLine}</span>
-          {workspace && action === 'create' && (
+          {workspace && action === 'dispatch' && (
             workspace === 'global'
               ? <span className="agent-dispatch-global-tag agent-dispatch-global-tag--body">{t('toolCards.agentDispatch.globalTag')}</span>
               : <span className="agent-dispatch-body-path" title={workspace}>{workspace}</span>

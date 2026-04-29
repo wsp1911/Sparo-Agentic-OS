@@ -1,8 +1,10 @@
-use crate::agentic::coordination::{
-    get_global_coordinator, get_global_scheduler, AgentSessionReplyRoute, DialogSubmissionPolicy,
-    DialogTriggerSource,
+use super::agent_session_dispatch::{
+    dispatch_creator_marker, dispatch_source_session_id, dispatch_source_workspace,
+    dispatch_to_agent_session, resolve_dispatch_workspace, validate_session_id,
+    AgentSessionDispatchKind, AgentSessionDispatchRequest, AgentSessionDispatchTarget,
+    ExistingAgentSessionDispatchTarget, STANDARD_AGENT_TYPES,
 };
-use crate::agentic::core::SessionConfig;
+use crate::agentic::coordination::get_global_coordinator;
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
@@ -10,18 +12,17 @@ use crate::agentic::SessionSummary;
 use crate::service::workspace::get_global_workspace_service;
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
-use log::warn;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::Path;
 
-/// AgentDispatch tool — creates and manages Standard agent sessions.
+/// AgentDispatch tool — dispatches work to Standard agent sessions.
 ///
-/// Unlike the existing SessionControl tool, AgentDispatch:
-/// - Supports dispatcher-creatable agent types (including agentic, Plan, Cowork, Design, debug)
-/// - Accepts an optional task_briefing sent as the first message to the new session
-/// - Provides a `list` action that combines tracked workspace routing candidates with their sessions
-/// - Provides a `status` action scoped to sessions created by this Dispatcher
+/// AgentDispatch is the high-level delegation entrypoint for Dispatcher-style agents:
+/// - `dispatch` creates a child session when `session_id` is omitted
+/// - `dispatch` reuses an existing session when `session_id` is provided
+/// - `list` combines tracked workspace routing candidates with their sessions
+/// - `status` is scoped to sessions created by this Dispatcher
 pub struct AgentDispatchTool;
 
 impl Default for AgentDispatchTool {
@@ -34,83 +35,15 @@ impl AgentDispatchTool {
     pub fn new() -> Self {
         Self
     }
-
-    async fn normalize_workspace(
-        workspace: &str,
-        context: &ToolUseContext,
-    ) -> BitFunResult<String> {
-        let workspace = workspace.trim();
-        if workspace.is_empty() {
-            return Err(BitFunError::tool("workspace cannot be empty".to_string()));
-        }
-
-        // "global" is a special sentinel — resolve to the default assistant workspace
-        if workspace == "global" {
-            return Ok(Self::get_global_workspace_path().await);
-        }
-
-        let path = Path::new(workspace);
-        if !path.is_absolute() {
-            return Err(BitFunError::tool(
-                "workspace must be an absolute path or the keyword 'global'".to_string(),
-            ));
-        }
-
-        // For remote workspaces path existence is checked on the remote host
-        if !context.is_remote() {
-            if !path.exists() {
-                return Err(BitFunError::tool(format!(
-                    "workspace does not exist: {}",
-                    workspace
-                )));
-            }
-            if !path.is_dir() {
-                return Err(BitFunError::tool(format!(
-                    "workspace is not a directory: {}",
-                    workspace
-                )));
-            }
-        }
-
-        Ok(workspace.to_string())
-    }
-
-    /// Returns the path for the "global" workspace (default assistant workspace).
-    /// Falls back to the user's home directory if no assistant workspace is found.
-    async fn get_global_workspace_path() -> String {
-        if let Some(ws_service) = get_global_workspace_service() {
-            let assistants = ws_service.get_assistant_workspaces().await;
-            // Prefer the default workspace (no assistantId), then first available
-            let global = assistants
-                .iter()
-                .find(|w| w.assistant_id.is_none())
-                .or_else(|| assistants.first());
-            if let Some(ws) = global {
-                return ws.root_path.to_string_lossy().into_owned();
-            }
-        }
-        dirs::home_dir()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "/".to_string())
-    }
-
-    fn valid_agent_types() -> &'static [&'static str] {
-        &["agentic", "Plan", "Cowork", "Design", "debug"]
-    }
-
-    fn creator_marker(context: &ToolUseContext) -> BitFunResult<String> {
-        let session_id = context.session_id.as_ref().ok_or_else(|| {
-            BitFunError::tool("AgentDispatch requires a session context".to_string())
-        })?;
-        Ok(format!("session-{}", session_id))
-    }
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "lowercase")]
 enum AgentDispatchAction {
-    Create,
+    #[serde(rename = "dispatch")]
+    Dispatch,
+    #[serde(rename = "list")]
     List,
+    #[serde(rename = "status")]
     Status,
 }
 
@@ -119,12 +52,14 @@ struct AgentDispatchInput {
     action: AgentDispatchAction,
     /// Target workspace: absolute path or "global"
     workspace: Option<String>,
-    /// Agent type for create action
+    /// Existing session to reuse. Omit to create a new session.
+    session_id: Option<String>,
+    /// Agent type used when creating a new session.
     agent_type: Option<String>,
-    /// Display name for the new session
+    /// Display name used when creating a new session.
     session_name: Option<String>,
-    /// Initial task briefing sent as first message to the new session
-    task_briefing: Option<String>,
+    /// Message sent to the target session.
+    message: Option<String>,
 }
 
 #[async_trait]
@@ -134,18 +69,19 @@ impl Tool for AgentDispatchTool {
     }
 
     async fn description(&self) -> BitFunResult<String> {
-        Ok(r#"Create and manage agent sessions as the Dispatcher.
+        Ok(r#"Dispatch work to Standard agent sessions as the Dispatcher.
 
 Actions:
-- "create": Create a new Standard agent session in a workspace. The agent will be visible in the session list and the user can switch to it directly.
-- "list": List tracked workspace routing candidates and their existing sessions, so you can find matching workspace paths.
-- "status": Show all sessions that were created by this Dispatcher session.
+- "dispatch": Send a task to an agent session. If `session_id` is omitted, a new session is created and the message is sent immediately. If `session_id` is provided, that session is reused.
+- "list": List tracked workspace routing candidates and their existing sessions, so you can find matching workspace paths and session IDs.
+- "status": Show sessions that were created by this Dispatcher session.
 
-Parameters for "create":
+Parameters for "dispatch":
 - workspace: Absolute path to the project directory, or "global" for non-project tasks.
-- agent_type: One of "agentic" (coding), "Plan" (planning), "Cowork" (collaboration), "Design" (design work), "debug" (debugging).
-- session_name: Short descriptive name for the session (e.g. "Fix login bug").
-- task_briefing: Full instructions sent as the first message to the new agent. Include all relevant context since the agent cannot see the Dispatcher conversation.
+- message: Full instructions sent to the target agent. Include all required context because the target session does not see the Dispatcher conversation.
+- session_id: Optional existing session ID to reuse.
+- agent_type: Required only when creating a new session. One of "agentic" (coding), "Plan" (planning), "Cowork" (collaboration), "Design" (design work), or "debug" (debugging).
+- session_name: Optional display name when creating a new session.
 
 Parameters for "list":
   No additional parameters required.
@@ -161,25 +97,29 @@ Parameters for "status":
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["create", "list", "status"],
-                    "description": "create: create a new agent session; list: discover workspaces and sessions; status: view Dispatcher-created sessions"
+                    "enum": ["dispatch", "list", "status"],
+                    "description": "dispatch: send work to a new or existing agent session; list: discover workspaces and sessions; status: view Dispatcher-created sessions"
                 },
                 "workspace": {
                     "type": "string",
-                    "description": "Absolute path to the workspace directory, or 'global' for non-project tasks. Required for create."
+                    "description": "Absolute path to the workspace directory, or 'global' for non-project tasks. Required for dispatch."
+                },
+                "session_id": {
+                    "type": "string",
+                    "description": "Existing session ID to reuse. Omit this field to create a new session."
                 },
                 "agent_type": {
                     "type": "string",
                     "enum": ["agentic", "Plan", "Cowork", "Design", "debug"],
-                    "description": "Type of agent to create. Required for create."
+                    "description": "Type of agent to create. Required only when session_id is omitted."
                 },
                 "session_name": {
                     "type": "string",
-                    "description": "Short display name for the session. Optional for create."
+                    "description": "Short display name for a newly created session. Ignored when reusing an existing session."
                 },
-                "task_briefing": {
+                "message": {
                     "type": "string",
-                    "description": "Full task description sent as the agent's first message. Optional for create."
+                    "description": "Full task description sent to the target session. Required for dispatch."
                 }
             },
             "required": ["action"],
@@ -201,33 +141,80 @@ Parameters for "status":
         _context: Option<&ToolUseContext>,
     ) -> ValidationResult {
         let parsed: AgentDispatchInput = match serde_json::from_value(input.clone()) {
-            Ok(v) => v,
-            Err(e) => {
+            Ok(value) => value,
+            Err(error) => {
                 return ValidationResult {
                     result: false,
-                    message: Some(format!("Invalid input: {}", e)),
+                    message: Some(format!("Invalid input: {}", error)),
                     error_code: Some(400),
                     meta: None,
                 };
             }
         };
 
-        if let AgentDispatchAction::Create = parsed.action {
-            if parsed.workspace.as_deref().unwrap_or("").is_empty() {
+        if let AgentDispatchAction::Dispatch = parsed.action {
+            if parsed.workspace.as_deref().unwrap_or("").trim().is_empty() {
                 return ValidationResult {
                     result: false,
-                    message: Some("workspace is required for create".to_string()),
+                    message: Some("workspace is required for dispatch".to_string()),
                     error_code: Some(400),
                     meta: None,
                 };
             }
-            if let Some(ref at) = parsed.agent_type {
-                if !Self::valid_agent_types().contains(&at.as_str()) {
+
+            if parsed.message.as_deref().unwrap_or("").trim().is_empty() {
+                return ValidationResult {
+                    result: false,
+                    message: Some("message is required for dispatch".to_string()),
+                    error_code: Some(400),
+                    meta: None,
+                };
+            }
+
+            let session_id = parsed
+                .session_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
+
+            if let Some(session_id) = session_id {
+                if let Err(message) = validate_session_id(session_id) {
+                    return ValidationResult {
+                        result: false,
+                        message: Some(message),
+                        error_code: Some(400),
+                        meta: None,
+                    };
+                }
+
+                if parsed.agent_type.is_some() {
+                    return ValidationResult {
+                        result: false,
+                        message: Some(
+                            "agent_type is only allowed when creating a new session".to_string(),
+                        ),
+                        error_code: Some(400),
+                        meta: None,
+                    };
+                }
+
+                if parsed.session_name.is_some() {
+                    return ValidationResult {
+                        result: false,
+                        message: Some(
+                            "session_name is only allowed when creating a new session".to_string(),
+                        ),
+                        error_code: Some(400),
+                        meta: None,
+                    };
+                }
+            } else if let Some(agent_type) = parsed.agent_type.as_deref() {
+                if !STANDARD_AGENT_TYPES.contains(&agent_type) {
                     return ValidationResult {
                         result: false,
                         message: Some(format!(
                             "agent_type must be one of: {}",
-                            Self::valid_agent_types().join(", ")
+                            STANDARD_AGENT_TYPES.join(", ")
                         )),
                         error_code: Some(400),
                         meta: None,
@@ -236,7 +223,9 @@ Parameters for "status":
             } else {
                 return ValidationResult {
                     result: false,
-                    message: Some("agent_type is required for create".to_string()),
+                    message: Some(
+                        "agent_type is required when creating a new session".to_string(),
+                    ),
                     error_code: Some(400),
                     meta: None,
                 };
@@ -247,18 +236,22 @@ Parameters for "status":
     }
 
     fn render_tool_use_message(&self, input: &Value, _options: &ToolRenderOptions) -> String {
-        let action = input.get("action").and_then(|v| v.as_str()).unwrap_or("?");
+        let action = input.get("action").and_then(|value| value.as_str()).unwrap_or("?");
         match action {
-            "create" => {
-                let agent = input
-                    .get("agent_type")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("agent");
-                let name = input
-                    .get("session_name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("New Session");
-                format!("Create {} session: {}", agent, name)
+            "dispatch" => {
+                if let Some(session_id) = input.get("session_id").and_then(|value| value.as_str()) {
+                    format!("Dispatch to existing session {}", session_id)
+                } else {
+                    let agent = input
+                        .get("agent_type")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("agent");
+                    let name = input
+                        .get("session_name")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("New Session");
+                    format!("Dispatch to new {} session: {}", agent, name)
+                }
             }
             "list" => "List workspaces and sessions".to_string(),
             "status" => "Check agent session status".to_string(),
@@ -272,101 +265,76 @@ Parameters for "status":
         context: &ToolUseContext,
     ) -> BitFunResult<Vec<ToolResult>> {
         let params: AgentDispatchInput = serde_json::from_value(input.clone())
-            .map_err(|e| BitFunError::tool(format!("Invalid input: {}", e)))?;
-
-        let coordinator = get_global_coordinator()
-            .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
+            .map_err(|error| BitFunError::tool(format!("Invalid input: {}", error)))?;
 
         match params.action {
-            AgentDispatchAction::Create => {
-                let workspace_raw = params.workspace.as_deref().unwrap_or("");
-                let workspace = Self::normalize_workspace(workspace_raw, context).await?;
-                let agent_type = params
-                    .agent_type
-                    .clone()
-                    .unwrap_or_else(|| "agentic".to_string());
-                let session_name = params
-                    .session_name
-                    .filter(|n| !n.trim().is_empty())
-                    .unwrap_or_else(|| format!("{} session", agent_type));
-                let created_by = Self::creator_marker(context)?;
+            AgentDispatchAction::Dispatch => {
+                let workspace = resolve_dispatch_workspace(
+                    params.workspace.as_deref().unwrap_or(""),
+                    context,
+                    true,
+                )
+                .await?;
+                let message = params
+                    .message
+                    .filter(|value| !value.trim().is_empty())
+                    .ok_or_else(|| BitFunError::tool("message is required for dispatch".to_string()))?;
+                let source_session_id =
+                    dispatch_source_session_id(context, "AgentDispatch")?.to_string();
+                let source_workspace_path = dispatch_source_workspace(context, "AgentDispatch")?;
+                let session_id = params
+                    .session_id
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty());
 
-                let session = coordinator
-                    .create_session_with_workspace_and_creator(
-                        None,
-                        session_name.clone(),
-                        agent_type.clone(),
-                        SessionConfig {
-                            workspace_path: Some(workspace.clone()),
-                            ..Default::default()
-                        },
-                        workspace.clone(),
-                        Some(created_by),
-                    )
-                    .await?;
-
-                let session_id = session.session_id.clone();
-
-                // Send task_briefing as first message if provided.
-                // Include a reply_route so that when the sub-agent's turn completes, the
-                // scheduler automatically forwards the result back to this Dispatcher session
-                // as a user message, enabling the Dispatcher to report task completion.
-                if let Some(briefing) = params.task_briefing.filter(|b| !b.trim().is_empty()) {
-                    if let Some(scheduler) = get_global_scheduler() {
-                        let dispatcher_session_id = context.session_id.clone().unwrap_or_default();
-                        let dispatcher_workspace = if let Some(root) = context.workspace_root() {
-                            root.to_string_lossy().into_owned()
-                        } else {
-                            Self::get_global_workspace_path().await
-                        };
-                        let reply_route = if dispatcher_session_id.is_empty() {
-                            None
-                        } else {
-                            Some(AgentSessionReplyRoute {
-                                source_session_id: dispatcher_session_id,
-                                source_workspace_path: dispatcher_workspace,
-                            })
-                        };
-
-                        let submit_result = scheduler
-                            .submit(
-                                session_id.clone(),
-                                briefing,
-                                None,
-                                None,
-                                agent_type.clone(),
-                                None,
-                                Some(workspace.clone()),
-                                DialogSubmissionPolicy::for_source(
-                                    DialogTriggerSource::AgentSession,
-                                ),
-                                reply_route,
-                                None,
-                            )
-                            .await;
-
-                        if let Err(e) = submit_result {
-                            warn!(
-                                "AgentDispatch: task_briefing submission failed for session {}: {}",
-                                session_id, e
-                            );
-                        }
+                let target = if let Some(session_id) = session_id {
+                    AgentSessionDispatchTarget::Existing(ExistingAgentSessionDispatchTarget {
+                        session_id,
+                        agent_type: None,
+                    })
+                } else {
+                    AgentSessionDispatchTarget::New {
+                        agent_type: params
+                            .agent_type
+                            .unwrap_or_else(|| "agentic".to_string()),
+                        session_name: params.session_name,
+                        created_by: Some(dispatch_creator_marker(context, "AgentDispatch")?),
                     }
-                }
+                };
 
-                let result_for_assistant = format!(
-                    "Created {} session '{}' (id: {}) in workspace '{}'.",
-                    agent_type, session_name, session_id, workspace
-                );
+                let outcome = dispatch_to_agent_session(AgentSessionDispatchRequest {
+                    workspace: workspace.clone(),
+                    message,
+                    source_session_id,
+                    source_workspace_path,
+                    target,
+                })
+                .await?;
+
+                let dispatch_kind = match outcome.kind {
+                    AgentSessionDispatchKind::Created => "created",
+                    AgentSessionDispatchKind::Reused => "reused",
+                };
+                let result_for_assistant = match outcome.kind {
+                    AgentSessionDispatchKind::Created => format!(
+                        "Created {} session '{}' (id: {}) in workspace '{}' and dispatched the task.",
+                        outcome.agent_type, outcome.session_name, outcome.session_id, outcome.workspace
+                    ),
+                    AgentSessionDispatchKind::Reused => format!(
+                        "Reused session '{}' (id: {}) in workspace '{}' and dispatched the task.",
+                        outcome.session_name, outcome.session_id, outcome.workspace
+                    ),
+                };
 
                 Ok(vec![ToolResult::Result {
                     data: json!({
-                        "action": "create",
+                        "action": "dispatch",
                         "success": true,
-                        "session_id": session_id,
-                        "session_name": session.session_name,
-                        "agent_type": session.agent_type,
-                        "workspace": workspace,
+                        "dispatch_kind": dispatch_kind,
+                        "session_id": outcome.session_id,
+                        "session_name": outcome.session_name,
+                        "agent_type": outcome.agent_type,
+                        "workspace": outcome.workspace,
                     }),
                     result_for_assistant: Some(result_for_assistant),
                     image_attachments: None,
@@ -374,13 +342,14 @@ Parameters for "status":
             }
 
             AgentDispatchAction::List => {
+                let coordinator = get_global_coordinator()
+                    .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
                 let mut workspace_entries: Vec<Value> = Vec::new();
 
                 if let Some(ws_service) = get_global_workspace_service() {
-                    // --- Global (assistant) workspaces first ---
                     let assistant_workspaces = ws_service.get_assistant_workspaces().await;
-                    for ws_info in &assistant_workspaces {
-                        let workspace_path = ws_info.root_path.to_string_lossy().into_owned();
+                    for workspace_info in &assistant_workspaces {
+                        let workspace_path = workspace_info.root_path.to_string_lossy().into_owned();
                         let path = Path::new(&workspace_path);
                         let sessions: Vec<SessionSummary> = if path.exists() {
                             coordinator.list_sessions(path).await.unwrap_or_default()
@@ -388,25 +357,23 @@ Parameters for "status":
                             Vec::new()
                         };
                         workspace_entries.push(json!({
-                            "name": ws_info.name,
+                            "name": workspace_info.name,
                             "path": workspace_path,
                             "kind": "global",
                             "session_count": sessions.len(),
-                            "sessions": sessions.iter().map(|s| json!({
-                                "session_id": s.session_id,
-                                "session_name": s.session_name,
-                                "agent_type": s.agent_type,
-                                "created_at": s.created_at,
-                                "last_activity_at": s.last_activity_at,
+                            "sessions": sessions.iter().map(|session| json!({
+                                "session_id": session.session_id,
+                                "session_name": session.session_name,
+                                "agent_type": session.agent_type,
+                                "created_at": session.created_at,
+                                "last_activity_at": session.last_activity_at,
                             })).collect::<Vec<_>>(),
                         }));
                     }
 
-                    // --- Tracked project/remote workspace routing candidates ---
                     let candidates = ws_service.list_workspace_routing_candidates().await;
                     for workspace_info in candidates {
-                        let workspace_path =
-                            workspace_info.root_path.to_string_lossy().into_owned();
+                        let workspace_path = workspace_info.root_path.to_string_lossy().into_owned();
                         let path = Path::new(&workspace_path);
 
                         let sessions: Vec<SessionSummary> = if path.exists() {
@@ -421,12 +388,12 @@ Parameters for "status":
                             "kind": "project",
                             "last_accessed": workspace_info.last_accessed.to_rfc3339(),
                             "session_count": sessions.len(),
-                            "sessions": sessions.iter().map(|s| json!({
-                                "session_id": s.session_id,
-                                "session_name": s.session_name,
-                                "agent_type": s.agent_type,
-                                "created_at": s.created_at,
-                                "last_activity_at": s.last_activity_at,
+                            "sessions": sessions.iter().map(|session| json!({
+                                "session_id": session.session_id,
+                                "session_name": session.session_name,
+                                "agent_type": session.agent_type,
+                                "created_at": session.created_at,
+                                "last_activity_at": session.last_activity_at,
                             })).collect::<Vec<_>>(),
                         }));
                     }
@@ -434,8 +401,8 @@ Parameters for "status":
 
                 let total_sessions: usize = workspace_entries
                     .iter()
-                    .filter_map(|e| e["session_count"].as_u64())
-                    .map(|n| n as usize)
+                    .filter_map(|entry| entry["session_count"].as_u64())
+                    .map(|count| count as usize)
                     .sum();
 
                 let mut text_lines = vec![format!(
@@ -466,7 +433,9 @@ Parameters for "status":
             }
 
             AgentDispatchAction::Status => {
-                let creator_marker = Self::creator_marker(context)?;
+                let coordinator = get_global_coordinator()
+                    .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
+                let creator_marker = dispatch_creator_marker(context, "AgentDispatch")?;
                 let workspace_path = context.workspace_root();
 
                 let all_sessions: Vec<SessionSummary> = if let Some(path) = workspace_path {
@@ -475,11 +444,9 @@ Parameters for "status":
                     Vec::new()
                 };
 
-                // Also include sessions from tracked workspace routing candidates
                 let mut dispatcher_sessions: Vec<Value> = Vec::new();
 
                 if let Some(ws_service) = get_global_workspace_service() {
-                    // Check global (assistant) workspaces
                     let assistant_workspaces = ws_service.get_assistant_workspaces().await;
                     for workspace_info in &assistant_workspaces {
                         let path = workspace_info.root_path.as_path();
@@ -487,21 +454,21 @@ Parameters for "status":
                             continue;
                         }
                         let sessions = coordinator.list_sessions(path).await.unwrap_or_default();
-                        for s in sessions {
-                            if s.created_by.as_deref() == Some(&creator_marker) {
+                        for session in sessions {
+                            if session.created_by.as_deref() == Some(&creator_marker) {
                                 dispatcher_sessions.push(json!({
-                                    "session_id": s.session_id,
-                                    "session_name": s.session_name,
-                                    "agent_type": s.agent_type,
+                                    "session_id": session.session_id,
+                                    "session_name": session.session_name,
+                                    "agent_type": session.agent_type,
                                     "workspace": workspace_info.root_path.to_string_lossy(),
                                     "workspace_kind": "global",
-                                    "created_at": s.created_at,
-                                    "last_activity_at": s.last_activity_at,
+                                    "created_at": session.created_at,
+                                    "last_activity_at": session.last_activity_at,
                                 }));
                             }
                         }
                     }
-                    // Check tracked project/remote workspace routing candidates
+
                     let candidates = ws_service.list_workspace_routing_candidates().await;
                     for workspace_info in candidates {
                         let path = workspace_info.root_path.as_path();
@@ -509,38 +476,37 @@ Parameters for "status":
                             continue;
                         }
                         let sessions = coordinator.list_sessions(path).await.unwrap_or_default();
-                        for s in sessions {
-                            if s.created_by.as_deref() == Some(&creator_marker) {
+                        for session in sessions {
+                            if session.created_by.as_deref() == Some(&creator_marker) {
                                 dispatcher_sessions.push(json!({
-                                    "session_id": s.session_id,
-                                    "session_name": s.session_name,
-                                    "agent_type": s.agent_type,
+                                    "session_id": session.session_id,
+                                    "session_name": session.session_name,
+                                    "agent_type": session.agent_type,
                                     "workspace": workspace_info.root_path.to_string_lossy(),
                                     "workspace_kind": "project",
-                                    "created_at": s.created_at,
-                                    "last_activity_at": s.last_activity_at,
+                                    "created_at": session.created_at,
+                                    "last_activity_at": session.last_activity_at,
                                 }));
                             }
                         }
                     }
                 }
 
-                // Also check current workspace sessions
-                for s in &all_sessions {
+                for session in &all_sessions {
                     let already_included = dispatcher_sessions
                         .iter()
-                        .any(|e| e["session_id"].as_str() == Some(&s.session_id));
-                    if !already_included && s.created_by.as_deref() == Some(&creator_marker) {
-                        let ws = workspace_path
-                            .map(|p| p.to_string_lossy().into_owned())
+                        .any(|entry| entry["session_id"].as_str() == Some(&session.session_id));
+                    if !already_included && session.created_by.as_deref() == Some(&creator_marker) {
+                        let workspace = workspace_path
+                            .map(|path| path.to_string_lossy().into_owned())
                             .unwrap_or_default();
                         dispatcher_sessions.push(json!({
-                            "session_id": s.session_id,
-                            "session_name": s.session_name,
-                            "agent_type": s.agent_type,
-                            "workspace": ws,
-                            "created_at": s.created_at,
-                            "last_activity_at": s.last_activity_at,
+                            "session_id": session.session_id,
+                            "session_name": session.session_name,
+                            "agent_type": session.agent_type,
+                            "workspace": workspace,
+                            "created_at": session.created_at,
+                            "last_activity_at": session.last_activity_at,
                         }));
                     }
                 }
@@ -549,20 +515,20 @@ Parameters for "status":
                     let lines = if dispatcher_sessions.is_empty() {
                         vec!["No sessions created by this Dispatcher yet.".to_string()]
                     } else {
-                        let mut l = vec![
+                        let mut lines = vec![
                             "| session_id | session_name | agent_type | workspace |".to_string(),
                             "| --- | --- | --- | --- |".to_string(),
                         ];
-                        for e in &dispatcher_sessions {
-                            l.push(format!(
+                        for session in &dispatcher_sessions {
+                            lines.push(format!(
                                 "| {} | {} | {} | {} |",
-                                e["session_id"].as_str().unwrap_or(""),
-                                e["session_name"].as_str().unwrap_or(""),
-                                e["agent_type"].as_str().unwrap_or(""),
-                                e["workspace"].as_str().unwrap_or(""),
+                                session["session_id"].as_str().unwrap_or(""),
+                                session["session_name"].as_str().unwrap_or(""),
+                                session["agent_type"].as_str().unwrap_or(""),
+                                session["workspace"].as_str().unwrap_or(""),
                             ));
                         }
-                        l
+                        lines
                     };
                     lines.join("\n")
                 };
@@ -583,4 +549,54 @@ Parameters for "status":
             }
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn dispatch_requires_agent_type_when_creating() {
+        let tool = AgentDispatchTool::new();
+        let result = tool
+            .validate_input(
+                &json!({
+                    "action": "dispatch",
+                    "workspace": "/tmp/project",
+                    "message": "Investigate the failure"
+                }),
+                None,
+            )
+            .await;
+
+        assert!(!result.result);
+        assert_eq!(
+            result.message.as_deref(),
+            Some("agent_type is required when creating a new session")
+        );
+    }
+
+    #[tokio::test]
+    async fn dispatch_rejects_agent_type_when_reusing() {
+        let tool = AgentDispatchTool::new();
+        let result = tool
+            .validate_input(
+                &json!({
+                    "action": "dispatch",
+                    "workspace": "/tmp/project",
+                    "session_id": "session_123",
+                    "agent_type": "agentic",
+                    "message": "Continue the task"
+                }),
+                None,
+            )
+            .await;
+
+        assert!(!result.result);
+        assert_eq!(
+            result.message.as_deref(),
+            Some("agent_type is only allowed when creating a new session")
+        );
+    }
+
 }

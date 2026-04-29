@@ -1,18 +1,15 @@
-use super::util::normalize_path;
-use crate::agentic::coordination::{
-    get_global_coordinator, get_global_scheduler, AgentSessionReplyRoute, DialogSubmissionPolicy,
-    DialogTriggerSource,
+use super::agent_session_dispatch::{
+    dispatch_source_session_id, dispatch_source_workspace, dispatch_to_agent_session,
+    find_existing_session, resolve_dispatch_workspace, validate_session_id,
+    AgentSessionDispatchRequest, AgentSessionDispatchTarget, ExistingAgentSessionDispatchTarget,
 };
-use crate::agentic::core::PromptEnvelope;
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
-use crate::agentic::tools::workspace_paths::posix_style_path_is_absolute;
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::path::Path;
 
 /// SessionMessage tool - send a message to another session via the dialog scheduler
 pub struct SessionMessageTool;
@@ -26,93 +23,6 @@ impl Default for SessionMessageTool {
 impl SessionMessageTool {
     pub fn new() -> Self {
         Self
-    }
-
-    fn validate_session_id(session_id: &str) -> Result<(), String> {
-        if session_id.is_empty() {
-            return Err("session_id cannot be empty".to_string());
-        }
-        if session_id == "." || session_id == ".." {
-            return Err("session_id cannot be '.' or '..'".to_string());
-        }
-        if session_id.contains('/') || session_id.contains('\\') {
-            return Err("session_id cannot contain path separators".to_string());
-        }
-        if !session_id
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
-        {
-            return Err(
-                "session_id can only contain ASCII letters, numbers, '-' and '_'".to_string(),
-            );
-        }
-        Ok(())
-    }
-
-    fn resolve_workspace(&self, workspace: &str, context: &ToolUseContext) -> BitFunResult<String> {
-        let workspace = workspace.trim();
-        if workspace.is_empty() {
-            return Err(BitFunError::tool(
-                "workspace is required and cannot be empty".to_string(),
-            ));
-        }
-
-        if context.is_remote() {
-            if !posix_style_path_is_absolute(workspace) {
-                return Err(BitFunError::tool(
-                    "workspace must be an absolute POSIX path on the remote host".to_string(),
-                ));
-            }
-            return context.resolve_workspace_tool_path(workspace);
-        }
-
-        let path = Path::new(workspace);
-        if !path.is_absolute() {
-            return Err(BitFunError::tool(
-                "workspace must be an absolute path".to_string(),
-            ));
-        }
-
-        let resolved = normalize_path(workspace);
-        let path = Path::new(&resolved);
-        if !path.exists() {
-            return Err(BitFunError::tool(format!(
-                "Workspace does not exist: {}",
-                resolved
-            )));
-        }
-        if !path.is_dir() {
-            return Err(BitFunError::tool(format!(
-                "Workspace is not a directory: {}",
-                resolved
-            )));
-        }
-        Ok(resolved)
-    }
-
-    fn sender_session_id<'a>(&self, context: &'a ToolUseContext) -> BitFunResult<&'a str> {
-        context.session_id.as_deref().ok_or_else(|| {
-            BitFunError::tool("SessionMessage requires a source session".to_string())
-        })
-    }
-
-    fn sender_workspace(&self, context: &ToolUseContext) -> BitFunResult<String> {
-        context
-            .workspace_root()
-            .map(|path| path.to_string_lossy().to_string())
-            .ok_or_else(|| {
-                BitFunError::tool("SessionMessage requires a source workspace".to_string())
-            })
-    }
-
-    fn format_forwarded_message(&self, message: &str) -> String {
-        let mut envelope = PromptEnvelope::new();
-        envelope.push_system_reminder(
-            "This request was sent by another agent, not human user. Do not use interactive tools for this request. In particular, do not call AskUserQuestion."
-                .to_string(),
-        );
-        envelope.push_user_query(message.to_string());
-        envelope.render()
     }
 }
 
@@ -238,7 +148,7 @@ When overriding an existing session's agent_type, only switching between "agenti
             }
         };
 
-        if let Err(message) = Self::validate_session_id(&parsed.session_id) {
+        if let Err(message) = validate_session_id(&parsed.session_id) {
             return ValidationResult {
                 result: false,
                 message: Some(message),
@@ -266,8 +176,17 @@ When overriding an existing session's agent_type, only switching between "agenti
         }
 
         let Some(context) = context else {
-            if !Path::new(parsed.workspace.trim()).is_absolute()
-                && !posix_style_path_is_absolute(parsed.workspace.trim())
+            let workspace = parsed.workspace.trim();
+            if workspace.is_empty() {
+                return ValidationResult {
+                    result: false,
+                    message: Some("workspace is required and cannot be empty".to_string()),
+                    error_code: Some(400),
+                    meta: None,
+                };
+            }
+            if !std::path::Path::new(workspace).is_absolute()
+                && !crate::agentic::tools::workspace_paths::posix_style_path_is_absolute(workspace)
             {
                 return ValidationResult {
                     result: false,
@@ -280,9 +199,11 @@ When overriding an existing session's agent_type, only switching between "agenti
         };
 
         let ws_ok = if context.is_remote() {
-            posix_style_path_is_absolute(parsed.workspace.trim())
+            crate::agentic::tools::workspace_paths::posix_style_path_is_absolute(
+                parsed.workspace.trim(),
+            )
         } else {
-            Path::new(parsed.workspace.trim()).is_absolute()
+            std::path::Path::new(parsed.workspace.trim()).is_absolute()
         };
         if !ws_ok {
             return ValidationResult {
@@ -338,9 +259,8 @@ When overriding an existing session's agent_type, only switching between "agenti
     ) -> BitFunResult<Vec<ToolResult>> {
         let params: SessionMessageInput = serde_json::from_value(input.clone())
             .map_err(|e| BitFunError::tool(format!("Invalid input: {}", e)))?;
-        let workspace = self.resolve_workspace(&params.workspace, context)?;
-        let workspace_path = Path::new(&workspace);
-        let source_session_id = self.sender_session_id(context)?.to_string();
+        let workspace = resolve_dispatch_workspace(&params.workspace, context, false).await?;
+        let source_session_id = dispatch_source_session_id(context, "SessionMessage")?.to_string();
         let target_session_id = params.session_id.clone();
 
         if source_session_id == target_session_id {
@@ -349,23 +269,8 @@ When overriding an existing session's agent_type, only switching between "agenti
             ));
         }
 
-        let source_workspace = self.sender_workspace(context)?;
-
-        let coordinator = get_global_coordinator()
-            .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
-        let scheduler = get_global_scheduler()
-            .ok_or_else(|| BitFunError::tool("scheduler not initialized".to_string()))?;
-
-        let existing_sessions = coordinator.list_sessions(workspace_path).await?;
-        let target_session = existing_sessions
-            .iter()
-            .find(|session| session.session_id == target_session_id.as_str())
-            .ok_or_else(|| {
-                BitFunError::NotFound(format!(
-                    "Session '{}' not found in workspace '{}'",
-                    target_session_id, workspace
-                ))
-            })?;
+        let source_workspace = dispatch_source_workspace(context, "SessionMessage")?;
+        let target_session = find_existing_session(&workspace, &target_session_id).await?;
 
         let persisted_agent_type = target_session.agent_type.trim();
         let target_agent_type = if let Some(requested_agent_type) = params.agent_type.as_ref() {
@@ -398,26 +303,17 @@ When overriding an existing session's agent_type, only switching between "agenti
             persisted_agent_type.to_string()
         };
 
-        let forwarded_message = self.format_forwarded_message(&params.message);
-
-        scheduler
-            .submit(
-                target_session_id.clone(),
-                forwarded_message,
-                Some(params.message.clone()),
-                None,
-                target_agent_type.clone(),
-                None,
-                Some(workspace.clone()),
-                DialogSubmissionPolicy::for_source(DialogTriggerSource::AgentSession),
-                Some(AgentSessionReplyRoute {
-                    source_session_id,
-                    source_workspace_path: source_workspace,
-                }),
-                None,
-            )
-            .await
-            .map_err(BitFunError::tool)?;
+        dispatch_to_agent_session(AgentSessionDispatchRequest {
+            workspace: workspace.clone(),
+            message: params.message.clone(),
+            source_session_id,
+            source_workspace_path: source_workspace,
+            target: AgentSessionDispatchTarget::Existing(ExistingAgentSessionDispatchTarget {
+                session_id: target_session_id.clone(),
+                agent_type: Some(target_agent_type.clone()),
+            }),
+        })
+        .await?;
 
         Ok(vec![ToolResult::Result {
             data: json!({
