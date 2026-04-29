@@ -494,6 +494,8 @@ export class FlowChatManager {
     options?: {
       imageContexts?: import('@/infrastructure/api/service-api/ImageContextTypes').ImageContextData[];
       imageDisplayData?: Array<{ id: string; name: string; dataUrl?: string; imagePath?: string; mimeType?: string }>;
+      persistAgentType?: boolean;
+      systemReminderOverride?: string;
     }
   ): Promise<void> {
     const targetSessionId = sessionId || this.context.flowChatStore.getState().activeSessionId;

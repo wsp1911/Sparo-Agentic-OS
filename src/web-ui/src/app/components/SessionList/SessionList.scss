@@ -158,7 +158,7 @@
       }
     }
 
-    &.is-btw-child {
+    &.is-aux-child {
       &:hover,
       &.is-active {
         background: var(--element-bg-soft);
@@ -233,7 +233,7 @@
     white-space: nowrap;
   }
 
-  &__inline-item-btw-badge {
+  &__inline-item-session-kind-badge {
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;

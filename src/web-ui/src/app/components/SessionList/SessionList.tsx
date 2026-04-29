@@ -18,10 +18,10 @@ import { getWorkspaceDisplayName, useWorkspaceContext } from '@/infrastructure/c
 import { createLogger } from '@/shared/utils/logger';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import {
-  openBtwSessionInAuxPane,
+  openChildSessionInAuxPane,
   openMainSession,
-  selectActiveBtwSessionTab,
-} from '@/flow_chat/services/openBtwSession';
+  selectActiveChildSessionTab,
+} from '@/flow_chat/services/childSessionPanels';
 import { resolveSessionRelationship } from '@/flow_chat/utils/sessionMetadata';
 import {
   compareSessionsForDisplay,
@@ -93,8 +93,10 @@ const SessionList: React.FC<SessionListProps> = ({
   const activeTabId = activeOverlay ?? AGENT_SCENE;
   const activeLiveAppId = resolveActiveRunningLiveAppId(activeOverlay);
   const runningLiveApps = useRunningLiveAppItems();
-  const activeBtwSessionTab = useAgentCanvasStore(state => selectActiveBtwSessionTab(state as any));
-  const activeBtwSessionData = activeBtwSessionTab?.content.data as
+  const activeChildSessionTab = useAgentCanvasStore(
+    state => selectActiveChildSessionTab(state as any)
+  );
+  const activeChildSessionData = activeChildSessionTab?.content.data as
     | { childSessionId: string; parentSessionId: string; workspacePath?: string }
     | undefined;
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() =>
@@ -262,10 +264,11 @@ const SessionList: React.FC<SessionListProps> = ({
             workspaceId: resolvedWorkspaceId,
             activateWorkspace,
           });
-          openBtwSessionInAuxPane({
+          openChildSessionInAuxPane({
             childSessionId: sessionId,
             parentSessionId,
             workspacePath: session.workspacePath,
+            variant: relationship.isHostScan ? 'host_scan' : 'btw',
           });
           return;
         }
@@ -495,7 +498,7 @@ const SessionList: React.FC<SessionListProps> = ({
       {filteredVisibleItems.map(({ session, level }) => {
         const isEditing = editingSessionId === session.sessionId;
         const relationship = resolveSessionRelationship(session);
-        const isBtwChild = level === 1 && relationship.isBtw;
+        const isChildAuxSession = level === 1 && relationship.canOpenInAuxPane;
         const sessionModeKey = resolveSessionModeType(session);
         const sessionTitle = resolveDisplayTitle(session);
         const parentSessionId = relationship.parentSessionId;
@@ -509,7 +512,7 @@ const SessionList: React.FC<SessionListProps> = ({
           ? (rowWorkspace ? getWorkspaceDisplayName(rowWorkspace) : '')
           : (assistantLabel?.trim() ?? '');
         const showContextInTooltip = contextLabel.length > 0;
-        const showRichTooltip = showContextInTooltip || isBtwChild;
+        const showRichTooltip = showContextInTooltip || isChildAuxSession;
         const tooltipContent = showRichTooltip ? (
           <div className="bitfun-nav-panel__inline-item-tooltip">
             <div className="bitfun-nav-panel__inline-item-tooltip-title">{sessionTitle}</div>
@@ -520,9 +523,11 @@ const SessionList: React.FC<SessionListProps> = ({
                   : t('nav.sessions.assistantOwner', { name: contextLabel })}
               </div>
             ) : null}
-            {isBtwChild ? (
+            {isChildAuxSession ? (
               <div className="bitfun-nav-panel__inline-item-tooltip-meta">
-                {`来自 ${parentTitle || '父会话'}${parentTurnIndex ? ` · 第 ${parentTurnIndex} 轮` : ''}`}
+                {relationship.isHostScan
+                  ? `来自 ${parentTitle || '父会话'}`
+                  : `来自 ${parentTitle || '父会话'}${parentTurnIndex ? ` · 第 ${parentTurnIndex} 轮` : ''}`}
               </div>
             ) : null}
           </div>
@@ -540,15 +545,15 @@ const SessionList: React.FC<SessionListProps> = ({
               ? Sparkles
               : Code2;
         const isRunning = runningSessionIds.has(session.sessionId);
-        const isRowActive = activeBtwSessionData?.childSessionId
-          ? session.sessionId === activeBtwSessionData.childSessionId
+        const isRowActive = activeChildSessionData?.childSessionId
+          ? session.sessionId === activeChildSessionData.childSessionId
           : activeTabId === AGENT_SCENE && session.sessionId === activeSessionId;
         const row = (
           <div
             className={[
               'bitfun-nav-panel__inline-item',
               level === 1 && 'is-child',
-              isBtwChild && 'is-btw-child',
+              isChildAuxSession && 'is-aux-child',
               isRowActive && 'is-active',
               isEditing && 'is-editing',
               openMenuSessionId === session.sessionId && 'is-menu-open',
@@ -557,7 +562,7 @@ const SessionList: React.FC<SessionListProps> = ({
               .join(' ')}
             onClick={() => handleSwitch(session.sessionId)}
           >
-            {showSessionModeIcon && !isBtwChild ? (
+            {showSessionModeIcon && !isChildAuxSession ? (
               isRunning ? (
                 <Loader2
                   size={14}
@@ -631,8 +636,10 @@ const SessionList: React.FC<SessionListProps> = ({
               <>
                 <span className="bitfun-nav-panel__inline-item-main">
                   <span className="bitfun-nav-panel__inline-item-label">{sessionTitle}</span>
-                  {isBtwChild ? (
-                    <span className="bitfun-nav-panel__inline-item-btw-badge">btw</span>
+                  {isChildAuxSession ? (
+                    <span className="bitfun-nav-panel__inline-item-session-kind-badge">
+                      {relationship.isHostScan ? 'host scan' : 'btw'}
+                    </span>
                   ) : null}
                 </span>
                 <div className="bitfun-nav-panel__inline-item-trailing">

@@ -1,6 +1,6 @@
 import { flowChatStore } from '../store/FlowChatStore';
 import { flowChatManager } from './FlowChatManager';
-import { openMainSession } from './openBtwSession';
+import { openMainSession } from './childSessionPanels';
 
 /**
  * Focuses the latest Agentic OS (Dispatcher) session, or creates one if missing.

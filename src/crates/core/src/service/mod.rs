@@ -8,6 +8,7 @@ pub mod config; // Config management
 pub mod cron; // Scheduled jobs
 pub mod file_watch;
 pub mod filesystem; // FileSystem management
+pub(crate) mod host; // Agentic OS host-level runtime context and scan prompts
 pub mod i18n; // I18n service
 pub(crate) mod instructions; // Instruction memory (AGENTS.md / CLAUDE.md style files)
 pub mod mcp; // MCP (Model Context Protocol) system
@@ -39,6 +40,10 @@ pub use file_watch::{
     FileWatcherConfig,
 };
 pub use filesystem::{DirectoryStats, FileSystemService, FileSystemServiceFactory};
+pub use host::{
+    get_global_host_auto_scan_service, set_global_host_auto_scan_service,
+    HostAutoScanEventSubscriber, HostAutoScanService, HostScanTrigger,
+};
 pub use i18n::{get_global_i18n_service, I18nConfig, I18nService, LocaleId, LocaleMetadata};
 pub use mcp::MCPService;
 pub use project_detection::{ProjectDetector, ProjectInfo};

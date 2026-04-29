@@ -73,6 +73,8 @@ pub struct AppConfig {
     pub notifications: NotificationConfig,
     #[serde(default)]
     pub session_config: AppSessionConfig,
+    #[serde(default)]
+    pub host_scan: AppHostScanConfig,
     pub ai_experience: AIExperienceConfig,
     /// User-defined keyboard shortcut overrides.
     /// Stored as opaque JSON so the backend remains schema-agnostic;
@@ -97,6 +99,16 @@ pub struct AppSessionConfig {
     /// Default new session mode used by the frontend.
     /// Supported values: "code", "cowork", "design".
     pub default_mode: String,
+}
+
+/// Host scan automation settings.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AppHostScanConfig {
+    /// Whether automatic background host scan is enabled.
+    pub auto_scan_enabled: bool,
+    /// Background scan interval in days once a valid overview exists.
+    pub auto_scan_interval_days: u32,
 }
 
 /// AI experience configuration.
@@ -471,6 +483,10 @@ pub struct AutoMemoryScopeConfig {
 
     /// Run background extraction after every N eligible turns.
     pub extract_every_eligible_turns: u32,
+
+    /// Require at least this many seconds since the last memory-consuming
+    /// extraction or direct memory write before scheduling another extraction.
+    pub min_extract_interval_secs: u64,
 }
 
 impl AIConfig {
@@ -616,6 +632,14 @@ fn default_global_auto_memory_extract_every_eligible_turns() -> u32 {
 
 fn default_workspace_auto_memory_extract_every_eligible_turns() -> u32 {
     1
+}
+
+fn default_global_auto_memory_min_extract_interval_secs() -> u64 {
+    60 * 60
+}
+
+fn default_workspace_auto_memory_min_extract_interval_secs() -> u64 {
+    60 * 60
 }
 
 fn default_auto_memory_enabled() -> bool {
@@ -1189,6 +1213,7 @@ impl Default for AppConfig {
                 enable_startup_tips: true,
             },
             session_config: AppSessionConfig::default(),
+            host_scan: AppHostScanConfig::default(),
             ai_experience: AIExperienceConfig::default(),
             keybindings: None,
         }
@@ -1208,6 +1233,15 @@ impl Default for AppSessionConfig {
     fn default() -> Self {
         Self {
             default_mode: "code".to_string(),
+        }
+    }
+}
+
+impl Default for AppHostScanConfig {
+    fn default() -> Self {
+        Self {
+            auto_scan_enabled: true,
+            auto_scan_interval_days: 7,
         }
     }
 }
@@ -1434,11 +1468,14 @@ impl Default for AutoMemoryConfig {
                 enabled: default_auto_memory_enabled(),
                 extract_every_eligible_turns:
                     default_global_auto_memory_extract_every_eligible_turns(),
+                min_extract_interval_secs: default_global_auto_memory_min_extract_interval_secs(),
             },
             workspace: AutoMemoryScopeConfig {
                 enabled: default_auto_memory_enabled(),
                 extract_every_eligible_turns:
                     default_workspace_auto_memory_extract_every_eligible_turns(),
+                min_extract_interval_secs:
+                    default_workspace_auto_memory_min_extract_interval_secs(),
             },
         }
     }
@@ -1450,6 +1487,7 @@ impl Default for AutoMemoryScopeConfig {
             enabled: default_auto_memory_enabled(),
             extract_every_eligible_turns:
                 default_workspace_auto_memory_extract_every_eligible_turns(),
+            min_extract_interval_secs: default_workspace_auto_memory_min_extract_interval_secs(),
         }
     }
 }
@@ -1769,8 +1807,10 @@ mod tests {
 
         assert!(config.auto_memory.global.enabled);
         assert_eq!(config.auto_memory.global.extract_every_eligible_turns, 6);
+        assert_eq!(config.auto_memory.global.min_extract_interval_secs, 60 * 60);
         assert!(config.auto_memory.workspace.enabled);
         assert_eq!(config.auto_memory.workspace.extract_every_eligible_turns, 1);
+        assert_eq!(config.auto_memory.workspace.min_extract_interval_secs, 60 * 60);
     }
 
     #[test]
@@ -1792,7 +1832,9 @@ mod tests {
 
         assert!(config.auto_memory.global.enabled);
         assert_eq!(config.auto_memory.global.extract_every_eligible_turns, 6);
+        assert_eq!(config.auto_memory.global.min_extract_interval_secs, 60 * 60);
         assert!(config.auto_memory.workspace.enabled);
         assert_eq!(config.auto_memory.workspace.extract_every_eligible_turns, 1);
+        assert_eq!(config.auto_memory.workspace.min_extract_interval_secs, 60 * 60);
     }
 }

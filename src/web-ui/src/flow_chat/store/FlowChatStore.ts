@@ -48,6 +48,28 @@ function resolveSessionDeleteStorageScope(session: Session): SessionStorageScope
   );
 }
 
+function normalizeSessionRemoteSshHost(
+  remoteSshHost?: string | null,
+  remoteConnectionId?: string | null,
+): string | undefined {
+  const normalizedHost = remoteSshHost?.trim();
+  if (!normalizedHost) {
+    return undefined;
+  }
+
+  const normalizedConnectionId = remoteConnectionId?.trim();
+  if (normalizedConnectionId) {
+    return normalizedHost;
+  }
+
+  const lowerHost = normalizedHost.toLowerCase();
+  if (lowerHost === 'localhost' || lowerHost === '127.0.0.1' || lowerHost === '::1') {
+    return undefined;
+  }
+
+  return normalizedHost;
+}
+
 export class FlowChatStore {
   private static instance: FlowChatStore;
   private state: FlowChatState;
@@ -1552,11 +1574,13 @@ export class FlowChatStore {
             todos: metadata.todos || currentSession.todos || [],
             workspacePath: metadata.workspacePath || currentSession.workspacePath || workspacePath,
             remoteConnectionId: metadata.remoteConnectionId || currentSession.remoteConnectionId || remoteConnectionId,
-          remoteSshHost:
+            remoteSshHost: normalizeSessionRemoteSshHost(
               metadata.remoteSshHost ||
-              metadata.workspaceHostname ||
-              currentSession.remoteSshHost ||
-              remoteSshHost,
+                metadata.workspaceHostname ||
+                currentSession.remoteSshHost ||
+                remoteSshHost,
+              metadata.remoteConnectionId || currentSession.remoteConnectionId || remoteConnectionId,
+            ),
             storageScope: metadata.storageScope || currentSession.storageScope || storageScope || 'workspace',
             parentSessionId: relationship.parentSessionId,
             sessionKind: relationship.sessionKind,
@@ -1646,8 +1670,10 @@ export class FlowChatStore {
           mode: validatedAgentType,
           workspacePath: metadata.workspacePath || workspacePath,
           remoteConnectionId: metadata.remoteConnectionId || remoteConnectionId,
-          remoteSshHost:
+          remoteSshHost: normalizeSessionRemoteSshHost(
             metadata.remoteSshHost || metadata.workspaceHostname || remoteSshHost,
+            metadata.remoteConnectionId || remoteConnectionId,
+          ),
           storageScope: metadata.storageScope || storageScope || 'workspace',
           parentSessionId: relationship.parentSessionId,
           sessionKind: relationship.sessionKind,

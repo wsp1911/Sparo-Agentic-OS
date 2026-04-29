@@ -207,7 +207,7 @@ export interface Session {
 
   /**
    * Optional parent session id for hierarchical sessions.
-   * Used by /btw "side threads" and potentially other derived sessions.
+   * Used by transient child sessions such as /btw and /scan_host.
    */
   parentSessionId?: string;
 

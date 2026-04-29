@@ -8,7 +8,9 @@
       "enabled": "Enable global auto memory",
       "enabledDesc": "",
       "extractEveryEligibleTurns": "How often to update global memory",
-      "extractEveryEligibleTurnsDesc": "Update agentic_os memory once every N eligible conversations."
+      "extractEveryEligibleTurnsDesc": "Update agentic_os memory once every N eligible conversations.",
+      "minExtractIntervalMinutes": "Minimum time between updates",
+      "minExtractIntervalMinutesDesc": "Set to 0 to disable the cooldown."
     },
     "workspace": {
       "sectionTitle": "Workspace memory",
@@ -16,13 +18,44 @@
       "enabled": "Enable workspace auto memory",
       "enabledDesc": "",
       "extractEveryEligibleTurns": "How often to update workspace memory",
-      "extractEveryEligibleTurnsDesc": "Update workspace memory once every N eligible conversations."
+      "extractEveryEligibleTurnsDesc": "Update workspace memory once every N eligible conversations.",
+      "minExtractIntervalMinutes": "Minimum time between updates",
+      "minExtractIntervalMinutesDesc": "Set to 0 to disable the cooldown."
+    },
+    "units": {
+      "minutes": "min"
     }
   },
   "loading": {
     "text": "Loading configuration..."
   },
+  "hostScan": {
+    "title": "Host Scan",
+    "hint": "Maintain a background host overview so later sessions can better judge where code, documents, software, and new workspaces likely belong on this machine",
+    "enable": {
+      "label": "Enable background auto scan",
+      "description": "Periodically refresh the host overview in a background dispatcher session. If the file is missing or empty, the first attempt waits 10 minutes."
+    },
+    "interval": {
+      "label": "Regular scan interval",
+      "description": "When the host overview already exists and is non-empty, refresh it on this cadence"
+    },
+    "intervals": {
+      "daily": "Daily",
+      "every3Days": "Every 3 days",
+      "weekly": "Every 7 days",
+      "every2Weeks": "Every 14 days",
+      "monthly": "Every 30 days"
+    },
+    "messages": {
+      "loadFailed": "Failed to load host scan settings",
+      "saveFailed": "Failed to save host scan settings",
+      "enabledUpdated": "Host scan setting updated",
+      "intervalUpdated": "Host scan interval updated"
+    }
+  },
   "messages": {
+    "loadFailed": "Failed to load configuration",
     "saveSuccess": "Settings saved",
     "saveFailed": "Save failed"
   }

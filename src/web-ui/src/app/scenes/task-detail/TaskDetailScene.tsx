@@ -35,7 +35,7 @@ import {
 } from '@/flow_chat/utils/sessionOrdering';
 import { fallbackWorkspaceFolderLabel } from '@/flow_chat/utils/sessionOrdering';
 import { findWorkspaceForSession } from '@/flow_chat/utils/workspaceScope';
-import { openMainSession } from '@/flow_chat/services/openBtwSession';
+import { openMainSession } from '@/flow_chat/services/childSessionPanels';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { useSessionCapsuleStore } from '../../stores/sessionCapsuleStore';
 import { useOverlayStore } from '../../stores/overlayStore';

@@ -319,6 +319,7 @@ pub async fn run() {
             api::agentic_api::get_available_modes,
             api::btw_api::btw_ask_stream,
             api::btw_api::btw_cancel,
+            api::host_scan_api::start_host_scan_stream,
             api::editor_ai_api::editor_ai_stream,
             api::editor_ai_api::editor_ai_cancel,
             api::context_upload_api::upload_image_contexts,
@@ -714,7 +715,19 @@ async fn init_agentic_system() -> anyhow::Result<(
     event_router.subscribe_internal("cron_jobs".to_string(), cron_subscriber);
     cron_service.start();
 
+    let host_auto_scan_service =
+        bitfun_core::service::HostAutoScanService::new(coordinator.clone())
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to initialize host auto scan service: {}", e))?;
+    bitfun_core::service::set_global_host_auto_scan_service(host_auto_scan_service.clone());
+    let host_auto_scan_subscriber = Arc::new(
+        bitfun_core::service::HostAutoScanEventSubscriber::new(host_auto_scan_service.clone()),
+    );
+    event_router.subscribe_internal("host_auto_scan".to_string(), host_auto_scan_subscriber);
+    host_auto_scan_service.start();
+
     log::info!("Cron service initialized and subscriber registered");
+    log::info!("Host auto scan service initialized and subscriber registered");
     log::info!("Agentic system initialized");
     Ok((
         coordinator,

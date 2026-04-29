@@ -107,6 +107,8 @@ export async function sendMessage(
   options?: {
     imageContexts?: ImageInputContextData[];
     imageDisplayData?: Array<{ id: string; name: string; dataUrl?: string; imagePath?: string; mimeType?: string }>;
+    persistAgentType?: boolean;
+    systemReminderOverride?: string;
   }
 ): Promise<void> {
   const session = context.flowChatStore.getState().sessions.get(sessionId);
@@ -127,10 +129,12 @@ export async function sendMessage(
   try {
     const refreshedSession = context.flowChatStore.getState().sessions.get(sessionId) ?? session;
     const currentAgentType = (agentType?.trim() || refreshedSession.mode || 'agentic').trim();
+    const persistAgentType =
+      options?.persistAgentType ?? !ONE_SHOT_AGENT_TYPES_FOR_SESSION.has(currentAgentType);
 
     if (
       agentType?.trim() &&
-      !ONE_SHOT_AGENT_TYPES_FOR_SESSION.has(currentAgentType) &&
+      persistAgentType &&
       refreshedSession.mode !== currentAgentType
     ) {
       context.flowChatStore.updateSessionMode(sessionId, currentAgentType);
@@ -232,7 +236,7 @@ export async function sendMessage(
     if (!updatedSession) {
       throw new Error(`Session lost after adding dialog turn: ${sessionId}`);
     }
-    
+
     context.contentBuffers.set(sessionId, new Map());
     context.activeTextItems.set(sessionId, new Map());
 
@@ -245,6 +249,8 @@ export async function sendMessage(
         originalUserInput: displayMessage || message,
         turnId: dialogTurnId,
         agentType: currentAgentType,
+        systemReminderOverride: options?.systemReminderOverride,
+        persistAgentType,
         workspacePath,
         imageContexts: options?.imageContexts,
       });
@@ -263,6 +269,8 @@ export async function sendMessage(
           originalUserInput: displayMessage || message,
           turnId: dialogTurnId,
           agentType: currentAgentType,
+          systemReminderOverride: options?.systemReminderOverride,
+          persistAgentType,
           workspacePath,
           imageContexts: options?.imageContexts,
         });

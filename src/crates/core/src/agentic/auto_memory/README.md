@@ -131,6 +131,9 @@ If the question is:
 - `eligible_turns_since_last_extraction`
   Durable count of unextracted eligible turns since the last committed
   extraction.
+- `last_memory_consumed_at_ms`
+  Timestamp of the last extraction commit or main-agent direct memory write
+  that consumed pending history for cooldown gating.
 
 State lives on the session and is persisted with session metadata.
 
@@ -139,8 +142,9 @@ State lives on the session and is persisted with session metadata.
 ### Normal extraction
 
 When a forked extraction completes successfully, the session manager advances
-`next_unextracted_turn` through the extracted turn window and resets the
-eligible-turn counter.
+`next_unextracted_turn` through the extracted turn window, resets the
+eligible-turn counter, and records the last-consumed timestamp for interval
+throttling.
 
 ### Context compaction
 
@@ -168,6 +172,9 @@ Claude's behavior:
 - still advance the durable cursor through that turn
 
 This keeps the system from repeatedly reconsidering already-consumed history.
+It also updates the same last-consumed timestamp used by extraction cooldown
+gating, so a direct write and a background extraction both count as "memory
+was just updated".
 
 ## What counts as an eligible turn
 
@@ -188,8 +195,10 @@ Global config lives under:
 
 - `ai.auto_memory.global.enabled`
 - `ai.auto_memory.global.extract_every_eligible_turns`
+- `ai.auto_memory.global.min_extract_interval_secs`
 - `ai.auto_memory.workspace.enabled`
 - `ai.auto_memory.workspace.extract_every_eligible_turns`
+- `ai.auto_memory.workspace.min_extract_interval_secs`
 
 Behavior:
 
@@ -205,10 +214,23 @@ Behavior:
 - `extract_every_eligible_turns = N`
   Run once there are at least N unextracted eligible turns for that scope,
   checked on each newly completed eligible turn.
+- `min_extract_interval_secs = 0`
+  Disable time-based cooldown for that scope.
+- `min_extract_interval_secs = T`
+  Require at least T seconds since the last extraction commit or direct memory
+  write before the next auto-memory run may start.
 
 This is modeled after Claude's "every N eligible turns" extraction throttle,
 but implemented durably on the session state instead of a transient closure
-counter.
+counter. Sparo OS extends that with a durable cooldown gate so scheduling can
+respect both:
+
+- enough eligible turns have accumulated
+- enough time has passed since the last memory-consuming update
+
+If the turn threshold is met but cooldown has not expired yet, the session is
+kept in the workspace worker's delayed queue and automatically wakes once the
+cooldown deadline is reached, even if no new dialog turn arrives.
 
 ## Scheduling and Concurrency
 
@@ -248,6 +270,7 @@ Sparo OS coalesces differently:
 
 - persisted turns are durable, so we do not need to stash a "latest context"
 - the workspace worker keeps a set of pending sessions
+- the worker also tracks delayed sessions waiting for a cooldown deadline
 - after a session run finishes, it requeues the session only if it still has
   pending auto-memory work
 

@@ -515,6 +515,7 @@ impl CronService {
                 None,
                 Some(enqueue_input.turn_id.clone()),
                 String::new(),
+                None,
                 Some(enqueue_input.workspace_path),
                 scheduled_job_policy(),
                 None,
@@ -737,6 +738,7 @@ fn scheduled_job_policy() -> DialogSubmissionPolicy {
     DialogSubmissionPolicy::new(
         DialogTriggerSource::ScheduledJob,
         DialogQueuePriority::Low,
+        true,
         true,
     )
 }

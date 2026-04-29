@@ -2,7 +2,9 @@
 //!
 //! Responsible for session CRUD, lifecycle management, and resource association
 
-use crate::agentic::auto_memory::{AutoMemoryExtractionCursor, AutoMemoryState};
+use crate::agentic::auto_memory::{
+    AutoMemoryExtractionCursor, AutoMemoryScheduleDecision, AutoMemoryState,
+};
 use crate::agentic::core::{
     CompressionState, DialogTurn, Message, MessageSemanticKind, ProcessingPhase, Session,
     SessionConfig, SessionKind, SessionState, SessionSummary, TurnStats,
@@ -726,9 +728,10 @@ impl SessionManager {
 
         // 3. Persist to local path (handles remote workspaces correctly)
         if self.config.enable_persistence && Self::should_persist_session(&session) {
-            if let Some(session) = self.sessions.get(&session_id) {
+            let session_to_persist = self.sessions.get(&session_id).map(|session| session.clone());
+            if let Some(session) = session_to_persist.as_ref() {
                 self.persistence_manager
-                    .save_session(&session_storage_path, &session)
+                    .save_session(&session_storage_path, session)
                     .await?;
             }
         }
@@ -867,6 +870,7 @@ impl SessionManager {
         &self,
         session_id: &str,
         turn_id: &str,
+        consumed_at_ms: i64,
     ) -> BitFunResult<bool> {
         let history_revision = self
             .get_auto_memory_state(session_id)
@@ -882,6 +886,7 @@ impl SessionManager {
             session_id,
             turn_index,
             history_revision,
+            consumed_at_ms,
         )
         .await
     }
@@ -890,7 +895,9 @@ impl SessionManager {
         &self,
         session_id: &str,
         extract_every_eligible_turns: usize,
-    ) -> BitFunResult<bool> {
+        min_extract_interval_secs: u64,
+        now_ms: i64,
+    ) -> BitFunResult<AutoMemoryScheduleDecision> {
         let effective_path = self.effective_session_workspace_path(session_id).await;
 
         let Some(mut session) = self.sessions.get_mut(session_id) else {
@@ -907,9 +914,13 @@ impl SessionManager {
         let threshold = extract_every_eligible_turns.max(1);
         let next_unextracted_turn = session.auto_memory_state.next_unextracted_turn;
         let history_revision = session.auto_memory_state.history_revision;
-        let should_schedule = session
+        let schedule_decision = session
             .auto_memory_state
-            .note_eligible_turn_and_check_threshold(threshold);
+            .note_eligible_turn_and_schedule_decision(
+                threshold,
+                min_extract_interval_secs,
+                now_ms,
+            );
 
         if self.config.enable_persistence {
             if let Some(ref workspace_path) = effective_path {
@@ -920,17 +931,43 @@ impl SessionManager {
         }
 
         debug!(
-            "Recorded auto memory eligible turn: session_id={}, turn_count={}, next_unextracted_turn={}, history_revision={}, eligible_turns_since_last_extraction={}, extract_every_eligible_turns={}, should_schedule={}",
+            "Recorded auto memory eligible turn: session_id={}, turn_count={}, next_unextracted_turn={}, history_revision={}, eligible_turns_since_last_extraction={}, extract_every_eligible_turns={}, min_extract_interval_secs={}, schedule_decision={:?}",
             session_id,
             turn_count,
             next_unextracted_turn,
             history_revision,
             session.auto_memory_state.eligible_turns_since_last_extraction,
             threshold,
-            should_schedule
+            min_extract_interval_secs,
+            schedule_decision
         );
 
-        Ok(should_schedule)
+        Ok(schedule_decision)
+    }
+
+    pub fn auto_memory_schedule_decision(
+        &self,
+        session_id: &str,
+        extract_every_eligible_turns: usize,
+        min_extract_interval_secs: u64,
+        now_ms: i64,
+    ) -> BitFunResult<AutoMemoryScheduleDecision> {
+        let Some(session) = self.sessions.get(session_id) else {
+            return Err(BitFunError::NotFound(format!(
+                "Session not found: {}",
+                session_id
+            )));
+        };
+
+        let turn_count = session.dialog_turn_ids.len();
+        let mut state = session.auto_memory_state.clone();
+        state.normalize_for_turn_count(turn_count);
+
+        Ok(state.schedule_decision(
+            extract_every_eligible_turns,
+            min_extract_interval_secs,
+            now_ms,
+        ))
     }
 
     pub async fn note_auto_memory_rollback(
@@ -980,6 +1017,7 @@ impl SessionManager {
         session_id: &str,
         through_turn: usize,
         history_revision: u64,
+        consumed_at_ms: i64,
     ) -> BitFunResult<bool> {
         let effective_path = self.effective_session_workspace_path(session_id).await;
 
@@ -1014,7 +1052,7 @@ impl SessionManager {
 
         session
             .auto_memory_state
-            .mark_extracted_through(through_turn, turn_count);
+            .mark_extracted_through(through_turn, turn_count, consumed_at_ms);
 
         if self.config.enable_persistence {
             if let Some(ref workspace_path) = effective_path {
@@ -1705,16 +1743,16 @@ impl SessionManager {
                 },
             );
 
-            if let Some(session) = self.sessions.get(session_id) {
+            let session_to_persist = self.sessions.get(session_id).map(|session| session.clone());
+            if let Some(session) = session_to_persist.as_ref() {
                 self.persistence_manager
-                    .save_session(&workspace_path, &session)
+                    .save_session(&workspace_path, session)
                     .await?;
             }
             self.persistence_manager
                 .save_dialog_turn(&workspace_path, &turn_data)
                 .await?;
         }
-
         self.persist_context_snapshot_for_turn_best_effort(session_id, turn_index, "turn_started")
             .await;
 
@@ -2454,15 +2492,17 @@ impl SessionManager {
             loop {
                 ticker.tick().await;
 
-                for entry in sessions.iter() {
-                    let session = entry.value();
-                    if !Self::should_persist_session(session) {
+                let sessions_to_persist: Vec<Session> =
+                    sessions.iter().map(|entry| entry.value().clone()).collect();
+
+                for session in sessions_to_persist {
+                    if !Self::should_persist_session(&session) {
                         continue;
                     }
                     if let Some(workspace_path) =
                         Self::effective_workspace_path_from_config(&session.config).await
                     {
-                        if let Err(e) = persistence.save_session(&workspace_path, session).await {
+                        if let Err(e) = persistence.save_session(&workspace_path, &session).await {
                             error!(
                                 "Failed to auto-save session: session_id={}, error={}",
                                 session.session_id, e
@@ -2534,6 +2574,7 @@ impl SessionManager {
 #[cfg(test)]
 mod tests {
     use super::{SessionManager, SessionManagerConfig};
+    use crate::agentic::auto_memory::AutoMemoryScheduleDecision;
     use crate::agentic::core::SessionConfig;
     use crate::agentic::persistence::PersistenceManager;
     use crate::agentic::session::SessionContextStore;
@@ -2885,10 +2926,13 @@ mod tests {
         complete_turn(&manager, &session_id, &first_turn_id).await;
 
         let first_ready = manager
-            .note_auto_memory_eligible_turn(&session_id, 2)
+            .note_auto_memory_eligible_turn(&session_id, 2, 0, 1_000)
             .await
             .expect("first eligible turn should update state");
-        assert!(!first_ready);
+        assert_eq!(
+            first_ready,
+            AutoMemoryScheduleDecision::NotReadyByEligibleTurns
+        );
         let after_first = manager
             .get_auto_memory_state(&session_id)
             .expect("state should exist");
@@ -2901,14 +2945,49 @@ mod tests {
         complete_turn(&manager, &session_id, &second_turn_id).await;
 
         let second_ready = manager
-            .note_auto_memory_eligible_turn(&session_id, 2)
+            .note_auto_memory_eligible_turn(&session_id, 2, 0, 2_000)
             .await
             .expect("second eligible turn should update state");
-        assert!(second_ready);
+        assert_eq!(second_ready, AutoMemoryScheduleDecision::ReadyNow);
         let after_second = manager
             .get_auto_memory_state(&session_id)
             .expect("state should exist");
         assert_eq!(after_second.eligible_turns_since_last_extraction, 2);
+    }
+
+    #[tokio::test]
+    async fn note_auto_memory_eligible_turn_respects_cooldown_interval() {
+        let workspace = TestWorkspace::new();
+        let (_, manager) = build_test_session_manager();
+        let (session_id, first_turn_id) =
+            create_session_with_turn(&manager, workspace.path()).await;
+        complete_turn(&manager, &session_id, &first_turn_id).await;
+
+        let committed = manager
+            .complete_auto_memory_extraction_if_revision_matches(&session_id, 0, 0, 1_000)
+            .await
+            .expect("initial commit should succeed");
+        assert!(committed);
+
+        let second_turn_id = manager
+            .start_dialog_turn(&session_id, "second".to_string(), None, None, None)
+            .await
+            .expect("second turn should start");
+        complete_turn(&manager, &session_id, &second_turn_id).await;
+
+        let decision = manager
+            .note_auto_memory_eligible_turn(&session_id, 1, 60, 30_000)
+            .await
+            .expect("eligible turn should update state");
+        assert_eq!(
+            decision,
+            AutoMemoryScheduleDecision::CoolingDown { ready_at_ms: 61_000 }
+        );
+
+        let decision = manager
+            .auto_memory_schedule_decision(&session_id, 1, 60, 61_000)
+            .expect("schedule decision should load");
+        assert_eq!(decision, AutoMemoryScheduleDecision::ReadyNow);
     }
 
     #[tokio::test]
@@ -2919,10 +2998,10 @@ mod tests {
         complete_turn(&manager, &session_id, &turn_id).await;
 
         let ready = manager
-            .note_auto_memory_eligible_turn(&session_id, 3)
+            .note_auto_memory_eligible_turn(&session_id, 3, 0, 1_000)
             .await
             .expect("eligible turn should update state");
-        assert!(!ready);
+        assert_eq!(ready, AutoMemoryScheduleDecision::NotReadyByEligibleTurns);
 
         manager
             .note_auto_memory_rollback(&session_id, 0)
@@ -2950,15 +3029,15 @@ mod tests {
         complete_turn(&manager, &session_id, &second_turn_id).await;
 
         let ready = manager
-            .note_auto_memory_eligible_turn(&session_id, 2)
+            .note_auto_memory_eligible_turn(&session_id, 2, 0, 1_000)
             .await
             .expect("first eligible turn should update state");
-        assert!(!ready);
+        assert_eq!(ready, AutoMemoryScheduleDecision::NotReadyByEligibleTurns);
         let ready = manager
-            .note_auto_memory_eligible_turn(&session_id, 2)
+            .note_auto_memory_eligible_turn(&session_id, 2, 0, 2_000)
             .await
             .expect("second eligible turn should update state");
-        assert!(ready);
+        assert_eq!(ready, AutoMemoryScheduleDecision::ReadyNow);
 
         let before_commit = manager
             .get_auto_memory_state(&session_id)
@@ -2966,7 +3045,7 @@ mod tests {
         assert_eq!(before_commit.eligible_turns_since_last_extraction, 2);
 
         let committed = manager
-            .complete_auto_memory_extraction_if_revision_matches(&session_id, 1, 0)
+            .complete_auto_memory_extraction_if_revision_matches(&session_id, 1, 0, 3_000)
             .await
             .expect("commit should succeed");
         assert!(committed);
@@ -2975,6 +3054,7 @@ mod tests {
             .get_auto_memory_state(&session_id)
             .expect("state should exist");
         assert_eq!(after_commit.eligible_turns_since_last_extraction, 0);
+        assert_eq!(after_commit.last_memory_consumed_at_ms, Some(3_000));
     }
 
     #[tokio::test]
@@ -2997,7 +3077,7 @@ mod tests {
         assert_eq!(before.next_unextracted_turn, 0);
 
         let advanced = manager
-            .mark_auto_memory_consumed_through_turn(&session_id, &second_turn_id)
+            .mark_auto_memory_consumed_through_turn(&session_id, &second_turn_id, 5_000)
             .await
             .expect("cursor advance should succeed");
 
@@ -3006,6 +3086,7 @@ mod tests {
             .get_auto_memory_state(&session_id)
             .expect("state should exist");
         assert_eq!(after.next_unextracted_turn, 2);
+        assert_eq!(after.last_memory_consumed_at_ms, Some(5_000));
         assert!(manager.next_auto_memory_cursor(&session_id).is_none());
     }
 }

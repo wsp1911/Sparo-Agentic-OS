@@ -24,6 +24,7 @@ export interface AppConfig {
   right_panel: RightPanelConfig;
   notifications: NotificationConfig;
   session_config: AppSessionConfig;
+  host_scan: AppHostScanConfig;
   ai_experience: AIExperienceConfig;
 }
 
@@ -35,6 +36,11 @@ export interface AppLoggingConfig {
 
 // Reserved; legacy `default_mode` in saved JSON is ignored by the app.
 export type AppSessionConfig = Record<string, never>;
+
+export interface AppHostScanConfig {
+  auto_scan_enabled: boolean;
+  auto_scan_interval_days: number;
+}
 
 export interface SidebarConfig {
   width: number;
@@ -192,6 +198,7 @@ export interface AutoMemoryConfig {
 export interface AutoMemoryScopeConfig {
   enabled: boolean;
   extract_every_eligible_turns: number;
+  min_extract_interval_secs: number;
 }
 
 export interface StoredModeConfigItem {

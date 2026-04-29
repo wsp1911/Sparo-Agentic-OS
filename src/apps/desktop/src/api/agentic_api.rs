@@ -87,8 +87,12 @@ pub struct StartDialogTurnRequest {
     pub user_input: String,
     pub original_user_input: Option<String>,
     pub agent_type: String,
+    #[serde(default)]
+    pub system_reminder_override: Option<String>,
     pub workspace_path: Option<String>,
     pub turn_id: Option<String>,
+    #[serde(default)]
+    pub persist_agent_type: Option<bool>,
     #[serde(default)]
     pub image_contexts: Option<Vec<ImageContextData>>,
 }
@@ -450,12 +454,15 @@ pub async fn start_dialog_turn(
         user_input,
         original_user_input,
         agent_type,
+        system_reminder_override,
         workspace_path,
         turn_id,
+        persist_agent_type,
         image_contexts,
     } = request;
 
-    let policy = DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopUi);
+    let policy = DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopUi)
+        .with_persist_agent_type(persist_agent_type.unwrap_or(true));
     let resolved_images = if let Some(image_contexts) = image_contexts
         .as_ref()
         .filter(|images| !images.is_empty())
@@ -473,6 +480,7 @@ pub async fn start_dialog_turn(
             original_user_input,
             turn_id,
             agent_type,
+            system_reminder_override,
             workspace_path,
             policy,
             None,
