@@ -8,17 +8,8 @@ import {
 } from '../../../shared/types';
 import { normalizeRemoteWorkspacePath } from '@/shared/utils/pathUtils';
 import { createLogger } from '@/shared/utils/logger';
-import { listen } from '@tauri-apps/api/event';
 
 const log = createLogger('WorkspaceManager');
-
-interface WorkspaceIdentityChangedEvent {
-  workspaceId: string;
-  workspacePath: string;
-  name: string;
-  identity: WorkspaceInfo['identity'];
-  changedFields: string[];
-}
 
 export type WorkspaceEvent =
   | { type: 'workspace:opened'; workspace: WorkspaceInfo }
@@ -43,7 +34,7 @@ export interface WorkspaceState {
   error: string | null;
 }
 
-export type WorkspaceSection = 'assistants' | 'projects';
+export type WorkspaceSection = 'projects';
 export type WorkspaceReorderPosition = 'before' | 'after';
 
 class WorkspaceManager {
@@ -52,7 +43,6 @@ class WorkspaceManager {
   private listeners: Set<WorkspaceEventListener> = new Set();
   private isInitialized = false;
   private isInitializing = false;
-  private identityEventListening = false;
 
   private constructor() {
     this.state = {
@@ -133,10 +123,8 @@ class WorkspaceManager {
     return Array.from(this.state.openedWorkspaces.values());
   }
 
-  private isWorkspaceInSection(workspace: WorkspaceInfo, section: WorkspaceSection): boolean {
-    return section === 'assistants'
-      ? workspace.workspaceKind === 'assistant'
-      : workspace.workspaceKind !== 'assistant';
+  private isWorkspaceInSection(workspace: WorkspaceInfo, _section: WorkspaceSection): boolean {
+    return Boolean(workspace);
   }
 
   private preserveOpenedWorkspaceOrder(workspaces: WorkspaceInfo[]): WorkspaceInfo[] {
@@ -263,76 +251,6 @@ class WorkspaceManager {
     );
   }
 
-  private async ensureIdentityChangeListener(): Promise<void> {
-    if (this.identityEventListening) {
-      return;
-    }
-
-    this.identityEventListening = true;
-
-    try {
-      await listen<WorkspaceIdentityChangedEvent>('workspace-identity-changed', event => {
-        this.applyIdentityUpdate(event.payload);
-      });
-    } catch (error) {
-      this.identityEventListening = false;
-      log.error('Failed to subscribe workspace identity updates', { error });
-    }
-  }
-
-  private applyIdentityUpdate(update: WorkspaceIdentityChangedEvent): void {
-    const updateWorkspace = (workspace: WorkspaceInfo | null): WorkspaceInfo | null => {
-      if (!workspace) {
-        return null;
-      }
-
-      const matches =
-        workspace.id === update.workspaceId ||
-        workspace.rootPath === update.workspacePath;
-
-      if (!matches) {
-        return workspace;
-      }
-
-      return {
-        ...workspace,
-        name: update.name,
-        identity: update.identity ?? null,
-      };
-    };
-
-    const currentWorkspace = updateWorkspace(this.state.currentWorkspace);
-    const openedWorkspaces = new Map(
-      Array.from(this.state.openedWorkspaces.entries()).map(([id, workspace]) => [
-        id,
-        updateWorkspace(workspace) ?? workspace,
-      ])
-    );
-    const recentWorkspaces = this.state.recentWorkspaces.map(
-      workspace => updateWorkspace(workspace) ?? workspace
-    );
-
-    const updatedWorkspace =
-      currentWorkspace?.id === update.workspaceId
-        ? currentWorkspace
-        : openedWorkspaces.get(update.workspaceId) ||
-          recentWorkspaces.find(workspace => workspace.id === update.workspaceId) ||
-          null;
-
-    if (!updatedWorkspace) {
-      return;
-    }
-
-    this.updateState(
-      {
-        currentWorkspace,
-        openedWorkspaces,
-        recentWorkspaces,
-      },
-      { type: 'workspace:updated', workspace: updatedWorkspace }
-    );
-  }
-
   public async initialize(): Promise<void> {
     if (this.isInitialized || this.isInitializing) {
       return;
@@ -341,7 +259,6 @@ class WorkspaceManager {
     try {
       this.isInitializing = true;
       log.info('Initializing workspace state');
-      await this.ensureIdentityChangeListener();
 
       const initResult = await globalStateAPI.initializeGlobalState();
       log.debug('Backend initialization completed', { result: initResult });
@@ -505,36 +422,6 @@ class WorkspaceManager {
     return undefined;
   }
 
-  public async createAssistantWorkspace(): Promise<WorkspaceInfo> {
-    try {
-      this.setLoading(true);
-      this.setError(null);
-
-      const workspace = await globalStateAPI.createAssistantWorkspace();
-      const [currentWorkspace, recentWorkspaces, openedWorkspaces] = await Promise.all([
-        globalStateAPI.getCurrentWorkspace(),
-        globalStateAPI.getRecentWorkspaces(),
-        globalStateAPI.getOpenedWorkspaces(),
-      ]);
-
-      this.updateWorkspaceState(
-        currentWorkspace,
-        recentWorkspaces,
-        openedWorkspaces,
-        false,
-        null,
-        { type: 'workspace:opened', workspace }
-      );
-
-      return workspace;
-    } catch (error) {
-      log.error('Failed to create assistant workspace', { error });
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.updateState({ loading: false, error: errorMessage }, { type: 'workspace:error', error: errorMessage });
-      throw error;
-    }
-  }
-
   public async closeWorkspace(): Promise<void> {
     if (!this.state.currentWorkspace?.id) {
       return;
@@ -570,79 +457,6 @@ class WorkspaceManager {
       this.emit({ type: 'workspace:active-changed', workspace: currentWorkspace });
     } catch (error) {
       log.error('Failed to close workspace', { workspaceId, error });
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.updateState({ loading: false, error: errorMessage }, { type: 'workspace:error', error: errorMessage });
-      throw error;
-    }
-  }
-
-  public async deleteAssistantWorkspace(workspaceId: string): Promise<void> {
-    try {
-      this.setLoading(true);
-      this.setError(null);
-
-      log.info('Deleting assistant workspace', { workspaceId });
-
-      const removedWorkspace = this.state.openedWorkspaces.get(workspaceId);
-      await globalStateAPI.deleteAssistantWorkspace(workspaceId);
-
-      if (removedWorkspace) {
-        const { flowChatStore } = await import('@/flow_chat/store/FlowChatStore');
-        flowChatStore.removeSessionsForWorkspace(removedWorkspace);
-      }
-
-      const [currentWorkspace, recentWorkspaces, openedWorkspaces] = await Promise.all([
-        globalStateAPI.getCurrentWorkspace(),
-        globalStateAPI.getRecentWorkspaces(),
-        globalStateAPI.getOpenedWorkspaces(),
-      ]);
-
-      this.updateWorkspaceState(
-        currentWorkspace,
-        recentWorkspaces,
-        openedWorkspaces,
-        false,
-        null,
-        { type: 'workspace:removed', workspaceId }
-      );
-
-      this.emit({ type: 'workspace:active-changed', workspace: currentWorkspace });
-    } catch (error) {
-      log.error('Failed to delete assistant workspace', { workspaceId, error });
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.updateState({ loading: false, error: errorMessage }, { type: 'workspace:error', error: errorMessage });
-      throw error;
-    }
-  }
-
-  public async resetAssistantWorkspace(workspaceId: string): Promise<WorkspaceInfo> {
-    try {
-      this.setLoading(true);
-      this.setError(null);
-
-      log.info('Resetting assistant workspace', { workspaceId });
-
-      const workspace = await globalStateAPI.resetAssistantWorkspace(workspaceId);
-
-      const [currentWorkspace, recentWorkspaces, openedWorkspaces] = await Promise.all([
-        globalStateAPI.getCurrentWorkspace(),
-        globalStateAPI.getRecentWorkspaces(),
-        globalStateAPI.getOpenedWorkspaces(),
-      ]);
-
-      this.updateWorkspaceState(
-        currentWorkspace,
-        recentWorkspaces,
-        openedWorkspaces,
-        false,
-        null,
-        { type: 'workspace:updated', workspace }
-      );
-
-      this.emit({ type: 'workspace:active-changed', workspace: currentWorkspace });
-      return workspace;
-    } catch (error) {
-      log.error('Failed to reset assistant workspace', { workspaceId, error });
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.updateState({ loading: false, error: errorMessage }, { type: 'workspace:error', error: errorMessage });
       throw error;

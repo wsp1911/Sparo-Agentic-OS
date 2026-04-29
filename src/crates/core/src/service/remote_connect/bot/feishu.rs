@@ -805,14 +805,6 @@ impl FeishuBot {
                 },
             ),
             (
-                "/assistant",
-                if language.is_chinese() {
-                    "助理模式"
-                } else {
-                    "Assistant Mode"
-                },
-            ),
-            (
                 "/resume_session",
                 if language.is_chinese() {
                     "恢复会话"
@@ -834,14 +826,6 @@ impl FeishuBot {
                     "新建协作会话"
                 } else {
                     "New Cowork Session"
-                },
-            ),
-            (
-                "/new_claw_session",
-                if language.is_chinese() {
-                    "新建助理会话"
-                } else {
-                    "New Claw Session"
                 },
             ),
             (

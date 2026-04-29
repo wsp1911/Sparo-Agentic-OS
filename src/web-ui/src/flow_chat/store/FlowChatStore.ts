@@ -1637,7 +1637,6 @@ export class FlowChatStore {
           'Plan',
           'Cowork',
           'Design',
-          'Claw',
           'DeepResearch',
           'Dispatcher',
           'LiveAppStudio',

@@ -13,12 +13,10 @@ import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { ProcessingIndicator } from '@/flow_chat/components/modern/ProcessingIndicator';
 
 import SettingsScene from '../scenes/settings/SettingsScene';
-import AssistantScene from '../scenes/assistant/AssistantScene';
 
 const TerminalScene     = lazy(() => import('../scenes/terminal/TerminalScene'));
 const FileViewerScene   = lazy(() => import('../scenes/file-viewer/FileViewerScene'));
 const MemoryScene       = lazy(() => import('../scenes/memory/MemoryScene'));
-const ProfileScene      = lazy(() => import('../scenes/profile/ProfileScene'));
 import AppsScene from '../scenes/apps/AppsScene';
 const SubagentsScene    = lazy(() => import('../scenes/subagents/SubagentsScene'));
 const SkillsScene       = lazy(() => import('../scenes/skills/SkillsScene'));
@@ -69,8 +67,6 @@ function renderOverlayScene(id: OverlaySceneId, workspacePath?: string): React.R
       return <FileViewerScene workspacePath={workspacePath} />;
     case 'memory':
       return <MemoryScene />;
-    case 'profile':
-      return <ProfileScene />;
     case 'apps':
       return <AppsScene />;
     case 'subagents':
@@ -79,8 +75,6 @@ function renderOverlayScene(id: OverlaySceneId, workspacePath?: string): React.R
       return <SkillsScene />;
     case 'tools':
       return <ToolsScene />;
-    case 'assistant':
-      return <AssistantScene workspacePath={workspacePath} />;
     case 'shell':
       return <ShellScene isActive />;
     case 'panel-view':

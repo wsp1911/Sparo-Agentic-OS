@@ -23,7 +23,6 @@ import type { FlowChatState } from '../types/flow-chat';
 import type { FileContext, DirectoryContext, ImageContext } from '../../shared/types/context';
 import { SmartRecommendations } from './smart-recommendations';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
-import { WorkspaceKind } from '@/shared/types';
 import { createImageContextFromFile, createImageContextFromClipboard } from '../utils/imageUtils';
 import { notificationService } from '@/shared/notification-system';
 import { inputReducer, initialInputState } from '../reducers/inputReducer';
@@ -55,7 +54,6 @@ import { ChatInputPixelPet } from './ChatInputPixelPet';
 import './ChatInput.scss';
 
 const log = createLogger('ChatInput');
-const EXPLICIT_ASSISTANT_MODES = new Set(['Dispatcher', 'dispatcher', 'LiveAppStudio', 'liveappstudio']);
 const FIXED_AGENT_MODE_IDS = new Set(['cowork', 'design', 'dispatcher', 'liveappstudio']);
 
 export interface ChatInputProps {
@@ -280,19 +278,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     agentCompanionEnabled && !inputState.isActive && !inputState.value.trim();
   const { transition, setQueuedInput } = useSessionStateMachineActions(effectiveTargetSessionId);
 
-  const { workspace, workspacePath } = useCurrentWorkspace();
+  const { workspacePath } = useCurrentWorkspace();
   
   const [tokenUsage, setTokenUsage] = React.useState({ current: 0, max: 128128 });
-  const isAssistantWorkspace = workspace?.workspaceKind === WorkspaceKind.Assistant;
   const currentMode = modeState.current;
   const currentModeLower = currentMode.toLowerCase();
   const activeSessionMode = effectiveTargetSessionId
     ? flowChatState.sessions.get(effectiveTargetSessionId)?.mode
     : undefined;
   // Fixed-purpose agent sessions do not support code-mode switching.
-  const canSwitchModes =
-    !isAssistantWorkspace &&
-    !FIXED_AGENT_MODE_IDS.has(currentModeLower);
+  const canSwitchModes = !FIXED_AGENT_MODE_IDS.has(currentModeLower);
 
   // Session-level mode policy: fixed-purpose sessions are not available as incremental mode switches.
   const switchableModes = useMemo(
@@ -300,10 +295,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       modeState.available.filter(mode =>
         mode.enabled &&
         mode.id !== 'Cowork' &&
-        mode.id !== 'Design' &&
-        (isAssistantWorkspace || mode.id !== 'Claw')
+        mode.id !== 'Design'
       ),
-    [isAssistantWorkspace, modeState.available]
+    [modeState.available]
   );
 
   /** Code session: modes switchable on top of default agentic */
@@ -767,25 +761,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, []);
 
   React.useEffect(() => {
-    const nextMode =
-      isAssistantWorkspace &&
-      (EXPLICIT_ASSISTANT_MODES.has(currentMode) ||
-        (activeSessionMode ? EXPLICIT_ASSISTANT_MODES.has(activeSessionMode) : false))
-        ? activeSessionMode && activeSessionMode !== currentMode
-          ? activeSessionMode
-          : null
-        : resolveWorkspaceChatInputMode({
-            currentMode,
-            isAssistantWorkspace,
-            sessionMode: activeSessionMode,
-          });
+    const nextMode = resolveWorkspaceChatInputMode({
+      currentMode,
+      isAssistantWorkspace: false,
+      sessionMode: activeSessionMode,
+    });
 
     if (nextMode) {
       log.debug('Syncing mode with workspace and session', {
         sessionId: effectiveTargetSessionId,
         mode: nextMode,
         sessionMode: activeSessionMode,
-        isAssistantWorkspace,
       });
       dispatchMode({ type: 'SET_CURRENT_MODE', payload: nextMode });
       try {
@@ -794,7 +780,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         // ignore
       }
     }
-  }, [activeSessionMode, currentMode, effectiveTargetSessionId, isAssistantWorkspace]);
+  }, [activeSessionMode, currentMode, effectiveTargetSessionId]);
 
   React.useEffect(() => {
     const queuedInput = derivedState?.queuedInput;

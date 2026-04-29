@@ -127,32 +127,8 @@ pub struct LoadPersistedSessionMetadataRequest {
 }
 
 fn legacy_dispatcher_workspace_roots(path_manager: &PathManager) -> Vec<PathBuf> {
-    let mut roots = vec![
-        path_manager.default_assistant_workspace_dir(None),
-        path_manager.legacy_default_assistant_workspace_dir(None),
-    ];
-    for base in [
-        path_manager.assistant_workspace_base_dir(None),
-        path_manager.legacy_assistant_workspace_base_dir(None),
-    ] {
-        if let Ok(entries) = std::fs::read_dir(base) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if !path.is_dir() {
-                    continue;
-                }
-                let Some(name) = path.file_name().and_then(|v| v.to_str()) else {
-                    continue;
-                };
-                if name == "workspace" || name.starts_with("workspace-") {
-                    roots.push(path);
-                }
-            }
-        }
-    }
-    roots.sort();
-    roots.dedup();
-    roots
+    let _ = path_manager;
+    Vec::new()
 }
 
 async fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {

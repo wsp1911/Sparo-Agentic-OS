@@ -28,7 +28,6 @@ export interface WorkspaceInfo {
   name: string;
   rootPath: string;
   workspaceKind: string;
-  assistantId?: string | null;
   openedAt: string;
   lastAccessed: string;
   identity?: WorkspaceIdentity | null;
@@ -54,8 +53,6 @@ export interface OpenRemoteWorkspaceRequest {
   sshHost?: string;
 }
 
-export type CreateAssistantWorkspaceRequest = Record<string, never>;
-
 export interface CloseWorkspaceRequest {
   workspaceId: string;
 }
@@ -66,14 +63,6 @@ export interface SetActiveWorkspaceRequest {
 
 export interface ReorderOpenedWorkspacesRequest {
   workspaceIds: string[];
-}
-
-export interface DeleteAssistantWorkspaceRequest {
-  workspaceId: string;
-}
-
-export interface ResetAssistantWorkspaceRequest {
-  workspaceId: string;
 }
 
 export interface ScanWorkspaceInfoRequest {
@@ -151,16 +140,6 @@ export class GlobalAPI {
     }
   }
 
-  async createAssistantWorkspace(): Promise<WorkspaceInfo> {
-    try {
-      return await api.invoke('create_assistant_workspace', {
-        request: {},
-      });
-    } catch (error) {
-      throw createTauriCommandError('create_assistant_workspace', error);
-    }
-  }
-
    
   async closeWorkspace(workspaceId: string): Promise<void> {
     try {
@@ -189,26 +168,6 @@ export class GlobalAPI {
       });
     } catch (error) {
       throw createTauriCommandError('reorder_opened_workspaces', error, { workspaceIds });
-    }
-  }
-
-  async deleteAssistantWorkspace(workspaceId: string): Promise<void> {
-    try {
-      await api.invoke('delete_assistant_workspace', {
-        request: { workspaceId }
-      });
-    } catch (error) {
-      throw createTauriCommandError('delete_assistant_workspace', error, { workspaceId });
-    }
-  }
-
-  async resetAssistantWorkspace(workspaceId: string): Promise<WorkspaceInfo> {
-    try {
-      return await api.invoke('reset_assistant_workspace', {
-        request: { workspaceId }
-      });
-    } catch (error) {
-      throw createTauriCommandError('reset_assistant_workspace', error, { workspaceId });
     }
   }
 

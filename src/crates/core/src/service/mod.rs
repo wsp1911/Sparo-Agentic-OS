@@ -3,7 +3,6 @@
 //! Contains core business logic: Workspace, Config, FileSystem, Agentic, MCP.
 
 pub mod announcement; // Announcement / feature-demo / tips system
-pub(crate) mod bootstrap; // Workspace persona bootstrap helpers
 pub mod config; // Config management
 pub mod cron; // Scheduled jobs
 pub mod file_watch;
@@ -29,7 +28,6 @@ pub use terminal_core as terminal;
 
 // Re-export main components.
 pub use announcement::{AnnouncementCard, AnnouncementScheduler, AnnouncementSchedulerRef};
-pub use bootstrap::reset_workspace_persona_files_to_default;
 pub use config::{ConfigManager, ConfigProvider, ConfigService};
 pub use cron::{
     get_global_cron_service, set_global_cron_service, CronEventSubscriber, CronService,

@@ -1,7 +1,6 @@
 //! System prompts module providing main dialogue and agent dialogue prompts
 use super::bitfun_self_provider::build_bitfun_self_prompt;
 use super::request_context::{RequestContextPolicy, RequestContextSection};
-use crate::service::bootstrap::build_workspace_persona_prompt;
 use crate::service::config::get_app_language_code;
 use crate::service::config::global::GlobalConfigManager;
 use crate::service::filesystem::get_formatted_directory_listing;
@@ -17,11 +16,9 @@ use log::{debug, warn};
 use std::path::Path;
 
 /// Placeholder constants
-const PLACEHOLDER_PERSONA: &str = "{PERSONA}";
 const PLACEHOLDER_ENV_INFO: &str = "{ENV_INFO}";
 const PLACEHOLDER_LANGUAGE_PREFERENCE: &str = "{LANGUAGE_PREFERENCE}";
 const PLACEHOLDER_AGENT_MEMORY: &str = "{AGENT_MEMORY}";
-const PLACEHOLDER_CLAW_WORKSPACE: &str = "{CLAW_WORKSPACE}";
 const PLACEHOLDER_VISUAL_MODE: &str = "{VISUAL_MODE}";
 const PLACEHOLDER_BITFUN_SELF: &str = "{BITFUN_SELF}";
 
@@ -335,64 +332,22 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
         Ok(format!("# Language Preference\nYou MUST respond in {} regardless of the user's input language. This is the system language setting and should be followed unless the user explicitly specifies a different language. This is crucial for smooth communication and user experience\n", language))
     }
 
-    /// Get Claw-specific workspace boundary instruction
-    fn get_claw_workspace_instruction(&self) -> String {
-        format!(
-            "# Workspace
-Your dedicated operating space is `{}`.
-Prefer doing work inside this workspace and keep it well organized with clear structure, sensible filenames, and minimal clutter.
-Do not read from, modify, create, move, or delete files outside this workspace unless the user has explicitly granted permission for that external action.
-",
-            self.context.workspace_path
-        )
-    }
-
     /// Build prompt from template, automatically fill content based on placeholders
     ///
     /// Supported placeholders:
-    /// - `{PERSONA}` - Workspace persona files (BOOTSTRAP.md, SOUL.md, USER.md, IDENTITY.md)
     /// - `{LANGUAGE_PREFERENCE}` - User language preference (read from global config)
     /// - `{ENV_INFO}` - Environment information
     /// - `{AGENT_MEMORY}` - Agent memory instructions + auto-loaded memory index
-    /// - `{CLAW_WORKSPACE}` - Claw-specific workspace ownership and boundary rules
     /// - `{VISUAL_MODE}` - Visual mode instruction (Mermaid diagrams, read from global config)
     /// - `{BITFUN_SELF}` - BitFun app capabilities (scenes, settings, Live Apps) for ControlHub app domain
     /// If a placeholder is not in the template, corresponding content will not be added
     pub async fn build_prompt_from_template(&self, template: &str) -> BitFunResult<String> {
         let mut result = template.to_string();
 
-        // Replace {PERSONA}
-        if result.contains(PLACEHOLDER_PERSONA) {
-            let persona = if self.context.remote_execution.is_some() {
-                "# Workspace persona\nMarkdown persona files (e.g. BOOTSTRAP.md, SOUL.md) live on the **remote** workspace. Use Read or Glob under the workspace root above to load them.\n\n"
-                    .to_string()
-            } else {
-                let workspace = Path::new(&self.context.workspace_path);
-                match build_workspace_persona_prompt(workspace).await {
-                    Ok(prompt) => prompt.unwrap_or_default(),
-                    Err(e) => {
-                        warn!(
-                            "Failed to build workspace persona prompt: path={} error={}",
-                            workspace.display(),
-                            e
-                        );
-                        String::new()
-                    }
-                }
-            };
-            result = result.replace(PLACEHOLDER_PERSONA, &persona);
-        }
-
         // Replace {LANGUAGE_PREFERENCE}
         if result.contains(PLACEHOLDER_LANGUAGE_PREFERENCE) {
             let language_preference = self.get_language_preference().await?;
             result = result.replace(PLACEHOLDER_LANGUAGE_PREFERENCE, &language_preference);
-        }
-
-        // Replace {CLAW_WORKSPACE}
-        if result.contains(PLACEHOLDER_CLAW_WORKSPACE) {
-            let claw_workspace = self.get_claw_workspace_instruction();
-            result = result.replace(PLACEHOLDER_CLAW_WORKSPACE, &claw_workspace);
         }
 
         // Replace {ENV_INFO}

@@ -58,7 +58,6 @@ Current built-in apps:
 | **Code**   | For software development     | Built around Agentic, Plan, Debug, and Review workflows, covering implementation, planning, troubleshooting, and code review. |
 | **Cowork** | For office collaboration     | Suitable for organizing requirements, drafting content, and advancing day-to-day tasks and knowledge work.                    |
 | **Design** | For design exploration       | Used for HTML prototypes, visual artifacts, and design collaboration scenarios.                                               |
-| **Claw**   | For persistent collaboration | Designed for personal-assistant style collaboration, retaining context, preferences, and long-term memory.                    |
 
 
 ---

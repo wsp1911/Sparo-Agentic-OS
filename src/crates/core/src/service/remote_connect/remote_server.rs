@@ -264,10 +264,6 @@ pub enum RemoteCommand {
     SetWorkspace {
         path: String,
     },
-    ListAssistants,
-    SetAssistant {
-        path: String,
-    },
     ListSessions {
         workspace_path: Option<String>,
         limit: Option<usize>,
@@ -366,11 +362,9 @@ pub enum RemoteResponse {
         path: Option<String>,
         project_name: Option<String>,
         git_branch: Option<String>,
-        /// `"normal"` | `"assistant"` | `"remote"` — mirrors [`crate::service::workspace::WorkspaceKind`].
+        /// `"normal"` | `"remote"` — mirrors [`crate::service::workspace::WorkspaceKind`].
         #[serde(skip_serializing_if = "Option::is_none")]
         workspace_kind: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        assistant_id: Option<String>,
     },
     RecentWorkspaces {
         workspaces: Vec<RecentWorkspaceEntry>,
@@ -379,15 +373,6 @@ pub enum RemoteResponse {
         success: bool,
         path: Option<String>,
         project_name: Option<String>,
-        error: Option<String>,
-    },
-    AssistantList {
-        assistants: Vec<AssistantEntry>,
-    },
-    AssistantUpdated {
-        success: bool,
-        path: Option<String>,
-        name: Option<String>,
         error: Option<String>,
     },
     SessionList {
@@ -430,8 +415,6 @@ pub enum RemoteResponse {
         git_branch: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         workspace_kind: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        assistant_id: Option<String>,
         sessions: Vec<SessionInfo>,
         has_more_sessions: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -542,16 +525,9 @@ pub struct RecentWorkspaceEntry {
     pub path: String,
     pub name: String,
     pub last_opened: String,
-    /// `"normal"` | `"assistant"` | `"remote"`
+    /// `"normal"` | `"remote"`
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workspace_kind: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AssistantEntry {
-    pub path: String,
-    pub name: String,
-    pub assistant_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1891,9 +1867,7 @@ impl RemoteServer {
 
             RemoteCommand::GetWorkspaceInfo
             | RemoteCommand::ListRecentWorkspaces
-            | RemoteCommand::SetWorkspace { .. }
-            | RemoteCommand::ListAssistants
-            | RemoteCommand::SetAssistant { .. } => self.handle_workspace_command(cmd).await,
+            | RemoteCommand::SetWorkspace { .. } => self.handle_workspace_command(cmd).await,
 
             RemoteCommand::ListSessions { .. }
             | RemoteCommand::CreateSession { .. }
@@ -1948,14 +1922,12 @@ impl RemoteServer {
             project_name,
             git_branch,
             workspace_kind,
-            assistant_id,
         ) = if let Some(ws_service) = get_global_workspace_service() {
             if let Some(ws) = ws_service.get_current_workspace().await {
                 let p = ws.root_path.clone();
                 let branch = None::<String>;
                 let kind_str = match ws.workspace_kind {
                     WorkspaceKind::Normal => "normal",
-                    WorkspaceKind::Assistant => "assistant",
                     WorkspaceKind::Remote => "remote",
                 };
                 (
@@ -1965,13 +1937,12 @@ impl RemoteServer {
                     Some(ws.name.clone()),
                     branch,
                     Some(kind_str.to_string()),
-                    ws.assistant_id.clone(),
                 )
             } else {
-                (None, false, None, None, None, None, None)
+                (None, false, None, None, None, None)
             }
         } else {
-            (None, false, None, None, None, None, None)
+            (None, false, None, None, None, None)
         };
 
         let (sessions, has_more) = if let Some(ref wp) = ws_path {
@@ -2018,7 +1989,6 @@ impl RemoteServer {
             project_name,
             git_branch,
             workspace_kind,
-            assistant_id,
             sessions,
             has_more_sessions: has_more,
             authenticated_user_id,
@@ -2320,7 +2290,6 @@ impl RemoteServer {
                         let branch = None::<String>;
                         let kind_str = match ws.workspace_kind {
                             WorkspaceKind::Normal => "normal",
-                            WorkspaceKind::Assistant => "assistant",
                             WorkspaceKind::Remote => "remote",
                         };
                         return RemoteResponse::WorkspaceInfo {
@@ -2329,7 +2298,6 @@ impl RemoteServer {
                             project_name: Some(ws.name.clone()),
                             git_branch: branch,
                             workspace_kind: Some(kind_str.to_string()),
-                            assistant_id: ws.assistant_id.clone(),
                         };
                     }
                 }
@@ -2339,7 +2307,6 @@ impl RemoteServer {
                     project_name: None,
                     git_branch: None,
                     workspace_kind: None,
-                    assistant_id: None,
                 }
             }
             RemoteCommand::ListRecentWorkspaces => {
@@ -2355,7 +2322,6 @@ impl RemoteServer {
                     .map(|w| {
                         let kind_str = match w.workspace_kind {
                             crate::service::workspace::WorkspaceKind::Normal => "normal",
-                            crate::service::workspace::WorkspaceKind::Assistant => "assistant",
                             crate::service::workspace::WorkspaceKind::Remote => "remote",
                         };
                         RecentWorkspaceEntry {
@@ -2405,65 +2371,6 @@ impl RemoteServer {
                         success: false,
                         path: None,
                         project_name: None,
-                        error: Some(e.to_string()),
-                    },
-                }
-            }
-            RemoteCommand::ListAssistants => {
-                let ws_service = match get_global_workspace_service() {
-                    Some(s) => s,
-                    None => {
-                        return RemoteResponse::AssistantList { assistants: vec![] };
-                    }
-                };
-                let assistants = ws_service.get_assistant_workspaces().await;
-                let entries = assistants
-                    .into_iter()
-                    .map(|w| AssistantEntry {
-                        path: w.root_path.to_string_lossy().to_string(),
-                        name: w.name.clone(),
-                        assistant_id: w.assistant_id.clone(),
-                    })
-                    .collect();
-                RemoteResponse::AssistantList {
-                    assistants: entries,
-                }
-            }
-            RemoteCommand::SetAssistant { path } => {
-                let ws_service = match get_global_workspace_service() {
-                    Some(s) => s,
-                    None => {
-                        return RemoteResponse::AssistantUpdated {
-                            success: false,
-                            path: None,
-                            name: None,
-                            error: Some("Workspace service not available".into()),
-                        };
-                    }
-                };
-                let path_buf = std::path::PathBuf::from(path);
-                match ws_service.open_workspace(path_buf).await {
-                    Ok(info) => {
-                        if let Err(e) =
-                            crate::service::snapshot::initialize_snapshot_manager_for_workspace(
-                                info.root_path.clone(),
-                                None,
-                            )
-                            .await
-                        {
-                            error!("Failed to initialize snapshot after remote assistant set: {e}");
-                        }
-                        RemoteResponse::AssistantUpdated {
-                            success: true,
-                            path: Some(info.root_path.to_string_lossy().to_string()),
-                            name: Some(info.name.clone()),
-                            error: None,
-                        }
-                    }
-                    Err(e) => RemoteResponse::AssistantUpdated {
-                        success: false,
-                        path: None,
-                        name: None,
                         error: Some(e.to_string()),
                     },
                 }
@@ -2569,7 +2476,6 @@ impl RemoteServer {
                 workspace_path: requested_ws_path,
             } => {
                 let agent = resolve_agent_type(agent_type.as_deref());
-                let is_claw = agent == "Claw";
 
                 let session_name =
                     custom_name
@@ -2577,45 +2483,13 @@ impl RemoteServer {
                         .filter(|n| !n.is_empty())
                         .unwrap_or(match agent {
                             "Cowork" => "Remote Cowork Session",
-                            "Claw" => "Remote Claw Session",
                             _ => "Remote Code Session",
                         });
 
-                let binding_ws_str = if is_claw {
-                    // For Claw sessions, get or create default assistant workspace
-                    use crate::service::workspace::get_global_workspace_service;
-
-                    let ws_service = match get_global_workspace_service() {
-                        Some(s) => s,
-                        None => {
-                            return RemoteResponse::Error {
-                                message: "Workspace service not available".to_string(),
-                            };
-                        }
-                    };
-
-                    let workspaces = ws_service.get_assistant_workspaces().await;
-                    if let Some(default_ws) =
-                        workspaces.into_iter().find(|w| w.assistant_id.is_none())
-                    {
-                        Some(default_ws.root_path.to_string_lossy().to_string())
-                    } else {
-                        match ws_service.create_assistant_workspace(None).await {
-                            Ok(ws_info) => Some(ws_info.root_path.to_string_lossy().to_string()),
-                            Err(e) => {
-                                return RemoteResponse::Error {
-                                    message: format!("Failed to create assistant workspace: {}", e),
-                                };
-                            }
-                        }
-                    }
-                } else {
-                    // For Code/Cowork sessions, use provided workspace
-                    requested_ws_path
-                        .as_deref()
-                        .filter(|path| !path.is_empty())
-                        .map(ToOwned::to_owned)
-                };
+                let binding_ws_str = requested_ws_path
+                    .as_deref()
+                    .filter(|path| !path.is_empty())
+                    .map(ToOwned::to_owned);
 
                 debug!(
                     "Remote CreateSession: agent={}, requested_ws={:?}, binding_ws={:?}",
@@ -2624,11 +2498,7 @@ impl RemoteServer {
 
                 let Some(binding_ws_str) = binding_ws_str else {
                     return RemoteResponse::Error {
-                        message: if is_claw {
-                            "Failed to get or create assistant workspace".to_string()
-                        } else {
-                            "workspace_path is required for CreateSession".to_string()
-                        },
+                        message: "workspace_path is required for CreateSession".to_string(),
                     };
                 };
 

@@ -403,10 +403,6 @@
   &--cowork {
     border-color: var(--color-purple-200);
   }
-
-  &--claw {
-    border-color: var(--color-pink-200);
-  }
 }
 
 .session-list__create-icon {
@@ -424,11 +420,6 @@
 .session-list__create-btn--cowork .session-list__create-icon {
   color: var(--color-purple-500);
   background: var(--color-purple-100);
-}
-
-.session-list__create-btn--claw .session-list__create-icon {
-  color: var(--color-pink-500);
-  background: var(--color-pink-100);
 }
 
 .session-list__create-copy {
@@ -512,12 +503,6 @@
     color: var(--color-purple-500);
     background: var(--color-purple-100);
   }
-
-  &--claw,
-  &--Claw {
-    color: var(--color-pink-500);
-    background: var(--color-pink-100);
-  }
 }
 
 .session-list__item-body {
@@ -579,13 +564,6 @@
     background: var(--color-purple-100);
     color: var(--color-purple-500);
     border-color: var(--color-purple-200);
-  }
-
-  &--claw,
-  &--Claw {
-    background: var(--color-pink-100);
-    color: var(--color-pink-500);
-    border-color: var(--color-pink-200);
   }
 }
 

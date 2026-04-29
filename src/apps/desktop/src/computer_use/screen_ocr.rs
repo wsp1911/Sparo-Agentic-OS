@@ -63,15 +63,14 @@ fn ocr_debug_save_enabled() -> bool {
 fn computer_use_ocr_debug_dir() -> PathBuf {
     if let Ok(pm) = try_get_path_manager_arc() {
         return pm
-            .default_assistant_workspace_dir(None)
+            .agentic_os_runtime_root()
             .join(APP_HIDDEN_DIR_NAME)
             .join("computer_use_debug");
     }
     dirs::home_dir()
         .map(|h| {
             h.join(APP_HIDDEN_DIR_NAME)
-                .join("personal_assistant")
-                .join("workspace")
+                .join("agentic_os")
                 .join(APP_HIDDEN_DIR_NAME)
                 .join("computer_use_debug")
         })

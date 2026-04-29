@@ -306,7 +306,6 @@ pub async fn run() {
             api::agentic_api::ensure_coordinator_session,
             api::agentic_api::start_dialog_turn,
             api::agentic_api::compact_session,
-            api::agentic_api::ensure_assistant_bootstrap,
             api::agentic_api::cancel_dialog_turn,
             api::agentic_api::delete_session,
             api::agentic_api::restore_session,
@@ -349,7 +348,6 @@ pub async fn run() {
             update_app_status,
             read_file_content,
             write_file_content,
-            reset_workspace_persona_files,
             check_path_exists,
             get_file_metadata,
             get_file_editor_sync_hash,
@@ -492,9 +490,6 @@ pub async fn run() {
             get_opened_workspaces,
             open_workspace,
             open_remote_workspace,
-            create_assistant_workspace,
-            delete_assistant_workspace,
-            reset_assistant_workspace,
             close_workspace,
             set_active_workspace,
             reorder_opened_workspaces,
@@ -834,24 +829,10 @@ fn init_services(app_handle: tauri::AppHandle, default_log_level: log::LevelFilt
     tokio::spawn(async move {
         let transport = Arc::new(TauriTransportAdapter::new(app_handle.clone()));
         let emitter = create_event_emitter(transport);
-        let workspace_identity_watch_service = {
-            let app_state: tauri::State<'_, api::app_state::AppState> = app_handle.state();
-            app_state.workspace_identity_watch_service.clone()
-        };
 
         service::snapshot::initialize_snapshot_event_emitter(emitter.clone());
 
         bitfun_core::service::initialize_file_watch_service(emitter.clone());
-
-        if let Err(e) = workspace_identity_watch_service
-            .set_event_emitter(emitter.clone())
-            .await
-        {
-            log::error!(
-                "Failed to initialize workspace identity watch service: {}",
-                e
-            );
-        }
 
         let event_system = infrastructure::events::get_global_event_system();
         event_system.set_emitter(emitter).await;

@@ -165,7 +165,6 @@
     "items": {
       "sessions": "Tasks",
       "project": "Directory",
-      "persona": "Nursery",
       "memory": "Memory",
       "agents": "Think AApp",
       "skills": "Skills",
@@ -177,7 +176,6 @@
       "subAgent": "SubAgent"
     },
     "tooltips": {
-      "persona": "Nursery — create and manage all assistant instances",
       "agents": "Which agents it can call",
       "skills": "What it knows — specialized knowledge files",
       "tools": "What it can use — built-in tools & MCP services",
@@ -193,8 +191,7 @@
       "sessions": "Tasks",
       "agentApp": "AApp",
       "devKit": "Dev Kit",
-      "shell": "Shell",
-      "assistantSessions": "Assistant tasks"
+      "shell": "Shell"
     },
     "collapseSessions": "Collapse task list",
     "sessionCapsule": {
@@ -254,24 +251,15 @@
       "triggerPlaceholder": "Search",
       "headerSearchHint": "Alt + F Search",
       "triggerTooltip": "Search (Alt+F)",
-      "inputPlaceholder": "Search workspaces, assistants, agent apps, live apps, tasks...",
+      "inputPlaceholder": "Search workspaces, agent apps, live apps, tasks...",
       "groupWorkspaces": "Open Workspaces",
-      "groupAssistants": "Assistants",
       "groupAgentApps": "Agent Apps",
       "groupLiveApps": "Live Apps",
       "groupSessions": "All tasks",
       "groupRecentTasks": "Recent tasks",
       "empty": "No results found",
-      "noRecentTasks": "No recent tasks. Type to search workspaces, assistants, apps, and more.",
+      "noRecentTasks": "No recent tasks. Type to search workspaces, apps, and more.",
       "sessionWorkspaceHint": "in {{workspace}}"
-    },
-    "displayModes": {
-      "pro": "Expert Mode",
-      "assistant": "Assistant Mode",
-      "switchToPro": "Click to switch to Expert mode",
-      "switchToAssistant": "Click to switch to Assistant mode",
-      "proDesc": "Best for focused, one-shot tasks with a clear goal.",
-      "assistantDesc": "Best for ongoing work with context and personal preferences."
     },
     "myAgent": {
       "title": "Extensions",
@@ -319,7 +307,6 @@
       "newCodeSessionShort": "Code task",
       "newCoworkSessionShort": "Office task",
       "newDesignSessionShort": "Design task",
-      "newClawSession": "Claw task",
       "newDeepResearchSession": "Deep Research task",
       "newLiveAppStudioSession": "Live App task",
       "modeLiveAppStudio": "Live App Studio",
@@ -339,16 +326,14 @@
       "showMore": "{{count}} more tasks",
       "showAll": "{{count}} more (show all)",
       "showLess": "Show less",
-      "assistantOwner": "Assistant: {{name}}",
-      "sessionContext": "In: {{name}}",
-      "needProjectWorkspaceForSession": "Open or add a project workspace first. Code, Cowork, and Design tasks cannot be created in the assistant area."
+      "workspaceOwner": "Workspace: {{name}}",
+      "sessionContext": "In: {{name}}"
     },
     "scheduledJobs": {
       "title": "Scheduled Jobs",
       "open": "Open scheduled jobs",
       "shortLabel": "Schedule",
       "listTitle": "Jobs",
-      "assistantFallback": "Current assistant",
       "loading": "Loading scheduled jobs...",
       "never": "Not scheduled",
       "nextRunLabel": "Next run",
@@ -421,8 +406,7 @@
         "deleteFailed": "Failed to delete scheduled job: {{error}}",
         "deleteSuccess": "Scheduled job deleted",
         "createSuccess": "Scheduled job created",
-        "updateSuccess": "Scheduled job updated",
-        "sessionRequired": "No session is available yet. Create a session for this assistant before adding scheduled jobs."
+        "updateSuccess": "Scheduled job updated"
       },
       "validation": {
         "nameRequired": "Please enter a job name",
@@ -434,12 +418,7 @@
     "workspaces": {
       "empty": "No opened workspaces yet",
       "emptyProjects": "No project workspaces",
-      "emptyAssistants": "No personal assistants",
-      "primaryAssistant": "Primary",
       "closeFailed": "Failed to close workspace",
-      "createAssistantFailed": "Failed to create personal assistant",
-      "deleteAssistantFailed": "Failed to delete personal assistant",
-      "assistantDeleted": "Personal assistant deleted",
       "resetWorkspaceFailed": "Failed to reset workspace",
       "workspaceReset": "Workspace reset",
       "reorderFailed": "Failed to reorder workspaces",
@@ -458,14 +437,11 @@
       "expandSessions": "Expand task list",
       "collapseSessions": "Collapse task list",
       "groups": {
-        "projects": "Projects",
-        "assistants": "Personal Assistants"
+        "projects": "Projects"
       },
       "actions": {
         "more": "More actions",
         "newSession": "New task",
-        "newAssistant": "New personal assistant",
-        "deleteAssistant": "Delete personal assistant",
         "resetWorkspace": "Reset workspace",
         "initAgents": "Initialize AGENTS.md",
         "newWorktree": "New worktree",
@@ -474,14 +450,9 @@
         "reveal": "Reveal in explorer",
         "close": "Close workspace"
       },
-      "deleteAssistantDialog": {
-        "title": "Delete {{name}}?",
-        "message": "This will permanently delete the personal assistant workspace folder and all files inside it.",
-        "pathLabel": "Workspace path"
-      },
       "resetWorkspaceDialog": {
         "title": "Reset {{name}}?",
-        "message": "This will clear everything inside the workspace directory and restore the default persona files without deleting the workspace directory itself.",
+        "message": "This will clear everything inside the workspace directory without deleting the workspace directory itself.",
         "pathLabel": "Workspace path"
       },
       "deleteWorktreeDialog": {
@@ -512,8 +483,7 @@
     "notifications": "Notifications",
     "menuPanel": {
       "subtitle": "What do you want to work on?",
-      "agenticOSDesc": "Dispatch and manage AI tasks",
-      "assistantDesc": "A persistent, personalized AI companion"
+      "agenticOSDesc": "Dispatch and manage AI tasks"
     }
   },
   "window": {
@@ -967,7 +937,6 @@
     "skills": "Skills",
     "tools": "Tools",
     "mermaidEditor": "Mermaid",
-    "assistant": "Assistant",
     "shell": "Shell",
     "panelView": "Panel View",
     "taskDetail": "Task Manager"
@@ -1142,13 +1111,6 @@
     "newCodeSessionDesc": "Start coding, debug issues, or open a project and jump straight into building",
     "newCoworkSession": "New Cowork Session",
     "newCoworkSessionDesc": "Great for clarifying requests, moving tasks forward, drafting content, and everyday collaboration",
-    "newClawSession": "New Claw Session",
-    "newClawSessionDesc": "Enter your personal assistant workspace and keep context and preferences over time",
-    "assistantEntryLabel": "Personal Assistant",
-    "assistantEntryTitle": "Sparo OS can be your assistant too, not only your project workspace",
-    "assistantEntryDescription": "You do not need to pick a project first. Enter the assistant workspace to chat, organize thoughts, draft writing, or let the assistant keep moving your tasks forward.",
-    "assistantEntryAction": "Enter Assistant Mode",
-    "assistantHint": "Besides Code and Cowork, you can also jump straight into assistant mode for thinking, drafting, and everyday collaboration outside project work.",
     "workspaceSectionTitle": "Projects and Workspaces",
     "workspaceSectionHint": "Open a project to start Code or Cowork, or switch to one of your recent workspaces.",
     "noRecentWorkspaces": "No recent workspaces yet",
@@ -1168,8 +1130,8 @@
         "description": "Set up Code, Cowork, and other agents for different jobs, then let them collaborate on more complex tasks."
       },
       "assistant": {
-        "title": "An assistant that keeps growing",
-        "description": "The assistant workspace keeps context and personal preferences, making it fit for thinking, writing, and everyday collaboration."
+        "title": "A workspace that keeps growing",
+        "description": "The shared runtime workspace keeps context for ongoing collaboration."
       }
     },
     "comingSoon": "Coming Soon",

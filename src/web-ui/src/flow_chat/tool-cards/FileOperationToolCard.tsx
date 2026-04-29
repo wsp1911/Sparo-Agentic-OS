@@ -45,7 +45,6 @@ import { createLogger } from '@/shared/utils/logger';
 import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { hasNonFileUriScheme, joinPath } from '@/shared/utils/pathUtils';
-import { WorkspaceKind } from '@/shared/types/global-state';
 import './FileOperationToolCard.scss';
 
 const log = createLogger('FileOperationToolCard');
@@ -97,7 +96,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     let cancelled = false;
     const ws = currentWorkspace;
     const root = ws?.rootPath?.trim();
-    if (!ws || !root || ws.workspaceKind === WorkspaceKind.Assistant) {
+    if (!ws || !root) {
       setWorkspaceIsGitRepo(false);
       return;
     }

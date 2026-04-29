@@ -3,17 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveWorkspaceChatInputMode } from './chatInputMode';
 
 describe('resolveWorkspaceChatInputMode', () => {
-  it('forces Claw inside assistant workspaces', () => {
-    expect(
-      resolveWorkspaceChatInputMode({
-        currentMode: 'agentic',
-        isAssistantWorkspace: true,
-        sessionMode: 'agentic',
-      })
-    ).toBe('Claw');
-  });
-
-  it('keeps non-Claw project modes unchanged', () => {
+  it('keeps unchanged modes as-is', () => {
     expect(
       resolveWorkspaceChatInputMode({
         currentMode: 'Plan',
@@ -33,20 +23,20 @@ describe('resolveWorkspaceChatInputMode', () => {
     ).toBe('agentic');
   });
 
-  it('restores a project session mode after a transient assistant workspace state', () => {
+  it('restores agentic when the current mode is stale', () => {
     expect(
       resolveWorkspaceChatInputMode({
-        currentMode: 'Claw',
+        currentMode: 'Plan',
         isAssistantWorkspace: false,
         sessionMode: 'agentic',
       })
     ).toBe('agentic');
   });
 
-  it('restores Cowork when a project Cowork session inherited the Claw UI mode', () => {
+  it('restores Cowork when the current mode is stale', () => {
     expect(
       resolveWorkspaceChatInputMode({
-        currentMode: 'Claw',
+        currentMode: 'agentic',
         isAssistantWorkspace: false,
         sessionMode: 'Cowork',
       })
@@ -56,10 +46,10 @@ describe('resolveWorkspaceChatInputMode', () => {
   it('falls back to agentic if a project session has no mode yet', () => {
     expect(
       resolveWorkspaceChatInputMode({
-        currentMode: 'Claw',
+        currentMode: 'Plan',
         isAssistantWorkspace: false,
         sessionMode: undefined,
       })
-    ).toBe('agentic');
+    ).toBeNull();
   });
 });

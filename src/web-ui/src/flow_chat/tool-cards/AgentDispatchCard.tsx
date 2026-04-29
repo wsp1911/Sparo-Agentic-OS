@@ -122,7 +122,6 @@ const AGENT_TYPE_COLORS: Record<string, string> = {
   Plan: '#f59e0b',
   Cowork: '#10b981',
   debug: '#ef4444',
-  Claw: '#8b5cf6',
 };
 
 function AgentBadge({ agentType }: { agentType: string }) {

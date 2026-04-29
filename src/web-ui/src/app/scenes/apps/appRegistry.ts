@@ -46,14 +46,6 @@ export const APP_REGISTRY: readonly AppEntity[] = [
     agentId: 'Design',
   },
   {
-    id: 'claw-app',
-    kind: 'standalone-agent-app',
-    nameKey: 'apps.claw.name',
-    descriptionKey: 'apps.claw.description',
-    badgeKey: 'apps.badges.standaloneAgentApp',
-    agentId: 'Claw',
-  },
-  {
     id: 'deep-research-app',
     kind: 'standalone-agent-app',
     nameKey: 'apps.deepResearch.name',

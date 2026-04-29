@@ -1,7 +1,7 @@
 /**
  * SessionList — reusable session list for the new workspace layout.
  *
- * Used by the floating `SessionCapsule`, assistant profile pages, and
+ * Used by the floating `SessionCapsule`, profile pages, and
  * workspace-scoped lists inside scene navigation.
  */
 
@@ -43,13 +43,12 @@ import './SessionList.scss';
 const log = createLogger('SessionList');
 const AGENT_SCENE = 'session' as const;
 
-type SessionMode = 'code' | 'cowork' | 'design' | 'claw' | 'deepresearch' | 'liveappstudio';
+type SessionMode = 'code' | 'cowork' | 'design' | 'deepresearch' | 'liveappstudio';
 
 const resolveSessionModeType = (session: Session): SessionMode => {
   const normalizedMode = session.mode?.toLowerCase();
   if (normalizedMode === 'cowork') return 'cowork';
   if (normalizedMode === 'design') return 'design';
-  if (normalizedMode === 'claw') return 'claw';
   if (normalizedMode === 'deepresearch') return 'deepresearch';
   if (normalizedMode === 'liveappstudio') return 'liveappstudio';
   return 'code';
@@ -65,7 +64,7 @@ export interface SessionListProps {
   remoteSshHost?: string | null;
   isActiveWorkspace?: boolean;
   showCreateActions?: boolean;
-  assistantLabel?: string;
+  contextLabel?: string;
   showSessionModeIcon?: boolean;
   listAllSessions?: boolean;
   listFilterQuery?: string;
@@ -78,7 +77,7 @@ const SessionList: React.FC<SessionListProps> = ({
   remoteConnectionId = null,
   remoteSshHost = null,
   isActiveWorkspace: _isActiveWorkspace = true,
-  assistantLabel,
+  contextLabel,
   showSessionModeIcon = true,
   listAllSessions = false,
   listFilterQuery,
@@ -312,8 +311,6 @@ const SessionList: React.FC<SessionListProps> = ({
           ? t('nav.sessions.newCoworkSession')
           : mode === 'design'
             ? t('nav.sessions.newDesignSession')
-          : mode === 'claw'
-            ? t('nav.sessions.newClawSession')
           : mode === 'deepresearch'
             ? t('nav.sessions.newDeepResearchSession')
             : mode === 'liveappstudio'
@@ -508,10 +505,10 @@ const SessionList: React.FC<SessionListProps> = ({
         const rowWorkspace = listAllSessions
           ? findOpenedWorkspaceForSession(session, openedWorkspacesList)
           : undefined;
-        const contextLabel = listAllSessions
+        const rowContextLabel = listAllSessions
           ? (rowWorkspace ? getWorkspaceDisplayName(rowWorkspace) : '')
-          : (assistantLabel?.trim() ?? '');
-        const showContextInTooltip = contextLabel.length > 0;
+          : (contextLabel?.trim() ?? '');
+        const showContextInTooltip = rowContextLabel.length > 0;
         const showRichTooltip = showContextInTooltip || isChildAuxSession;
         const tooltipContent = showRichTooltip ? (
           <div className="bitfun-nav-panel__inline-item-tooltip">
@@ -519,8 +516,8 @@ const SessionList: React.FC<SessionListProps> = ({
             {showContextInTooltip ? (
               <div className="bitfun-nav-panel__inline-item-tooltip-meta">
                 {listAllSessions
-                  ? t('nav.sessions.sessionContext', { name: contextLabel })
-                  : t('nav.sessions.assistantOwner', { name: contextLabel })}
+                  ? t('nav.sessions.sessionContext', { name: rowContextLabel })
+                  : t('nav.sessions.workspaceOwner', { name: rowContextLabel })}
               </div>
             ) : null}
             {isChildAuxSession ? (
@@ -539,8 +536,6 @@ const SessionList: React.FC<SessionListProps> = ({
             ? ListTodo
             : sessionModeKey === 'design'
               ? Brush
-            : sessionModeKey === 'claw'
-              ? Sparkles
             : sessionModeKey === 'deepresearch' || sessionModeKey === 'liveappstudio'
               ? Sparkles
               : Code2;
@@ -590,8 +585,6 @@ const SessionList: React.FC<SessionListProps> = ({
                         ? 'is-cowork'
                         : sessionModeKey === 'design'
                           ? 'is-design'
-                        : sessionModeKey === 'claw'
-                          ? 'is-claw'
                         : sessionModeKey === 'deepresearch'
                           ? 'is-deepresearch'
                           : 'is-code',

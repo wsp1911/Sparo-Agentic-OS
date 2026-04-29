@@ -6,14 +6,14 @@ import WorkspaceItem from './WorkspaceItem';
 import './WorkspaceListSection.scss';
 
 interface WorkspaceListSectionProps {
-  variant: 'assistants' | 'projects';
+  variant: 'projects';
 }
 
 type WorkspaceDragPosition = 'before' | 'after';
 
 interface WorkspaceDragPayload {
   workspaceId: string;
-  variant: 'assistants' | 'projects';
+  variant: 'projects';
 }
 
 const WORKSPACE_DRAG_MIME_TYPE = 'application/x-bitfun-workspace';
@@ -24,7 +24,6 @@ const WorkspaceListSection: React.FC<WorkspaceListSectionProps> = ({ variant }) 
   const {
     openedWorkspacesList,
     normalWorkspacesList,
-    assistantWorkspacesList,
     activeWorkspaceId,
     reorderOpenedWorkspacesInSection,
   } = useWorkspaceContext();
@@ -38,12 +37,8 @@ const WorkspaceListSection: React.FC<WorkspaceListSectionProps> = ({ variant }) 
   const draggedWorkspaceIdRef = useRef<string | null>(null);
   const dropTargetRef = useRef<{ workspaceId: string; position: WorkspaceDragPosition } | null>(null);
 
-  const workspaces = variant === 'assistants'
-    ? assistantWorkspacesList
-    : normalWorkspacesList;
-  const emptyLabel = variant === 'assistants'
-    ? t('nav.workspaces.emptyAssistants')
-    : t('nav.workspaces.emptyProjects');
+  const workspaces = normalWorkspacesList;
+  const emptyLabel = t('nav.workspaces.emptyProjects');
 
   const handleDragStart = useCallback((workspaceId: string) => (event: React.DragEvent<HTMLDivElement>) => {
     const payload: WorkspaceDragPayload = { workspaceId, variant };

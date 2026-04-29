@@ -69,32 +69,18 @@ async function hydrateHistoricalSession(
   }
 }
 
-type SessionDisplayMode = 'code' | 'cowork' | 'design' | 'claw' | 'dispatcher' | 'liveappstudio';
-
-const isAssistantWorkspace = (workspace?: WorkspaceInfo | null): boolean => {
-  return workspace?.workspaceKind === WorkspaceKind.Assistant;
-};
-
-// Modes that should pass through even in assistant workspaces instead of defaulting to 'claw'.
-const EXPLICIT_ASSISTANT_MODES = new Set([
-  'Dispatcher',
-  'dispatcher',
-  'LiveAppStudio',
-  'liveappstudio',
-]);
+type SessionDisplayMode = 'code' | 'cowork' | 'design' | 'dispatcher' | 'liveappstudio';
 
 const normalizeSessionDisplayMode = (
   mode?: string,
-  workspace?: WorkspaceInfo | null
+  _workspace?: WorkspaceInfo | null
 ): SessionDisplayMode => {
   const normalizedEarly = mode?.toLowerCase();
   if (normalizedEarly === 'liveappstudio') return 'liveappstudio';
-  if (isAssistantWorkspace(workspace) && (!mode || !EXPLICIT_ASSISTANT_MODES.has(mode))) return 'claw';
   if (!mode) return 'code';
   const normalizedMode = mode.toLowerCase();
   if (normalizedMode === 'cowork') return 'cowork';
   if (normalizedMode === 'design') return 'design';
-  if (normalizedMode === 'claw') return 'claw';
   if (normalizedMode === 'dispatcher') return 'dispatcher';
   return 'code';
 };
@@ -173,12 +159,10 @@ const resolveSessionWorkspace = (
 
 const resolveAgentType = (
   requestedMode: string | undefined,
-  workspace: WorkspaceInfo | null
+  _workspace: WorkspaceInfo | null
 ): string => {
   // If a mode is explicitly requested, always honor it.
   if (requestedMode) return requestedMode;
-  // No explicit mode: default to Claw in assistant workspaces, agentic elsewhere.
-  if (isAssistantWorkspace(workspace)) return 'Claw';
   return 'agentic';
 };
 
@@ -279,9 +263,7 @@ export async function createChatSession(
         ? i18nService.t('flow-chat:session.newCoworkWithIndex', { count: sameModeCount })
         : sessionMode === 'design'
           ? i18nService.t('flow-chat:session.newDesignWithIndex', { count: sameModeCount })
-          : sessionMode === 'claw'
-            ? i18nService.t('flow-chat:session.newClawWithIndex', { count: sameModeCount })
-            : sessionMode === 'dispatcher'
+          : sessionMode === 'dispatcher'
               ? i18nService.t('flow-chat:session.dispatcher')
               : sessionMode === 'liveappstudio'
                 ? i18nService.t('flow-chat:session.newLiveAppStudioWithIndex', { count: sameModeCount })

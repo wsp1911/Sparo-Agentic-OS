@@ -34,7 +34,7 @@ const LS_AGENT = 'bitfun.newSessionDialog.agent';
 const LS_WORKSPACE = 'bitfun.newSessionDialog.workspaceId';
 const BROWSED_WORKSPACE_VALUE = '__browsed_workspace__';
 
-export type NewSessionAgentChoice = 'agentic' | 'Cowork' | 'Design' | 'Claw' | 'DeepResearch' | 'LiveAppStudio';
+export type NewSessionAgentChoice = 'agentic' | 'Cowork' | 'Design' | 'DeepResearch' | 'LiveAppStudio';
 
 export interface NewSessionDialogProps {
   open: boolean;
@@ -47,7 +47,6 @@ function sessionModeToChoice(mode: string | undefined): NewSessionAgentChoice {
   const m = mode.toLowerCase();
   if (m === 'cowork') return 'Cowork';
   if (m === 'design') return 'Design';
-  if (m === 'claw') return 'Claw';
   if (m === 'deepresearch') return 'DeepResearch';
   if (m === 'liveappstudio') return 'LiveAppStudio';
   return 'agentic';
@@ -93,21 +92,19 @@ function getBrowsedWorkspaceLabel(path: string): string {
   return `${name} (${path})`;
 }
 
-function resolveModeFromChoice(agentChoice: NewSessionAgentChoice): 'agentic' | 'Cowork' | 'Design' | 'Claw' | 'DeepResearch' | 'LiveAppStudio' {
+function resolveModeFromChoice(agentChoice: NewSessionAgentChoice): 'agentic' | 'Cowork' | 'Design' | 'DeepResearch' | 'LiveAppStudio' {
   return agentChoice === 'agentic'
     ? 'agentic'
     : agentChoice === 'Cowork'
       ? 'Cowork'
       : agentChoice === 'Design'
         ? 'Design'
-        : agentChoice === 'Claw'
-          ? 'Claw'
-          : agentChoice === 'DeepResearch'
-            ? 'DeepResearch'
-            : 'LiveAppStudio';
+        : agentChoice === 'DeepResearch'
+          ? 'DeepResearch'
+          : 'LiveAppStudio';
 }
 
-function syncSessionModeStore(mode: 'agentic' | 'Cowork' | 'Design' | 'Claw' | 'DeepResearch' | 'LiveAppStudio'): void {
+function syncSessionModeStore(mode: 'agentic' | 'Cowork' | 'Design' | 'DeepResearch' | 'LiveAppStudio'): void {
   if (mode === 'Cowork') {
     useSessionModeStore.getState().setMode('cowork');
   } else if (mode === 'Design') {
@@ -198,7 +195,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
     let storedWs: string | null = null;
     try {
       const a = localStorage.getItem(LS_AGENT) as NewSessionAgentChoice | null;
-      if (a === 'agentic' || a === 'Cowork' || a === 'Design' || a === 'Claw' || a === 'DeepResearch' || a === 'LiveAppStudio') {
+      if (a === 'agentic' || a === 'Cowork' || a === 'Design' || a === 'DeepResearch' || a === 'LiveAppStudio') {
         storedAgent = a;
       }
       const w = localStorage.getItem(LS_WORKSPACE);
@@ -257,10 +254,6 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
       {
         value: 'Design',
         label: t('nav.sessions.newDesignSession'),
-      },
-      {
-        value: 'Claw',
-        label: t('nav.sessions.newClawSession'),
       },
       {
         value: 'DeepResearch',

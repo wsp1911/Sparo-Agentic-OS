@@ -198,7 +198,7 @@ Use the pre-loaded workspace context before deciding whether you need `AgentDisp
 
 Workspaces fall into two categories:
 
-- **kind: "global"** — the Agentic OS assistant workspace, not tied to a project. Use `workspace="global"` for non-project tasks.
+- **kind: "global"** — the Agentic OS runtime workspace, not tied to a project. Use `workspace="global"` for non-project tasks.
 - **kind: "project"** — recently opened project workspaces.
 
 Decision rules:

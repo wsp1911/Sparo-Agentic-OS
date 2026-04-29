@@ -49,10 +49,6 @@
       "name": "Design",
       "description": "面向 HTML 原型、视觉产物和设计探索的独立 Agent 应用。"
     },
-    "claw": {
-      "name": "Claw",
-      "description": "面向持续协作和个人助理场景的独立 Agent 应用，保留上下文与偏好。"
-    },
     "deepResearch": {
       "name": "Deep Research",
       "description": "面向开放式研究的独立 Agent 应用，可并行派发子 Agent 并整合带引用的完整报告。"

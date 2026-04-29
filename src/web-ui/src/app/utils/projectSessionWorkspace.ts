@@ -1,20 +1,14 @@
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import type { Session } from '@/flow_chat/types/flow-chat';
-import { WorkspaceKind, isRemoteWorkspace, type WorkspaceInfo } from '@/shared/types';
+import { isRemoteWorkspace, type WorkspaceInfo } from '@/shared/types';
 
-type SessionDisplayBucket = 'code' | 'cowork' | 'design' | 'claw' | 'liveappstudio';
+type SessionDisplayBucket = 'code' | 'cowork' | 'design' | 'liveappstudio';
 
-function normalizeAgentModeForWorkspace(mode: string | undefined, workspace: WorkspaceInfo): string {
-  if (workspace.workspaceKind === WorkspaceKind.Assistant) {
-    return 'Claw';
-  }
+function normalizeAgentModeForWorkspace(mode: string | undefined): string {
   return mode || 'agentic';
 }
 
-function sessionDisplayBucket(sessionMode: string | undefined, workspace: WorkspaceInfo): SessionDisplayBucket {
-  if (workspace.workspaceKind === WorkspaceKind.Assistant) {
-    return 'claw';
-  }
+function sessionDisplayBucket(sessionMode: string | undefined): SessionDisplayBucket {
   if (!sessionMode) {
     return 'code';
   }
@@ -25,18 +19,15 @@ function sessionDisplayBucket(sessionMode: string | undefined, workspace: Worksp
   if (normalized === 'design') {
     return 'design';
   }
-  if (normalized === 'claw') {
-    return 'claw';
-  }
   if (normalized === 'liveappstudio') {
     return 'liveappstudio';
   }
   return 'code';
 }
 
-function targetDisplayBucket(requestedMode: string | undefined, workspace: WorkspaceInfo): SessionDisplayBucket {
-  const agentMode = normalizeAgentModeForWorkspace(requestedMode, workspace);
-  return sessionDisplayBucket(agentMode, workspace);
+function targetDisplayBucket(requestedMode: string | undefined): SessionDisplayBucket {
+  const agentMode = normalizeAgentModeForWorkspace(requestedMode);
+  return sessionDisplayBucket(agentMode);
 }
 
 function sessionBelongsToWorkspace(session: Session, workspace: WorkspaceInfo): boolean {
@@ -68,18 +59,18 @@ function isEmptyReusableSession(session: Session, workspace: WorkspaceInfo, buck
   if (!sessionBelongsToWorkspace(session, workspace)) {
     return false;
   }
-  return sessionDisplayBucket(session.mode, workspace) === bucket;
+  return sessionDisplayBucket(session.mode) === bucket;
 }
 
 /**
  * If the workspace already has a main session with no dialog turns for the same UI mode
- * (Code / Cowork / Design / Claw / LiveAppStudio), return its id so callers can switch instead of creating another.
+ * (Code / Cowork / Design / LiveAppStudio), return its id so callers can switch instead of creating another.
  */
 export function findReusableEmptySessionId(
   workspace: WorkspaceInfo,
   requestedMode?: string
 ): string | null {
-  const bucket = targetDisplayBucket(requestedMode, workspace);
+  const bucket = targetDisplayBucket(requestedMode);
   const sessions = flowChatStore.getState().sessions;
   let best: { id: string; lastActiveAt: number } | null = null;
   for (const session of sessions.values()) {
@@ -121,14 +112,13 @@ export function findReusableEmptyLiveAppStudioSessionId(): string | null {
 }
 
 /**
- * Code / Cowork / Design sessions belong to project (non-assistant) workspaces only.
- * Assistant “instances” use Claw sessions under their own storage.
+ * Code / Cowork / Design sessions belong to project workspaces.
  */
 export function pickWorkspaceForProjectChatSession(
   currentWorkspace: WorkspaceInfo | null | undefined,
   normalWorkspacesList: WorkspaceInfo[]
 ): WorkspaceInfo | null {
-  if (currentWorkspace && currentWorkspace.workspaceKind !== WorkspaceKind.Assistant) {
+  if (currentWorkspace) {
     return currentWorkspace;
   }
   return normalWorkspacesList[0] ?? null;

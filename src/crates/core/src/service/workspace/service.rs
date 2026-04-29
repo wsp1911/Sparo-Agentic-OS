@@ -3,13 +3,12 @@
 //! Provides comprehensive workspace management functionality.
 
 use super::manager::{
-    WorkspaceIdentity, WorkspaceInfo, WorkspaceKind, WorkspaceManager, WorkspaceManagerConfig,
+    WorkspaceInfo, WorkspaceKind, WorkspaceManager, WorkspaceManagerConfig,
     WorkspaceManagerStatistics, WorkspaceOpenOptions, WorkspaceStatus, WorkspaceSummary,
 };
 use crate::agentic::persistence::{PersistenceManager, SessionWorkspaceMaintenanceService};
 use crate::infrastructure::storage::{PersistenceService, StorageOptions};
 use crate::infrastructure::{try_get_path_manager_arc, PathManager};
-use crate::service::bootstrap::initialize_workspace_persona_files;
 use crate::service::remote_ssh::workspace_state::{
     local_workspace_roots_equal, normalize_remote_workspace_path, remote_workspace_stable_id,
 };
@@ -20,10 +19,9 @@ use crate::util::errors::*;
 use log::{info, warn};
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tokio::fs;
 use tokio::sync::RwLock;
 
 /// Workspace service.
@@ -43,7 +41,6 @@ pub struct WorkspaceCreateOptions {
     pub auto_set_current: bool,
     pub add_to_recent: bool,
     pub workspace_kind: WorkspaceKind,
-    pub assistant_id: Option<String>,
     pub display_name: Option<String>,
     /// See [`crate::service::workspace::manager::WorkspaceOpenOptions::remote_connection_id`].
     pub remote_connection_id: Option<String>,
@@ -59,7 +56,6 @@ impl Default for WorkspaceCreateOptions {
             auto_set_current: true,
             add_to_recent: true,
             workspace_kind: WorkspaceKind::Normal,
-            assistant_id: None,
             display_name: None,
             remote_connection_id: None,
             remote_ssh_host: None,
@@ -75,23 +71,6 @@ pub struct BatchImportResult {
     pub failed: Vec<(String, String)>, // (path, error_message)
     pub total_processed: usize,
     pub skipped: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspaceIdentityChangedEvent {
-    pub workspace_id: String,
-    pub workspace_path: String,
-    pub name: String,
-    pub identity: Option<WorkspaceIdentity>,
-    pub changed_fields: Vec<String>,
-}
-
-#[derive(Debug, Clone)]
-struct AssistantWorkspaceDescriptor {
-    path: PathBuf,
-    assistant_id: Option<String>,
-    display_name: String,
 }
 
 impl WorkspaceService {
@@ -245,10 +224,6 @@ impl WorkspaceService {
             warn!("Failed to load workspace history on startup: {}", e);
         }
 
-        if let Err(e) = service.ensure_assistant_workspaces().await {
-            warn!("Failed to ensure assistant workspaces on startup: {}", e);
-        }
-
         Ok(service)
     }
 
@@ -374,44 +349,6 @@ impl WorkspaceService {
         self.save_workspace_data().await?;
 
         Ok(workspace)
-    }
-
-    /// Creates and opens a new assistant workspace, then sets it as current.
-    pub async fn create_assistant_workspace(
-        &self,
-        assistant_id: Option<String>,
-    ) -> BitFunResult<WorkspaceInfo> {
-        let assistant_id = match assistant_id {
-            Some(id) if !id.trim().is_empty() => id.trim().to_string(),
-            _ => self.generate_assistant_workspace_id().await?,
-        };
-        let display_name = Self::assistant_display_name(Some(&assistant_id));
-        let path = self
-            .path_manager
-            .assistant_workspace_dir(&assistant_id, None);
-        let options = WorkspaceCreateOptions {
-            auto_set_current: true,
-            add_to_recent: false,
-            workspace_kind: WorkspaceKind::Assistant,
-            assistant_id: Some(assistant_id),
-            display_name: Some(display_name),
-            ..Default::default()
-        };
-
-        if !path.exists() {
-            fs::create_dir_all(&path).await.map_err(|e| {
-                BitFunError::service(format!(
-                    "Failed to create assistant workspace directory '{}': {}",
-                    path.display(),
-                    e
-                ))
-            })?;
-        }
-
-        // New assistant dirs get persona files at creation; coordinator also fills missing files when opening.
-        initialize_workspace_persona_files(&path).await?;
-
-        self.create_workspace(path, options).await
     }
 
     /// Closes the current workspace.
@@ -566,11 +503,7 @@ impl WorkspaceService {
     /// Returns all currently opened workspaces.
     pub async fn get_opened_workspaces(&self) -> Vec<WorkspaceInfo> {
         let manager = self.manager.read().await;
-        manager
-            .get_opened_workspace_infos()
-            .into_iter()
-            .cloned()
-            .collect()
+        manager.get_opened_workspace_infos().into_iter().cloned().collect()
     }
 
     /// All tracked workspaces with full metadata (maintenance, etc.).
@@ -579,13 +512,12 @@ impl WorkspaceService {
         manager.get_workspaces().values().cloned().collect()
     }
 
-    /// Lists tracked non-assistant workspaces ordered by most recent activity.
+    /// Lists tracked workspaces ordered by most recent activity.
     pub async fn list_workspace_routing_candidates(&self) -> Vec<WorkspaceInfo> {
         let manager = self.manager.read().await;
         let mut workspaces = manager
             .get_workspaces()
             .values()
-            .filter(|workspace| workspace.workspace_kind != WorkspaceKind::Assistant)
             .cloned()
             .collect::<Vec<_>>();
 
@@ -640,17 +572,6 @@ impl WorkspaceService {
         None
     }
 
-    /// Returns all tracked assistant workspaces, including inactive ones.
-    pub async fn get_assistant_workspaces(&self) -> Vec<WorkspaceInfo> {
-        let manager = self.manager.read().await;
-        manager
-            .get_workspaces()
-            .values()
-            .filter(|workspace| workspace.workspace_kind == WorkspaceKind::Assistant)
-            .cloned()
-            .collect()
-    }
-
     /// Lists all workspaces.
     pub async fn list_workspaces(&self) -> Vec<WorkspaceSummary> {
         let manager = self.manager.read().await;
@@ -674,21 +595,6 @@ impl WorkspaceService {
     pub async fn get_recent_workspaces(&self) -> Vec<WorkspaceInfo> {
         let manager = self.manager.read().await;
         let recent_ids = manager.get_recent_workspaces();
-        let mut recent_workspaces = Vec::new();
-
-        for workspace_id in recent_ids {
-            if let Some(workspace) = manager.get_workspaces().get(workspace_id) {
-                recent_workspaces.push(workspace.clone());
-            }
-        }
-
-        recent_workspaces
-    }
-
-    /// Returns recently accessed assistant workspaces.
-    pub async fn get_recent_assistant_workspaces(&self) -> Vec<WorkspaceInfo> {
-        let manager = self.manager.read().await;
-        let recent_ids = manager.get_recent_assistant_workspaces();
         let mut recent_workspaces = Vec::new();
 
         for workspace_id in recent_ids {
@@ -785,7 +691,6 @@ impl WorkspaceService {
                 auto_set_current: existing_workspace.status == WorkspaceStatus::Active,
                 add_to_recent: false,
                 workspace_kind: existing_workspace.workspace_kind.clone(),
-                assistant_id: existing_workspace.assistant_id.clone(),
                 display_name: Some(existing_workspace.name.clone()),
                 remote_connection_id: existing_workspace
                     .remote_ssh_connection_id()
@@ -817,78 +722,6 @@ impl WorkspaceService {
         }
 
         Ok(new_workspace)
-    }
-
-    /// Refreshes the parsed `IDENTITY.md` content for an assistant workspace.
-    pub async fn refresh_workspace_identity(
-        &self,
-        workspace_id: &str,
-    ) -> BitFunResult<Option<WorkspaceIdentityChangedEvent>> {
-        let workspace = {
-            let manager = self.manager.read().await;
-            manager.get_workspace(workspace_id).cloned()
-        }
-        .ok_or_else(|| BitFunError::service(format!("Workspace not found: {}", workspace_id)))?;
-
-        if workspace.workspace_kind != WorkspaceKind::Assistant {
-            return Ok(None);
-        }
-
-        let updated_identity =
-            match WorkspaceIdentity::load_from_workspace_root(&workspace.root_path).await {
-                Ok(identity) => identity,
-                Err(error) => {
-                    warn!(
-                        "Failed to refresh workspace identity: workspace_id={} path={} error={}",
-                        workspace_id,
-                        workspace.root_path.display(),
-                        error
-                    );
-                    return Ok(None);
-                }
-            };
-
-        let changed_fields = WorkspaceIdentity::collect_changed_fields(
-            workspace.identity.as_ref(),
-            updated_identity.as_ref(),
-        );
-        let fallback_name = Self::assistant_display_name(workspace.assistant_id.as_deref());
-        let updated_name = updated_identity
-            .as_ref()
-            .and_then(|identity| identity.name.clone())
-            .unwrap_or(fallback_name);
-
-        if changed_fields.is_empty() && workspace.name == updated_name {
-            return Ok(None);
-        }
-
-        {
-            let mut manager = self.manager.write().await;
-            let workspace = manager
-                .get_workspaces_mut()
-                .get_mut(workspace_id)
-                .ok_or_else(|| {
-                    BitFunError::service(format!("Workspace not found: {}", workspace_id))
-                })?;
-
-            workspace.identity = updated_identity.clone();
-            workspace.name = updated_name.clone();
-        }
-
-        if let Err(e) = self.save_workspace_data().await {
-            warn!(
-                "Failed to save workspace data after identity refresh: workspace_id={} error={}",
-                workspace_id, e
-            );
-        }
-
-        Ok(Some(WorkspaceIdentityChangedEvent {
-            workspace_id: workspace.id,
-            workspace_path: workspace.root_path.to_string_lossy().to_string(),
-            name: updated_name,
-            identity: updated_identity,
-            changed_fields,
-        }))
     }
 
     /// Imports workspaces in batch.
@@ -1037,11 +870,6 @@ impl WorkspaceService {
                 .iter()
                 .map(|w| w.id.clone())
                 .collect(),
-            recent_assistant_workspaces: manager
-                .get_recent_assistant_workspace_infos()
-                .iter()
-                .map(|w| w.id.clone())
-                .collect(),
             export_timestamp: chrono::Utc::now().to_rfc3339(),
             version: env!("CARGO_PKG_VERSION").to_string(),
         })
@@ -1083,7 +911,6 @@ impl WorkspaceService {
         }
 
         manager.set_recent_workspaces(export.recent_workspaces.clone());
-        manager.set_recent_assistant_workspaces(export.recent_assistant_workspaces.clone());
 
         if let Some(current_id) = export.current_workspace_id {
             if manager.get_workspaces().contains_key(&current_id) {
@@ -1109,18 +936,12 @@ impl WorkspaceService {
         let stats = self.get_statistics().await;
         let current_workspace = self.get_current_workspace().await;
         let recent_workspaces = self.get_recent_workspaces().await;
-        let recent_assistant_workspaces = self.get_recent_assistant_workspaces().await;
 
         WorkspaceQuickSummary {
             total_workspaces: stats.total_workspaces,
             active_workspaces: stats.active_workspaces,
             current_workspace: current_workspace.map(|w| w.get_summary()),
             recent_workspaces: recent_workspaces
-                .into_iter()
-                .take(5)
-                .map(|w| w.get_summary())
-                .collect(),
-            recent_assistant_workspaces: recent_assistant_workspaces
                 .into_iter()
                 .take(5)
                 .map(|w| w.get_summary())
@@ -1137,7 +958,6 @@ impl WorkspaceService {
             opened_workspace_ids: manager.get_opened_workspace_ids().clone(),
             current_workspace_id: manager.get_current_workspace().map(|w| w.id.clone()),
             recent_workspaces: manager.get_recent_workspaces().clone(),
-            recent_assistant_workspaces: manager.get_recent_assistant_workspaces().clone(),
             saved_at: chrono::Utc::now(),
         };
 
@@ -1164,7 +984,6 @@ impl WorkspaceService {
             *manager.get_workspaces_mut() = data.workspaces;
             manager.set_opened_workspace_ids(data.opened_workspace_ids);
             manager.set_recent_workspaces(data.recent_workspaces);
-            manager.set_recent_assistant_workspaces(data.recent_assistant_workspaces);
 
             if let Some(raw_current) = data.current_workspace_id {
                 if let Some(workspace) = manager.get_workspaces().get(&raw_current) {
@@ -1202,7 +1021,7 @@ impl WorkspaceService {
         if let Some(data) = workspace_data {
             let mut manager = self.manager.write().await;
 
-            let mut workspaces = data.workspaces;
+            let mut workspaces: HashMap<String, WorkspaceInfo> = data.workspaces;
             // Filter out legacy remote workspaces that don't have the required metadata (sshHost and connectionId)
             workspaces.retain(|_id, ws| {
                 if ws.workspace_kind == WorkspaceKind::Remote {
@@ -1236,14 +1055,6 @@ impl WorkspaceService {
                 .collect();
             manager.set_recent_workspaces(filtered_recent);
 
-            let filtered_recent_assistant: Vec<String> = data
-                .recent_assistant_workspaces
-                .clone()
-                .into_iter()
-                .filter(|id| manager.get_workspaces().contains_key(id))
-                .collect();
-            manager.set_recent_assistant_workspaces(filtered_recent_assistant);
-
             let raw_current = data
                 .current_workspace_id
                 .or_else(|| data.opened_workspace_ids.first().cloned());
@@ -1270,79 +1081,11 @@ impl WorkspaceService {
             auto_set_current: options.auto_set_current,
             add_to_recent: options.add_to_recent,
             workspace_kind: options.workspace_kind.clone(),
-            assistant_id: options.assistant_id.clone(),
             display_name: options.display_name.clone(),
             remote_connection_id: options.remote_connection_id.clone(),
             remote_ssh_host: options.remote_ssh_host.clone(),
             stable_workspace_id: options.stable_workspace_id.clone(),
         }
-    }
-
-    fn assistant_display_name(assistant_id: Option<&str>) -> String {
-        match assistant_id {
-            Some(id) if !id.trim().is_empty() => format!("Claw {}", id.trim()),
-            _ => "Claw".to_string(),
-        }
-    }
-
-    async fn generate_assistant_workspace_id(&self) -> BitFunResult<String> {
-        for _ in 0..32 {
-            let assistant_id = uuid::Uuid::new_v4()
-                .simple()
-                .to_string()
-                .chars()
-                .take(8)
-                .collect::<String>();
-            let path = self
-                .path_manager
-                .assistant_workspace_dir(&assistant_id, None);
-
-            if fs::try_exists(&path).await.map_err(|e| {
-                BitFunError::service(format!(
-                    "Failed to check assistant workspace path '{}': {}",
-                    path.display(),
-                    e
-                ))
-            })? {
-                continue;
-            }
-
-            if self.get_workspace_by_path(&path).await.is_none() {
-                return Ok(assistant_id);
-            }
-        }
-
-        Err(BitFunError::service(
-            "Failed to allocate a unique assistant workspace id".to_string(),
-        ))
-    }
-
-    fn assistant_descriptor_from_path(&self, path: &Path) -> Option<AssistantWorkspaceDescriptor> {
-        let default_workspace = self.path_manager.default_assistant_workspace_dir(None);
-        if path == default_workspace {
-            return Some(AssistantWorkspaceDescriptor {
-                path: path.to_path_buf(),
-                assistant_id: None,
-                display_name: Self::assistant_display_name(None),
-            });
-        }
-
-        let assistant_root = self.path_manager.assistant_workspace_base_dir(None);
-        if path.parent()? != assistant_root {
-            return None;
-        }
-
-        let file_name = path.file_name()?.to_string_lossy();
-        let assistant_id = file_name.strip_prefix("workspace-")?;
-        if assistant_id.trim().is_empty() {
-            return None;
-        }
-
-        Some(AssistantWorkspaceDescriptor {
-            path: path.to_path_buf(),
-            assistant_id: Some(assistant_id.to_string()),
-            display_name: Self::assistant_display_name(Some(assistant_id)),
-        })
     }
 
     fn normalize_workspace_options_for_path(
@@ -1367,149 +1110,12 @@ impl WorkspaceService {
             return options;
         }
 
-        if options.workspace_kind == WorkspaceKind::Assistant {
-            if options.display_name.is_none() {
-                options.display_name = Some(Self::assistant_display_name(
-                    options.assistant_id.as_deref(),
-                ));
-            }
-            return options;
-        }
-
-        if let Some(descriptor) = self.assistant_descriptor_from_path(path) {
-            options.workspace_kind = WorkspaceKind::Assistant;
-            if options.assistant_id.is_none() {
-                options.assistant_id = descriptor.assistant_id;
-            }
-            if options.display_name.is_none() {
-                options.display_name = Some(descriptor.display_name);
-            }
-        }
-
         options
-    }
-
-    async fn discover_assistant_workspaces(
-        &self,
-    ) -> BitFunResult<Vec<AssistantWorkspaceDescriptor>> {
-        let assistant_root = self.path_manager.assistant_workspace_base_dir(None);
-        fs::create_dir_all(&assistant_root).await.map_err(|e| {
-            BitFunError::service(format!(
-                "Failed to create assistant workspace root '{}': {}",
-                assistant_root.display(),
-                e
-            ))
-        })?;
-
-        let default_workspace = self.path_manager.default_assistant_workspace_dir(None);
-        fs::create_dir_all(&default_workspace).await.map_err(|e| {
-            BitFunError::service(format!(
-                "Failed to create default assistant workspace '{}': {}",
-                default_workspace.display(),
-                e
-            ))
-        })?;
-
-        let mut descriptors = vec![AssistantWorkspaceDescriptor {
-            path: default_workspace,
-            assistant_id: None,
-            display_name: Self::assistant_display_name(None),
-        }];
-
-        let mut entries = fs::read_dir(&assistant_root).await.map_err(|e| {
-            BitFunError::service(format!(
-                "Failed to read assistant workspace root '{}': {}",
-                assistant_root.display(),
-                e
-            ))
-        })?;
-
-        while let Some(entry) = entries.next_entry().await.map_err(|e| {
-            BitFunError::service(format!(
-                "Failed to iterate assistant workspace root '{}': {}",
-                assistant_root.display(),
-                e
-            ))
-        })? {
-            let file_type = entry.file_type().await.map_err(|e| {
-                BitFunError::service(format!(
-                    "Failed to inspect assistant workspace entry '{}': {}",
-                    entry.path().display(),
-                    e
-                ))
-            })?;
-            if !file_type.is_dir() {
-                continue;
-            }
-
-            let file_name = entry.file_name().to_string_lossy().to_string();
-            let Some(assistant_id) = file_name.strip_prefix("workspace-") else {
-                continue;
-            };
-            if assistant_id.trim().is_empty() {
-                continue;
-            }
-
-            descriptors.push(AssistantWorkspaceDescriptor {
-                path: entry.path(),
-                assistant_id: Some(assistant_id.to_string()),
-                display_name: Self::assistant_display_name(Some(assistant_id)),
-            });
-        }
-
-        descriptors.sort_by(|left, right| {
-            match (left.assistant_id.is_some(), right.assistant_id.is_some()) {
-                (false, true) => std::cmp::Ordering::Less,
-                (true, false) => std::cmp::Ordering::Greater,
-                _ => left.path.cmp(&right.path),
-            }
-        });
-
-        Ok(descriptors)
-    }
-
-    async fn ensure_assistant_workspaces(&self) -> BitFunResult<()> {
-        let descriptors = self.discover_assistant_workspaces().await?;
-        let mut has_current_workspace = self.get_current_workspace().await.is_some();
-        let has_opened_remote = {
-            let manager = self.manager.read().await;
-            manager
-                .get_opened_workspace_infos()
-                .iter()
-                .any(|w| w.workspace_kind == WorkspaceKind::Remote)
-        };
-
-        for descriptor in descriptors {
-            // If a remote workspace tab exists but nothing is current yet (e.g. pending SSH
-            // reconnect), do not auto-activate the default assistant workspace — that would look
-            // like a spurious new local workspace.
-            let should_activate =
-                !has_current_workspace && !has_opened_remote && descriptor.assistant_id.is_none();
-            let options = WorkspaceCreateOptions {
-                auto_set_current: should_activate,
-                add_to_recent: false,
-                workspace_kind: WorkspaceKind::Assistant,
-                assistant_id: descriptor.assistant_id.clone(),
-                display_name: Some(descriptor.display_name.clone()),
-                ..Default::default()
-            };
-
-            self.open_workspace_with_options(descriptor.path, options)
-                .await?;
-            has_current_workspace = true;
-        }
-
-        Ok(())
     }
 
     /// Saves workspace data manually (public API).
     pub async fn manual_save(&self) -> BitFunResult<()> {
         self.save_workspace_data().await
-    }
-
-    /// Returns whether a path is a managed assistant workspace.
-    pub fn is_assistant_workspace_path(&self, path: &Path) -> bool {
-        self.assistant_descriptor_from_path(path).is_some()
     }
 
     /// Clears all persisted data.
@@ -1557,8 +1163,6 @@ pub struct WorkspaceExport {
     pub workspaces: Vec<WorkspaceInfo>,
     pub current_workspace_id: Option<String>,
     pub recent_workspaces: Vec<String>,
-    #[serde(default)]
-    pub recent_assistant_workspaces: Vec<String>,
     pub export_timestamp: String,
     pub version: String,
 }
@@ -1579,8 +1183,6 @@ pub struct WorkspaceQuickSummary {
     pub active_workspaces: usize,
     pub current_workspace: Option<WorkspaceSummary>,
     pub recent_workspaces: Vec<WorkspaceSummary>,
-    #[serde(default)]
-    pub recent_assistant_workspaces: Vec<WorkspaceSummary>,
 }
 
 /// Workspace persistence data.
@@ -1592,8 +1194,6 @@ struct WorkspacePersistenceData {
     pub current_workspace_id: Option<String>,
     #[serde(default)]
     pub recent_workspaces: Vec<String>,
-    #[serde(default)]
-    pub recent_assistant_workspaces: Vec<String>,
     pub saved_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -1745,7 +1345,6 @@ mod tests {
             opened_workspace_ids: vec![first_workspace.id.clone(), second_workspace.id.clone()],
             current_workspace_id: Some(first_workspace.id.clone()),
             recent_workspaces: vec![first_workspace.id.clone(), second_workspace.id.clone()],
-            recent_assistant_workspaces: Vec::new(),
             saved_at: chrono::Utc::now(),
         };
 

@@ -39,11 +39,8 @@ const PENDING_INVALID_LIMIT: u8 = 3;
 pub enum BotDisplayMode {
     /// Expert mode: can create Code / Cowork sessions on real workspaces.
     #[serde(rename = "pro")]
-    Pro,
-    /// Default assistant mode: Claw sessions on the assistant workspace.
-    #[serde(rename = "assistant")]
     #[default]
-    Assistant,
+    Pro,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,14 +48,6 @@ pub struct BotChatState {
     pub chat_id: String,
     pub paired: bool,
     pub current_workspace: Option<String>,
-    pub current_assistant: Option<String>,
-    /// Human-readable name of the active assistant (e.g. "默认助理" / "Bob").
-    /// Populated alongside `current_assistant` from `WorkspaceInfo.name` so
-    /// the assistant-mode menu body can show a meaningful label instead of
-    /// the workspace directory name (which is often a generic
-    /// "workspace" / "workspace-<uuid>" folder).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub current_assistant_name: Option<String>,
     pub current_session_id: Option<String>,
     #[serde(default)]
     pub display_mode: BotDisplayMode,
@@ -89,10 +78,8 @@ impl BotChatState {
             chat_id,
             paired: false,
             current_workspace: None,
-            current_assistant: None,
-            current_assistant_name: None,
             current_session_id: None,
-            display_mode: BotDisplayMode::Assistant,
+            display_mode: BotDisplayMode::Pro,
             pending_action: None,
             pending_expires_at: 0,
             pending_invalid_count: 0,
@@ -102,17 +89,8 @@ impl BotChatState {
 
     /// Returns the workspace root path that should be used to resolve relative
     /// file references emitted by the agent (e.g. markdown links in replies).
-    ///
-    /// In Pro mode this is the explicitly switched workspace
-    /// (`current_workspace`); in Assistant mode the agent runs against the
-    /// per-user assistant workspace held in `current_assistant`. IM platform
-    /// adapters MUST consult both — looking only at `current_workspace` causes
-    /// auto-push to silently drop relative-path attachments produced by
-    /// assistant sessions (the most common case for end users).
     pub fn active_workspace_path(&self) -> Option<String> {
-        self.current_workspace
-            .clone()
-            .or_else(|| self.current_assistant.clone())
+        self.current_workspace.clone()
     }
 
     fn set_pending(&mut self, action: PendingAction) {
@@ -146,9 +124,6 @@ pub enum PendingAction {
     SelectWorkspace {
         options: Vec<(String, String)>,
     },
-    SelectAssistant {
-        options: Vec<(String, String)>,
-    },
     SelectSession {
         options: Vec<(String, String)>,
         page: usize,
@@ -161,11 +136,6 @@ pub enum PendingAction {
         answers: Vec<Value>,
         awaiting_custom_text: bool,
         pending_answer: Option<Value>,
-    },
-    /// Confirm switching to the other display mode and then run `target_cmd`.
-    ConfirmModeSwitch {
-        target_mode: BotDisplayMode,
-        target_cmd: String,
     },
 }
 
@@ -290,15 +260,14 @@ pub enum BotCommand {
     SwitchMode(BotDisplayMode),
     /// Toggle verbose execution-detail mode (persisted globally).
     SetVerbose(bool),
-    /// Generic "switch" entry — picks workspace or assistant by mode.
+    /// Generic "switch" entry — picks a workspace.
     SwitchContext,
-    /// Generic "new session" entry — picks the right session type by mode.
+    /// Generic "new session" entry — currently creates a standard coding session.
     NewSession,
     /// Specific session creators (kept as hidden aliases).
     NewCodeSession,
     NewCoworkSession,
-    NewClawSession,
-    /// Resume an existing session (workspace or assistant by mode).
+    /// Resume an existing session for the current workspace.
     ResumeSession,
     /// Cancel currently running task.
     CancelTask(Option<String>),
@@ -364,29 +333,22 @@ pub fn parse_command(text: &str) -> BotCommand {
         "/expert" | "/pro" | "专业模式" => {
             return BotCommand::SwitchMode(BotDisplayMode::Pro);
         }
-        "/assistant" | "助理模式" => {
-            return BotCommand::SwitchMode(BotDisplayMode::Assistant);
-        }
 
         // Verbose toggles.
         "/verbose" | "详细" => return BotCommand::SetVerbose(true),
         "/concise" | "简洁" => return BotCommand::SetVerbose(false),
 
-        // Generic switch (picks workspace or assistant by mode).
+        // Generic switch.
         "/switch" | "切换" => return BotCommand::SwitchContext,
-        // Hidden aliases.
         "/switch_workspace" | "切换工作区" => return BotCommand::SwitchContext,
-        "/switch_assistant" | "切换助理" => return BotCommand::SwitchContext,
 
-        // Generic "new" picks the right session type by mode.
+        // Generic "new" uses the default coding session.
         "/new" | "/n" | "新建" | "新建会话" | "新会话" => return BotCommand::NewSession,
         // Hidden aliases / power users.
         "/new_code_session" | "新建编码会话" => return BotCommand::NewCodeSession,
         "/new_cowork_session" | "新建协作会话" => {
             return BotCommand::NewCoworkSession;
         }
-        "/new_claw_session" | "新建助理会话" => return BotCommand::NewClawSession,
-
         // Resume.
         "/resume" | "/r" | "/resume_session" | "恢复" | "恢复会话" => {
             return BotCommand::ResumeSession;
@@ -448,64 +410,13 @@ fn welcome_view(s: &'static BotStrings) -> MenuView {
 }
 
 fn ready_to_chat_body(state: &BotChatState, s: &'static BotStrings) -> Option<String> {
-    // Always show the workspace / assistant name (a human-meaningful
-    // identifier) regardless of whether a session is active. We deliberately
-    // do NOT surface `current_session_id` — the random UUID tail (e.g.
-    // "5cff6a1") is opaque to the user and adds nothing useful. If the
-    // user wants to manage sessions they can use /resume which renders
-    // proper session names.
-    if state.display_mode == BotDisplayMode::Pro {
-        match &state.current_workspace {
-            Some(p) => Some(format!(
-                "{}: {}",
-                s.current_workspace_label,
-                short_path_name(p)
-            )),
-            None => Some(s.no_workspace.to_string()),
-        }
-    } else {
-        // Assistant mode: prefer the cached assistant display name (set by
-        // pairing / switch / resume flows from `WorkspaceInfo.name`). The
-        // workspace path's directory name is meaningless here — the actual
-        // assistant folder is usually `workspace` or `workspace-<uuid>`,
-        // both of which look like noise to the user.
-        match &state.current_assistant {
-            Some(p) => {
-                let label = state
-                    .current_assistant_name
-                    .as_deref()
-                    .filter(|n| !n.trim().is_empty())
-                    .map(|n| n.to_string())
-                    .unwrap_or_else(|| short_path_name(p));
-                Some(format!("{}: {}", s.current_assistant_label, label))
-            }
-            None => Some(s.no_assistant.to_string()),
-        }
-    }
-}
-
-/// One-shot lookup that fills in `current_assistant_name` from the workspace
-/// service when the chat state has an `current_assistant` path but no cached
-/// display name (e.g. the state was persisted before the field was added).
-/// Best-effort: silently no-ops if the workspace service is unavailable or
-/// the path is not a known assistant workspace.
-async fn refresh_assistant_name_if_missing(state: &mut BotChatState) {
-    use crate::service::workspace::get_global_workspace_service;
-    if state.current_assistant_name.is_some() {
-        return;
-    }
-    let Some(path) = state.current_assistant.clone() else {
-        return;
-    };
-    let Some(svc) = get_global_workspace_service() else {
-        return;
-    };
-    let workspaces = svc.get_assistant_workspaces().await;
-    if let Some(ws) = workspaces
-        .into_iter()
-        .find(|w| w.root_path.to_string_lossy() == path)
-    {
-        state.current_assistant_name = Some(ws.name);
+    match &state.current_workspace {
+        Some(p) => Some(format!(
+            "{}: {}",
+            s.current_workspace_label,
+            short_path_name(p)
+        )),
+        None => Some(s.no_workspace.to_string()),
     }
 }
 
@@ -518,29 +429,19 @@ fn short_path_name(path: &str) -> String {
 }
 
 fn main_menu_view(state: &BotChatState, s: &'static BotStrings) -> MenuView {
-    let title = if state.display_mode == BotDisplayMode::Pro {
-        s.main_title_expert
-    } else {
-        s.main_title_assistant
-    };
+    let title = s.main_title_expert;
     let body = ready_to_chat_body(state, s);
     let mut items: Vec<MenuItem> = Vec::new();
-    if state.display_mode == BotDisplayMode::Pro {
-        items.push(MenuItem::primary(
-            s.item_new_code_session,
-            "/new_code_session",
-        ));
-        items.push(MenuItem::default(
-            s.item_new_cowork_session,
-            "/new_cowork_session",
-        ));
-        items.push(MenuItem::default(s.item_resume_session, "/resume"));
-        items.push(MenuItem::default(s.item_switch_workspace, "/switch"));
-    } else {
-        items.push(MenuItem::primary(s.item_new_session, "/new"));
-        items.push(MenuItem::default(s.item_resume_session, "/resume"));
-        items.push(MenuItem::default(s.item_switch_assistant, "/switch"));
-    }
+    items.push(MenuItem::primary(
+        s.item_new_code_session,
+        "/new_code_session",
+    ));
+    items.push(MenuItem::default(
+        s.item_new_cowork_session,
+        "/new_cowork_session",
+    ));
+    items.push(MenuItem::default(s.item_resume_session, "/resume"));
+    items.push(MenuItem::default(s.item_switch_workspace, "/switch"));
     items.push(MenuItem::default(s.item_settings, "/settings"));
     let mut view = MenuView::plain(title).with_items(items);
     if let Some(b) = body {
@@ -549,13 +450,9 @@ fn main_menu_view(state: &BotChatState, s: &'static BotStrings) -> MenuView {
     view
 }
 
-fn settings_menu_view(verbose: bool, state: &BotChatState, s: &'static BotStrings) -> MenuView {
+fn settings_menu_view(verbose: bool, _state: &BotChatState, s: &'static BotStrings) -> MenuView {
     let mut items: Vec<MenuItem> = Vec::new();
-    if state.display_mode == BotDisplayMode::Pro {
-        items.push(MenuItem::default(s.item_switch_to_assistant, "/assistant"));
-    } else {
-        items.push(MenuItem::default(s.item_switch_to_expert, "/expert"));
-    }
+    items.push(MenuItem::default(s.item_switch_to_expert, "/expert"));
     if verbose {
         items.push(MenuItem::default(s.item_verbose_off, "/concise"));
     } else {
@@ -565,11 +462,7 @@ fn settings_menu_view(verbose: bool, state: &BotChatState, s: &'static BotString
     items.push(MenuItem::default(s.item_back, "/menu"));
     let body = format!(
         "{} · {}: {}",
-        if state.display_mode == BotDisplayMode::Pro {
-            s.mode_expert
-        } else {
-            s.mode_assistant
-        },
+        s.mode_expert,
         s.verbose_label,
         if verbose {
             s.verbose_status_on
@@ -584,88 +477,35 @@ fn settings_menu_view(verbose: bool, state: &BotChatState, s: &'static BotString
 
 fn need_session_view(state: &BotChatState, s: &'static BotStrings) -> MenuView {
     let mut items = Vec::new();
-    if state.display_mode == BotDisplayMode::Pro {
-        items.push(MenuItem::primary(
-            s.item_new_code_session,
-            "/new_code_session",
-        ));
-        items.push(MenuItem::default(
-            s.item_new_cowork_session,
-            "/new_cowork_session",
-        ));
-    } else {
-        items.push(MenuItem::primary(s.item_new_session, "/new"));
-    }
+    let _ = state;
+    items.push(MenuItem::primary(
+        s.item_new_code_session,
+        "/new_code_session",
+    ));
+    items.push(MenuItem::default(
+        s.item_new_cowork_session,
+        "/new_cowork_session",
+    ));
     items.push(MenuItem::default(s.item_resume_session, "/resume"));
     items.push(MenuItem::default(s.item_back, "/menu"));
     MenuView::plain(s.need_session_title).with_items(items)
 }
 
-fn confirm_mode_switch_view(target_mode: BotDisplayMode, s: &'static BotStrings) -> MenuView {
-    let target_label = if target_mode == BotDisplayMode::Pro {
-        s.mode_expert
-    } else {
-        s.mode_assistant
-    };
-    let body = format!("{} → {}", s.mode_confirm_switch_prefix, target_label);
-    MenuView::plain(s.settings_title)
-        .with_body(body)
-        .with_items(vec![
-            MenuItem::primary(s.item_confirm_switch, "1"),
-            MenuItem::default(s.item_back, "/menu"),
-        ])
-}
-
 // ── Public entry points ────────────────────────────────────────────
 
-/// IM pairing bootstrap: assistant mode + default assistant workspace + new
-/// Claw session.  Mutates `state.display_mode/current_assistant/
-/// current_session_id` on success.
+/// IM pairing bootstrap: normalize onto Pro mode and create a standard
+/// project session when a workspace is already selected.
 pub async fn bootstrap_im_chat_after_pairing(state: &mut BotChatState) -> String {
-    use crate::service::workspace::get_global_workspace_service;
-
-    state.display_mode = BotDisplayMode::Assistant;
+    state.display_mode = BotDisplayMode::Pro;
     let language = current_bot_language().await;
     let s = strings_for(language);
-
-    let ws_service = match get_global_workspace_service() {
-        Some(s) => s,
-        None => return s.bootstrap_workspace_unavailable.to_string(),
-    };
-
-    let mut assistants = ws_service.get_assistant_workspaces().await;
-    if assistants.is_empty() {
-        match ws_service.create_assistant_workspace(None).await {
-            Ok(w) => assistants.push(w),
-            Err(e) => return format!("{}{e}", s.assistant_create_failed_prefix),
-        }
-    }
-
-    let picked = assistants
-        .iter()
-        .find(|w| w.assistant_id.is_none())
-        .cloned()
-        .or_else(|| assistants.first().cloned());
-
-    let Some(ws_info) = picked else {
-        return s.bootstrap_workspace_unavailable.to_string();
-    };
-
-    let path_buf = ws_info.root_path.clone();
-    if let Err(e) = ws_service.open_workspace(path_buf.clone()).await {
-        return format!("{}{e}", s.workspace_open_failed_prefix);
-    }
-    if let Err(e) =
-        crate::service::snapshot::initialize_snapshot_manager_for_workspace(path_buf, None).await
-    {
-        error!("IM bot bootstrap: snapshot init after pairing: {e}");
-    }
-
-    state.current_assistant = Some(ws_info.root_path.to_string_lossy().to_string());
-    state.current_assistant_name = Some(ws_info.name.clone());
     state.current_session_id = None;
 
-    let create_res = create_session(state, "Claw").await;
+    if state.current_workspace.is_none() {
+        return s.no_workspace.to_string();
+    }
+
+    let create_res = create_session(state, "agentic").await;
     if state.current_session_id.is_none() {
         let detail = create_res.reply.lines().next().unwrap_or("").to_string();
         return format!("{}{detail}", s.bootstrap_session_failed_prefix);
@@ -674,7 +514,7 @@ pub async fn bootstrap_im_chat_after_pairing(state: &mut BotChatState) -> String
     s.bootstrap_ready.to_string()
 }
 
-/// Mark chat paired, run assistant/session bootstrap, return main menu.
+/// Mark chat paired, run workspace/session bootstrap, return main menu.
 pub async fn complete_im_bot_pairing(state: &mut BotChatState) -> HandleResult {
     state.paired = true;
     let language = current_bot_language().await;
@@ -739,7 +579,7 @@ async fn dispatch(
     // Pairing-code submitted after pairing already completed → just nudge.
     if let BotCommand::PairingCode(_) = &cmd {
         if state.paired {
-            let view = MenuView::plain(s.main_title_assistant)
+            let view = MenuView::plain(s.main_title_expert)
                 .with_body(s.paired_success)
                 .with_items(main_menu_view(state, s).items);
             return result_from_menu(state, view);
@@ -750,12 +590,6 @@ async fn dispatch(
     if !state.paired {
         return result_from_menu(state, welcome_view(s));
     }
-
-    // Lazily resolve `current_assistant_name` for chat states that were
-    // persisted before this field existed. Without this, already-paired
-    // users would keep seeing the workspace folder name (e.g. "workspace")
-    // until they manually re-switch assistants.
-    refresh_assistant_name_if_missing(state).await;
 
     // Handle /cancel as task cancellation when an active session exists.
     if let BotCommand::CancelTask(turn_id) = &cmd {
@@ -785,7 +619,6 @@ async fn dispatch(
         BotCommand::NewSession => new_session_for_mode(state, s).await,
         BotCommand::NewCodeSession => guarded_new(state, "agentic", s).await,
         BotCommand::NewCoworkSession => guarded_new(state, "Cowork", s).await,
-        BotCommand::NewClawSession => guarded_new(state, "Claw", s).await,
         BotCommand::ResumeSession => start_resume(state, 0, s).await,
         BotCommand::ChatMessage(msg) => handle_chat(state, &msg, image_contexts, s).await,
         BotCommand::Menu
@@ -811,37 +644,16 @@ async fn switch_mode(
     s: &'static BotStrings,
 ) -> HandleResult {
     if state.display_mode == target {
-        let body = if target == BotDisplayMode::Pro {
-            s.mode_already_expert
-        } else {
-            s.mode_already_assistant
-        };
+        let body = s.mode_already_expert;
         let mut view = main_menu_view(state, s);
         view = view.with_body(body);
         return result_from_menu(state, view);
     }
     state.display_mode = target;
-    let body = if target == BotDisplayMode::Pro {
-        s.mode_switched_to_expert
-    } else {
-        s.mode_switched_to_assistant
-    };
+    let body = s.mode_switched_to_expert;
     let mut view = main_menu_view(state, s);
     view = view.with_body(body);
     result_from_menu(state, view)
-}
-
-async fn confirm_then_run(
-    state: &mut BotChatState,
-    target: BotDisplayMode,
-    target_cmd: String,
-    s: &'static BotStrings,
-) -> HandleResult {
-    state.set_pending(PendingAction::ConfirmModeSwitch {
-        target_mode: target,
-        target_cmd,
-    });
-    result_from_menu(state, confirm_mode_switch_view(target, s))
 }
 
 async fn set_verbose(state: &mut BotChatState, on: bool, s: &'static BotStrings) -> HandleResult {
@@ -859,7 +671,7 @@ async fn set_verbose(state: &mut BotChatState, on: bool, s: &'static BotStrings)
     result_from_menu(state, view)
 }
 
-// ── Switch context (workspace or assistant) ────────────────────────
+// ── Switch context (workspace) ─────────────────────────────────────
 
 async fn start_switch(state: &mut BotChatState, s: &'static BotStrings) -> HandleResult {
     use crate::service::workspace::get_global_workspace_service;
@@ -875,39 +687,21 @@ async fn start_switch(state: &mut BotChatState, s: &'static BotStrings) -> Handl
         }
     };
 
-    if state.display_mode == BotDisplayMode::Pro {
-        let workspaces = ws_service.get_recent_workspaces().await;
-        if workspaces.is_empty() {
-            return result_from_menu(
-                state,
-                MenuView::plain(s.switch_no_workspaces)
-                    .with_items(vec![MenuItem::default(s.item_back, "/menu")]),
-            );
-        }
-        let options: Vec<(String, String)> = workspaces
-            .iter()
-            .map(|ws| (ws.root_path.to_string_lossy().to_string(), ws.name.clone()))
-            .collect();
-        let view = workspace_selection_view(state, &options, s);
-        state.set_pending(PendingAction::SelectWorkspace { options });
-        result_from_menu(state, view)
-    } else {
-        let assistants = ws_service.get_assistant_workspaces().await;
-        if assistants.is_empty() {
-            return result_from_menu(
-                state,
-                MenuView::plain(s.switch_no_assistants)
-                    .with_items(vec![MenuItem::default(s.item_back, "/menu")]),
-            );
-        }
-        let options: Vec<(String, String)> = assistants
-            .iter()
-            .map(|ws| (ws.root_path.to_string_lossy().to_string(), ws.name.clone()))
-            .collect();
-        let view = assistant_selection_view(state, &options, s);
-        state.set_pending(PendingAction::SelectAssistant { options });
-        result_from_menu(state, view)
+    let workspaces = ws_service.get_recent_workspaces().await;
+    if workspaces.is_empty() {
+        return result_from_menu(
+            state,
+            MenuView::plain(s.switch_no_workspaces)
+                .with_items(vec![MenuItem::default(s.item_back, "/menu")]),
+        );
     }
+    let options: Vec<(String, String)> = workspaces
+        .iter()
+        .map(|ws| (ws.root_path.to_string_lossy().to_string(), ws.name.clone()))
+        .collect();
+    let view = workspace_selection_view(state, &options, s);
+    state.set_pending(PendingAction::SelectWorkspace { options });
+    result_from_menu(state, view)
 }
 
 fn workspace_selection_view(
@@ -931,29 +725,6 @@ fn workspace_selection_view(
         .with_body(body.trim_end().to_string())
         .with_items(items)
         .with_footer(s.footer_reply_workspace)
-}
-
-fn assistant_selection_view(
-    state: &BotChatState,
-    options: &[(String, String)],
-    s: &'static BotStrings,
-) -> MenuView {
-    let mut items = Vec::new();
-    let mut body = String::new();
-    for (i, (path, name)) in options.iter().enumerate() {
-        let is_current = state.current_assistant.as_deref() == Some(path.as_str());
-        let marker = if is_current { s.current_marker } else { "" };
-        body.push_str(&format!("{}. {}{}\n", i + 1, name, marker));
-        items.push(MenuItem::default(
-            truncate_label(name, 24),
-            (i + 1).to_string(),
-        ));
-    }
-    items.push(MenuItem::default(s.item_back, "/menu"));
-    MenuView::plain(s.switch_pick_assistant)
-        .with_body(body.trim_end().to_string())
-        .with_items(items)
-        .with_footer(s.footer_reply_assistant)
 }
 
 fn session_selection_view(
@@ -1036,54 +807,6 @@ async fn select_workspace(
     }
 }
 
-async fn select_assistant(
-    state: &mut BotChatState,
-    path: &str,
-    name: &str,
-    s: &'static BotStrings,
-) -> HandleResult {
-    use crate::service::workspace::get_global_workspace_service;
-
-    let ws_service = match get_global_workspace_service() {
-        Some(svc) => svc,
-        None => {
-            return result_from_menu(state, MenuView::plain(s.workspace_service_unavailable));
-        }
-    };
-    let path_buf = std::path::PathBuf::from(path);
-    match ws_service.open_workspace(path_buf).await {
-        Ok(info) => {
-            if let Err(e) = crate::service::snapshot::initialize_snapshot_manager_for_workspace(
-                info.root_path.clone(),
-                None,
-            )
-            .await
-            {
-                error!("Failed to init snapshot after bot assistant switch: {e}");
-            }
-            state.current_assistant = Some(path.to_string());
-            state.current_assistant_name = Some(name.to_string());
-            state.current_session_id = None;
-            info!("Bot switched assistant to: {path}");
-
-            let session_count = count_workspace_sessions(path).await;
-            let body = format!(
-                "{}: {} · {}",
-                s.current_assistant_label,
-                name,
-                fmt_count(s.workspace_session_count_fmt, session_count),
-            );
-            let mut view = main_menu_view(state, s);
-            view = view.with_body(body);
-            result_from_menu(state, view)
-        }
-        Err(e) => result_from_menu(
-            state,
-            MenuView::plain(format!("{}{e}", s.workspace_open_failed_prefix)),
-        ),
-    }
-}
-
 async fn count_workspace_sessions(workspace_path: &str) -> usize {
     use crate::agentic::persistence::PersistenceManager;
     use crate::infrastructure::PathManager;
@@ -1124,31 +847,16 @@ async fn start_resume(
     use crate::agentic::persistence::PersistenceManager;
     use crate::infrastructure::PathManager;
 
-    let ws_path = if state.display_mode == BotDisplayMode::Pro {
-        match &state.current_workspace {
-            Some(p) => std::path::PathBuf::from(p),
-            None => {
-                return result_from_menu(
-                    state,
-                    MenuView::plain(s.no_workspace).with_items(vec![
-                        MenuItem::primary(s.item_switch_workspace, "/switch"),
-                        MenuItem::default(s.item_back, "/menu"),
-                    ]),
-                );
-            }
-        }
-    } else {
-        match &state.current_assistant {
-            Some(p) => std::path::PathBuf::from(p),
-            None => {
-                return result_from_menu(
-                    state,
-                    MenuView::plain(s.no_assistant).with_items(vec![
-                        MenuItem::primary(s.item_switch_assistant, "/switch"),
-                        MenuItem::default(s.item_back, "/menu"),
-                    ]),
-                );
-            }
+    let ws_path = match &state.current_workspace {
+        Some(p) => std::path::PathBuf::from(p),
+        None => {
+            return result_from_menu(
+                state,
+                MenuView::plain(s.no_workspace).with_items(vec![
+                    MenuItem::primary(s.item_switch_workspace, "/switch"),
+                    MenuItem::default(s.item_back, "/menu"),
+                ]),
+            );
         }
     };
 
@@ -1332,11 +1040,7 @@ fn truncate_text(text: &str, max_chars: usize) -> String {
 }
 
 async fn new_session_for_mode(state: &mut BotChatState, s: &'static BotStrings) -> HandleResult {
-    let agent_type = if state.display_mode == BotDisplayMode::Pro {
-        "agentic"
-    } else {
-        "Claw"
-    };
+    let agent_type = "agentic";
     guarded_new(state, agent_type, s).await
 }
 
@@ -1345,27 +1049,9 @@ async fn guarded_new(
     agent_type: &str,
     s: &'static BotStrings,
 ) -> HandleResult {
-    let needs_pro = matches!(agent_type, "agentic" | "Cowork");
-    let needs_assistant = matches!(agent_type, "Claw");
+    let needs_workspace = matches!(agent_type, "agentic" | "Cowork");
 
-    if needs_pro && state.display_mode != BotDisplayMode::Pro {
-        let target_cmd = match agent_type {
-            "agentic" => "/new_code_session",
-            "Cowork" => "/new_cowork_session",
-            _ => "/new_code_session",
-        };
-        return confirm_then_run(state, BotDisplayMode::Pro, target_cmd.to_string(), s).await;
-    }
-    if needs_assistant && state.display_mode != BotDisplayMode::Assistant {
-        return confirm_then_run(
-            state,
-            BotDisplayMode::Assistant,
-            "/new_claw_session".to_string(),
-            s,
-        )
-        .await;
-    }
-    if needs_pro && state.current_workspace.is_none() {
+    if needs_workspace && state.current_workspace.is_none() {
         return result_from_menu(
             state,
             MenuView::plain(s.no_workspace).with_items(vec![
@@ -1380,11 +1066,9 @@ async fn guarded_new(
 async fn create_session(state: &mut BotChatState, agent_type: &str) -> HandleResult {
     use crate::agentic::coordination::get_global_coordinator;
     use crate::agentic::core::SessionConfig;
-    use crate::service::workspace::get_global_workspace_service;
 
     let language = current_bot_language().await;
     let s = strings_for(language);
-    let is_claw = agent_type == "Claw";
 
     let coordinator = match get_global_coordinator() {
         Some(c) => c,
@@ -1393,50 +1077,7 @@ async fn create_session(state: &mut BotChatState, agent_type: &str) -> HandleRes
         }
     };
 
-    let ws_path = if is_claw {
-        if let Some(p) = state.current_assistant.clone() {
-            Some(p)
-        } else {
-            let ws_service = match get_global_workspace_service() {
-                Some(s) => s,
-                None => {
-                    return result_from_menu(
-                        state,
-                        MenuView::plain(s.workspace_service_unavailable),
-                    );
-                }
-            };
-            let workspaces = ws_service.get_assistant_workspaces().await;
-            let resolved: Option<(String, String)> = if let Some(default_ws) =
-                workspaces.into_iter().find(|w| w.assistant_id.is_none())
-            {
-                Some((
-                    default_ws.root_path.to_string_lossy().to_string(),
-                    default_ws.name.clone(),
-                ))
-            } else {
-                match ws_service.create_assistant_workspace(None).await {
-                    Ok(ws_info) => Some((
-                        ws_info.root_path.to_string_lossy().to_string(),
-                        ws_info.name.clone(),
-                    )),
-                    Err(e) => {
-                        return result_from_menu(
-                            state,
-                            MenuView::plain(format!("{}{e}", s.assistant_create_failed_prefix)),
-                        );
-                    }
-                }
-            };
-            if let Some((ref path, ref name)) = resolved {
-                state.current_assistant = Some(path.clone());
-                state.current_assistant_name = Some(name.clone());
-            }
-            resolved.map(|(p, _)| p)
-        }
-    } else {
-        state.current_workspace.clone()
-    };
+    let ws_path = state.current_workspace.clone();
 
     let session_name = match agent_type {
         "Cowork" => {
@@ -1444,13 +1085,6 @@ async fn create_session(state: &mut BotChatState, agent_type: &str) -> HandleRes
                 "远程协作会话"
             } else {
                 "Remote Cowork Session"
-            }
-        }
-        "Claw" => {
-            if language.is_chinese() {
-                "远程助理会话"
-            } else {
-                "Remote Claw Session"
             }
         }
         _ => {
@@ -1463,17 +1097,10 @@ async fn create_session(state: &mut BotChatState, agent_type: &str) -> HandleRes
     };
 
     let Some(workspace_path) = ws_path else {
-        let view = if is_claw {
-            MenuView::plain(s.no_assistant).with_items(vec![
-                MenuItem::primary(s.item_switch_assistant, "/switch"),
-                MenuItem::default(s.item_back, "/menu"),
-            ])
-        } else {
-            MenuView::plain(s.no_workspace).with_items(vec![
-                MenuItem::primary(s.item_switch_workspace, "/switch"),
-                MenuItem::default(s.item_back, "/menu"),
-            ])
-        };
+        let view = MenuView::plain(s.no_workspace).with_items(vec![
+            MenuItem::primary(s.item_switch_workspace, "/switch"),
+            MenuItem::default(s.item_back, "/menu"),
+        ]);
         return result_from_menu(state, view);
     };
 
@@ -1581,24 +1208,6 @@ async fn route_pending(
                 }
             }
         }
-        PendingAction::SelectAssistant { options } => {
-            let parsed: Option<usize> = raw_input.parse().ok();
-            match parsed {
-                Some(0) => {
-                    state.clear_pending();
-                    menu_or_welcome(state, s)
-                }
-                Some(n) if n >= 1 && n <= options.len() => {
-                    state.clear_pending();
-                    let (path, name) = options[n - 1].clone();
-                    select_assistant(state, &path, &name, s).await
-                }
-                _ => {
-                    state.set_pending(PendingAction::SelectAssistant { options });
-                    Box::pin(pending_invalid(state, s)).await
-                }
-            }
-        }
         PendingAction::SelectSession {
             options,
             page,
@@ -1650,31 +1259,6 @@ async fn route_pending(
             )
             .await
         }
-        PendingAction::ConfirmModeSwitch {
-            target_mode,
-            target_cmd,
-        } => {
-            let parsed: Option<usize> = raw_input.parse().ok();
-            match parsed {
-                Some(1) => {
-                    state.clear_pending();
-                    state.display_mode = target_mode;
-                    let next_cmd = parse_command(&target_cmd);
-                    Box::pin(dispatch(state, next_cmd, vec![])).await
-                }
-                Some(0) => {
-                    state.clear_pending();
-                    menu_or_welcome(state, s)
-                }
-                _ => {
-                    state.set_pending(PendingAction::ConfirmModeSwitch {
-                        target_mode,
-                        target_cmd,
-                    });
-                    Box::pin(pending_invalid(state, s)).await
-                }
-            }
-        }
     }
 }
 
@@ -1700,7 +1284,6 @@ async fn pending_invalid(state: &mut BotChatState, s: &'static BotStrings) -> Ha
     };
     let mut view = match &pending {
         PendingAction::SelectWorkspace { options } => workspace_selection_view(state, options, s),
-        PendingAction::SelectAssistant { options } => assistant_selection_view(state, options, s),
         PendingAction::SelectSession {
             options,
             page,
@@ -1712,9 +1295,6 @@ async fn pending_invalid(state: &mut BotChatState, s: &'static BotStrings) -> Ha
             awaiting_custom_text,
             ..
         } => build_question_view(s, questions, *current_index, *awaiting_custom_text),
-        PendingAction::ConfirmModeSwitch { target_mode, .. } => {
-            confirm_mode_switch_view(*target_mode, s)
-        }
     };
     let original_body = view.body.take().unwrap_or_default();
     let new_body = if original_body.is_empty() {
@@ -1972,8 +1552,8 @@ async fn submit_question_answers(
 
 // ── Free-form chat handling ───────────────────────────────────────
 
-/// Look up the agent type a session was created with (e.g. "Claw", "Cowork",
-/// "agentic").  Returns `None` if the coordinator is unavailable or the
+/// Look up the agent type a session was created with (e.g. "Cowork",
+/// "agentic"). Returns `None` if the coordinator is unavailable or the
 /// session is not currently hot in memory; in that case `send_message` will
 /// lazily restore the session from disk and `resolve_agent_type` falls back
 /// to the safe default ("agentic"), so chat keeps working.
@@ -2016,15 +1596,10 @@ async fn handle_chat(
     let turn_id = format!("turn_{}", uuid::Uuid::new_v4());
 
     // Pick the agent type from the actual session — NOT a hardcoded
-    // "agentic" — otherwise every chat message goes through the Code
-    // (`agentic`) agent regardless of what kind of session was created.
-    // Concretely: the IM pairing bootstrap creates a `Claw` session for
-    // assistant mode, but the old hardcoded value caused all subsequent
-    // messages to be re-routed to the Code agent and the assistant flow
-    // was effectively bypassed.  We mirror the agent type the session was
-    // actually created with, falling back to "agentic" only if the session
-    // is missing in memory (e.g. needs lazy restore — `send_message` will
-    // also normalize via `resolve_agent_type`).
+    // "agentic" — otherwise every chat message would be forced through the
+    // Code agent regardless of how the session was created. We mirror the
+    // stored agent type and fall back to "agentic" only if the session is
+    // missing in memory (e.g. needs lazy restore).
     let agent_type = resolve_session_agent_type(&session_id)
         .await
         .unwrap_or_else(|| "agentic".to_string());
@@ -2327,10 +1902,6 @@ mod parse_command_tests {
             parse_command("/switch_workspace"),
             BotCommand::SwitchContext
         ));
-        assert!(matches!(
-            parse_command("/switch_assistant"),
-            BotCommand::SwitchContext
-        ));
         assert!(matches!(parse_command("切换"), BotCommand::SwitchContext));
     }
 
@@ -2344,10 +1915,6 @@ mod parse_command_tests {
         assert!(matches!(
             parse_command("/new_cowork_session"),
             BotCommand::NewCoworkSession
-        ));
-        assert!(matches!(
-            parse_command("/new_claw_session"),
-            BotCommand::NewClawSession
         ));
     }
 
@@ -2408,22 +1975,15 @@ mod state_tests {
     }
 
     #[test]
-    fn active_workspace_path_prefers_pro_workspace_then_assistant() {
+    fn active_workspace_path_returns_current_workspace() {
         let mut state = BotChatState::new("c".into());
         assert_eq!(state.active_workspace_path(), None);
-
-        state.current_assistant = Some("/tmp/assistant-ws".to_string());
-        assert_eq!(
-            state.active_workspace_path().as_deref(),
-            Some("/tmp/assistant-ws"),
-            "assistant path is the fallback when no Pro workspace is set"
-        );
 
         state.current_workspace = Some("/tmp/pro-ws".to_string());
         assert_eq!(
             state.active_workspace_path().as_deref(),
             Some("/tmp/pro-ws"),
-            "Pro workspace wins over the assistant path when both are set"
+            "current workspace should be returned when it is set"
         );
     }
 
@@ -2444,17 +2004,6 @@ mod menu_tests {
     use super::*;
 
     #[test]
-    fn main_menu_assistant_has_four_items() {
-        let state = BotChatState::new("c".into());
-        let view = main_menu_view(&state, strings_for(BotLanguage::ZhCN));
-        assert_eq!(view.items.len(), 4);
-        assert!(view.items.iter().any(|i| i.command == "/new"));
-        assert!(view.items.iter().any(|i| i.command == "/resume"));
-        assert!(view.items.iter().any(|i| i.command == "/switch"));
-        assert!(view.items.iter().any(|i| i.command == "/settings"));
-    }
-
-    #[test]
     fn main_menu_expert_has_five_items() {
         let mut state = BotChatState::new("c".into());
         state.display_mode = BotDisplayMode::Pro;
@@ -2464,13 +2013,12 @@ mod menu_tests {
     }
 
     /// Main menu must NOT surface the random session UUID tail. The user
-    /// only cares about the workspace / assistant name; the session ID is
+    /// only cares about the workspace name; the session ID is
     /// noise (see /resume for proper session management).
     #[test]
     fn main_menu_body_omits_session_id() {
         let mut state = BotChatState::new("c".into());
-        state.current_assistant = Some("/tmp/my-assistant".to_string());
-        state.current_assistant_name = Some("我的助理".to_string());
+        state.current_workspace = Some("/tmp/projects/MyApp".to_string());
         state.current_session_id = Some("abcdef12-3456-7890-abcd-ef1234567890".to_string());
         let s = strings_for(BotLanguage::ZhCN);
         let view = main_menu_view(&state, s);
@@ -2479,29 +2027,7 @@ mod menu_tests {
             !body.contains("567890") && !body.contains("ef1234567890"),
             "session UUID tail leaked into body: {body}"
         );
-        assert!(body.contains("我的助理"), "assistant name missing: {body}");
-    }
-
-    /// Assistant mode must show the assistant's display name rather than
-    /// the workspace directory's `file_name`. The directory is usually a
-    /// generic "workspace" / "workspace-<uuid>" folder which is meaningless
-    /// to the user.
-    #[test]
-    fn assistant_mode_body_uses_display_name_not_dir_name() {
-        let mut state = BotChatState::new("c".into());
-        state.current_assistant = Some("/tmp/bitfun_assistants/workspace-abc123".to_string());
-        state.current_assistant_name = Some("默认助理".to_string());
-        let s = strings_for(BotLanguage::ZhCN);
-        let view = main_menu_view(&state, s);
-        let body = view.body.as_deref().unwrap_or("");
-        assert!(
-            body.contains("默认助理"),
-            "expected assistant display name in body, got: {body}"
-        );
-        assert!(
-            !body.contains("workspace-abc123"),
-            "workspace directory name leaked into body: {body}"
-        );
+        assert!(body.contains("MyApp"), "workspace name missing: {body}");
     }
 
     /// Expert mode keeps showing the workspace directory name (it IS the
@@ -2511,39 +2037,16 @@ mod menu_tests {
         let mut state = BotChatState::new("c".into());
         state.display_mode = BotDisplayMode::Pro;
         state.current_workspace = Some("/tmp/projects/MyApp".to_string());
-        // `current_assistant_name` should not affect Pro mode at all.
-        state.current_assistant_name = Some("ignored".to_string());
         let s = strings_for(BotLanguage::ZhCN);
         let view = main_menu_view(&state, s);
         let body = view.body.as_deref().unwrap_or("");
         assert!(body.contains("MyApp"), "workspace name missing: {body}");
-        assert!(
-            !body.contains("ignored"),
-            "assistant name leaked into Pro mode: {body}"
-        );
-    }
-
-    /// When the cached assistant display name is missing (e.g. legacy
-    /// persisted state), fall back to the path's last segment instead of
-    /// rendering an empty label or panicking.
-    #[test]
-    fn assistant_mode_body_falls_back_to_path_when_name_missing() {
-        let mut state = BotChatState::new("c".into());
-        state.current_assistant = Some("/tmp/my-assistant-folder".to_string());
-        state.current_assistant_name = None;
-        let s = strings_for(BotLanguage::ZhCN);
-        let view = main_menu_view(&state, s);
-        let body = view.body.as_deref().unwrap_or("");
-        assert!(
-            body.contains("my-assistant-folder"),
-            "expected fallback to path tail, got: {body}"
-        );
     }
 
     #[test]
     fn main_menu_body_omits_session_label_text() {
         let mut state = BotChatState::new("c".into());
-        state.current_assistant = Some("/tmp/my-assistant".to_string());
+        state.current_workspace = Some("/tmp/projects/MyApp".to_string());
         state.current_session_id = Some("session-xyz".to_string());
         let s = strings_for(BotLanguage::ZhCN);
         let view = main_menu_view(&state, s);
@@ -2567,7 +2070,7 @@ mod handle_chat_tests {
     async fn chat_message_forwards_silently_without_processing_menu() {
         let mut state = BotChatState::new("peer".into());
         state.paired = true;
-        state.current_assistant = Some("/tmp/a".into());
+        state.current_workspace = Some("/tmp/project".into());
         state.current_session_id = Some("s1".into());
         let s = strings_for(BotLanguage::ZhCN);
         let result = handle_chat(&mut state, "hello bitfun", vec![], s).await;

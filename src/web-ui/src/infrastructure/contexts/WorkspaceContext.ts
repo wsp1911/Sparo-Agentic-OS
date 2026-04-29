@@ -1,17 +1,12 @@
  
 import { createContext, useContext, useEffect } from 'react';
 import { workspaceManager, WorkspaceState, WorkspaceEvent } from '../services/business/workspaceManager';
-import { WorkspaceInfo, WorkspaceKind } from '../../shared/types';
+import { WorkspaceInfo } from '../../shared/types';
 
 export const getWorkspaceDisplayName = (workspace: WorkspaceInfo | null): string => {
   if (!workspace) {
     return '';
   }
-
-  if (workspace.workspaceKind === WorkspaceKind.Assistant) {
-    return workspace.identity?.name?.trim() || workspace.name;
-  }
-
   return workspace.name;
 };
 
@@ -19,17 +14,13 @@ export interface WorkspaceContextValue extends WorkspaceState {
   activeWorkspace: WorkspaceInfo | null;
   openedWorkspacesList: WorkspaceInfo[];
   normalWorkspacesList: WorkspaceInfo[];
-  assistantWorkspacesList: WorkspaceInfo[];
   openWorkspace: (path: string) => Promise<WorkspaceInfo>;
-  createAssistantWorkspace: () => Promise<WorkspaceInfo>;
   closeWorkspace: () => Promise<void>;
   closeWorkspaceById: (workspaceId: string) => Promise<void>;
-  deleteAssistantWorkspace: (workspaceId: string) => Promise<void>;
-  resetAssistantWorkspace: (workspaceId: string) => Promise<WorkspaceInfo>;
   switchWorkspace: (workspace: WorkspaceInfo) => Promise<WorkspaceInfo>;
   setActiveWorkspace: (workspaceId: string) => Promise<WorkspaceInfo>;
   reorderOpenedWorkspacesInSection: (
-    section: 'assistants' | 'projects',
+    section: 'projects',
     sourceWorkspaceId: string,
     targetWorkspaceId: string,
     position: 'before' | 'after'

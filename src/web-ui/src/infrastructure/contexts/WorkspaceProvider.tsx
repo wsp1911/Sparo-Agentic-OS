@@ -1,6 +1,6 @@
 import React, { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { workspaceManager } from '../services/business/workspaceManager';
-import { WorkspaceInfo, WorkspaceKind } from '../../shared/types';
+import { WorkspaceInfo } from '../../shared/types';
 import { createLogger } from '@/shared/utils/logger';
 import {
   WorkspaceContext,
@@ -25,24 +25,14 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
         ...initialState,
         activeWorkspace,
         openedWorkspacesList,
-        normalWorkspacesList: openedWorkspacesList.filter(
-          (workspace) => workspace.workspaceKind !== WorkspaceKind.Assistant
-        ),
-        assistantWorkspacesList: openedWorkspacesList.filter(
-          (workspace) => workspace.workspaceKind === WorkspaceKind.Assistant
-        ),
+        normalWorkspacesList: openedWorkspacesList,
         openWorkspace: async (path: string) => workspaceManager.openWorkspace(path),
-        createAssistantWorkspace: async () => workspaceManager.createAssistantWorkspace(),
         closeWorkspace: async () => workspaceManager.closeWorkspace(),
         closeWorkspaceById: async (workspaceId: string) => workspaceManager.closeWorkspaceById(workspaceId),
-        deleteAssistantWorkspace: async (workspaceId: string) =>
-          workspaceManager.deleteAssistantWorkspace(workspaceId),
-        resetAssistantWorkspace: async (workspaceId: string) =>
-          workspaceManager.resetAssistantWorkspace(workspaceId),
         switchWorkspace: async (workspace: WorkspaceInfo) => workspaceManager.switchWorkspace(workspace),
         setActiveWorkspace: async (workspaceId: string) => workspaceManager.setActiveWorkspace(workspaceId),
         reorderOpenedWorkspacesInSection: async (
-          section: 'assistants' | 'projects',
+          section: 'projects',
           sourceWorkspaceId: string,
           targetWorkspaceId: string,
           position: 'before' | 'after'
@@ -74,19 +64,13 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
         activeWorkspace: null,
         openedWorkspacesList: [],
         normalWorkspacesList: [],
-        assistantWorkspacesList: [],
         openWorkspace: async (path: string) => workspaceManager.openWorkspace(path),
-        createAssistantWorkspace: async () => workspaceManager.createAssistantWorkspace(),
         closeWorkspace: async () => workspaceManager.closeWorkspace(),
         closeWorkspaceById: async (workspaceId: string) => workspaceManager.closeWorkspaceById(workspaceId),
-        deleteAssistantWorkspace: async (workspaceId: string) =>
-          workspaceManager.deleteAssistantWorkspace(workspaceId),
-        resetAssistantWorkspace: async (workspaceId: string) =>
-          workspaceManager.resetAssistantWorkspace(workspaceId),
         switchWorkspace: async (workspace: WorkspaceInfo) => workspaceManager.switchWorkspace(workspace),
         setActiveWorkspace: async (workspaceId: string) => workspaceManager.setActiveWorkspace(workspaceId),
         reorderOpenedWorkspacesInSection: async (
-          section: 'assistants' | 'projects',
+          section: 'projects',
           sourceWorkspaceId: string,
           targetWorkspaceId: string,
           position: 'before' | 'after'
@@ -122,12 +106,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
           ...nextState,
           activeWorkspace,
           openedWorkspacesList,
-          normalWorkspacesList: openedWorkspacesList.filter(
-            (workspace) => workspace.workspaceKind !== WorkspaceKind.Assistant
-          ),
-          assistantWorkspacesList: openedWorkspacesList.filter(
-            (workspace) => workspace.workspaceKind === WorkspaceKind.Assistant
-          ),
+          normalWorkspacesList: openedWorkspacesList,
           hasWorkspace: !!activeWorkspace,
           workspaceName: getWorkspaceDisplayName(activeWorkspace),
           workspacePath: activeWorkspace?.rootPath || '',
@@ -159,12 +138,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
           ...nextState,
           activeWorkspace,
           openedWorkspacesList,
-          normalWorkspacesList: openedWorkspacesList.filter(
-            (workspace) => workspace.workspaceKind !== WorkspaceKind.Assistant
-          ),
-          assistantWorkspacesList: openedWorkspacesList.filter(
-            (workspace) => workspace.workspaceKind === WorkspaceKind.Assistant
-          ),
+          normalWorkspacesList: openedWorkspacesList,
           hasWorkspace: !!activeWorkspace,
           workspaceName: getWorkspaceDisplayName(activeWorkspace),
           workspacePath: activeWorkspace?.rootPath || '',
@@ -183,24 +157,12 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
     return await workspaceManager.openWorkspace(path);
   }, []);
 
-  const createAssistantWorkspace = useCallback(async (): Promise<WorkspaceInfo> => {
-    return await workspaceManager.createAssistantWorkspace();
-  }, []);
-
   const closeWorkspace = useCallback(async (): Promise<void> => {
     return await workspaceManager.closeWorkspace();
   }, []);
 
   const closeWorkspaceById = useCallback(async (workspaceId: string): Promise<void> => {
     return await workspaceManager.closeWorkspaceById(workspaceId);
-  }, []);
-
-  const deleteAssistantWorkspace = useCallback(async (workspaceId: string): Promise<void> => {
-    return await workspaceManager.deleteAssistantWorkspace(workspaceId);
-  }, []);
-
-  const resetAssistantWorkspace = useCallback(async (workspaceId: string): Promise<WorkspaceInfo> => {
-    return await workspaceManager.resetAssistantWorkspace(workspaceId);
   }, []);
 
   const switchWorkspace = useCallback(async (workspace: WorkspaceInfo): Promise<WorkspaceInfo> => {
@@ -212,7 +174,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
   }, []);
 
   const reorderOpenedWorkspacesInSection = useCallback(async (
-    section: 'assistants' | 'projects',
+    section: 'projects',
     sourceWorkspaceId: string,
     targetWorkspaceId: string,
     position: 'before' | 'after'
@@ -245,18 +207,10 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
       ...state,
       activeWorkspace,
       openedWorkspacesList,
-      normalWorkspacesList: openedWorkspacesList.filter(
-        (workspace) => workspace.workspaceKind !== WorkspaceKind.Assistant
-      ),
-      assistantWorkspacesList: openedWorkspacesList.filter(
-        (workspace) => workspace.workspaceKind === WorkspaceKind.Assistant
-      ),
+      normalWorkspacesList: openedWorkspacesList,
       openWorkspace,
-      createAssistantWorkspace,
       closeWorkspace,
       closeWorkspaceById,
-      deleteAssistantWorkspace,
-      resetAssistantWorkspace,
       switchWorkspace,
       setActiveWorkspace,
       reorderOpenedWorkspacesInSection,
@@ -270,11 +224,8 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
   }, [
     state,
     openWorkspace,
-    createAssistantWorkspace,
     closeWorkspace,
     closeWorkspaceById,
-    deleteAssistantWorkspace,
-    resetAssistantWorkspace,
     switchWorkspace,
     setActiveWorkspace,
     reorderOpenedWorkspacesInSection,

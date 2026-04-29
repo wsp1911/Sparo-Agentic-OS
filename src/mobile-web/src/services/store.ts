@@ -4,7 +4,6 @@ import type {
   ChatMessage,
   WorkspaceInfo,
   ActiveTurnSnapshot,
-  AssistantEntry,
 } from './RemoteSessionManager';
 
 export type ConnectionStatus = 'idle' | 'pairing' | 'paired' | 'error';
@@ -15,13 +14,6 @@ interface MobileStore {
 
   currentWorkspace: WorkspaceInfo | null;
   setCurrentWorkspace: (w: WorkspaceInfo | null) => void;
-
-  currentAssistant: AssistantEntry | null;
-  setCurrentAssistant: (a: AssistantEntry | null) => void;
-
-  /** One-shot hint after pairing so SessionList matches desktop assistant vs project workspace. */
-  pairedDisplayMode: 'pro' | 'assistant' | null;
-  setPairedDisplayMode: (m: 'pro' | 'assistant' | null) => void;
 
   authenticatedUserId: string | null;
   setAuthenticatedUserId: (userId: string | null) => void;
@@ -52,12 +44,6 @@ export const useMobileStore = create<MobileStore>((set, get) => ({
 
   currentWorkspace: null,
   setCurrentWorkspace: (currentWorkspace) => set({ currentWorkspace }),
-
-  currentAssistant: null,
-  setCurrentAssistant: (currentAssistant) => set({ currentAssistant }),
-
-  pairedDisplayMode: null,
-  setPairedDisplayMode: (pairedDisplayMode) => set({ pairedDisplayMode }),
 
   authenticatedUserId: null,
   setAuthenticatedUserId: (authenticatedUserId) => set({ authenticatedUserId }),

@@ -45,7 +45,6 @@ export interface UseAgentIdentityDocumentResult {
   updateField: <K extends keyof IdentityDocument>(field: K, value: IdentityDocument[K]) => void;
   reload: () => Promise<void>;
   openInEditor: () => Promise<void>;
-  resetPersonaFiles: () => Promise<void>;
 }
 
 export function useAgentIdentityDocument(
@@ -270,33 +269,6 @@ export function useAgentIdentityDocument(
     await ideControl.navigation.goToFile(identityFilePath);
   }, [identityFilePath]);
 
-  const resetPersonaFiles = useCallback(async () => {
-    if (!workspacePath) {
-      return;
-    }
-
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = null;
-    }
-
-    setSaveStatus('loading');
-    setError(null);
-
-    try {
-      await workspaceAPI.resetWorkspacePersonaFiles(workspacePath);
-      suppressWatcherUntilRef.current = Date.now() + SELF_WRITE_SUPPRESS_MS;
-      await loadDocument();
-    } catch (resetError) {
-      log.error('Failed to reset workspace persona files', { workspacePath, error: resetError });
-      if (mountedRef.current) {
-        setError(resetError instanceof Error ? resetError.message : String(resetError));
-        setSaveStatus('error');
-      }
-      throw resetError;
-    }
-  }, [loadDocument, workspacePath]);
-
   return {
     identityFilePath,
     document,
@@ -309,6 +281,5 @@ export function useAgentIdentityDocument(
     updateField,
     reload: loadDocument,
     openInEditor,
-    resetPersonaFiles,
   };
 }

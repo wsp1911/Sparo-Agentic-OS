@@ -10,11 +10,9 @@ import {
   Settings,
   FileCode2,
   Brain,
-  CircleUserRound,
   Users,
   Puzzle,
   Wrench,
-  User,
   ExternalLink,
   LayoutDashboard,
   Bot,
@@ -47,12 +45,6 @@ export const OVERLAY_SCENE_REGISTRY: OverlaySceneDef[] = [
     Icon: Brain,
   },
   {
-    id: 'profile',
-    label: 'Profile',
-    labelKey: 'scenes.profile',
-    Icon: CircleUserRound,
-  },
-  {
     id: 'apps',
     label: 'Apps',
     labelKey: 'scenes.apps',
@@ -75,12 +67,6 @@ export const OVERLAY_SCENE_REGISTRY: OverlaySceneDef[] = [
     label: 'Tools',
     labelKey: 'scenes.tools',
     Icon: Wrench,
-  },
-  {
-    id: 'assistant',
-    label: 'Assistant',
-    labelKey: 'scenes.assistant',
-    Icon: User,
   },
   {
     id: 'shell',

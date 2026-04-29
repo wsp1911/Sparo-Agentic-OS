@@ -2,7 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
 import { Tooltip } from '@/component-library/components/Tooltip';
-import { WorkspaceKind, type WorkspaceInfo } from '@/shared/types';
+import type { WorkspaceInfo } from '@/shared/types';
 
 interface ShellNavWorkspaceSwitcherProps {
   workspaceName?: string;
@@ -19,9 +19,7 @@ interface ShellNavWorkspaceSwitcherProps {
 }
 
 function getWorkspaceDisplayName(workspace: WorkspaceInfo): string {
-  return workspace.workspaceKind === WorkspaceKind.Assistant
-    ? workspace.identity?.name?.trim() || workspace.name
-    : workspace.name;
+  return workspace.name;
 }
 
 const ShellNavWorkspaceSwitcher: React.FC<ShellNavWorkspaceSwitcherProps> = ({

@@ -660,13 +660,10 @@ mod tests {
 
     /// Regression: `[name.pptx](name.pptx)` style relative markdown links
     /// emitted by the agent must be auto-pushed when the active workspace
-    /// (Pro mode `current_workspace` OR Assistant mode `current_assistant`)
-    /// is known. Previously only `current_workspace` was consulted, so
-    /// assistant-mode replies silently dropped attachments — see
-    /// `BotChatState::active_workspace_path` and the per-platform
-    /// `notify_files_ready` callers.
+    /// is known. See `BotChatState::active_workspace_path` and the
+    /// per-platform `notify_files_ready` callers.
     #[test]
-    fn collects_relative_pptx_link_against_assistant_workspace_root() {
+    fn collects_relative_pptx_link_against_workspace_root() {
         let (base, workspace, _report) = make_temp_workspace();
         let pptx = workspace.join("apple-vision-pro-keynote-style.pptx");
         std::fs::write(&pptx, b"pptx-bytes").unwrap();

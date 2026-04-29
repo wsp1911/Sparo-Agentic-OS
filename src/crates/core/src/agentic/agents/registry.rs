@@ -1,5 +1,5 @@
 use super::{
-    Agent, AgenticMode, ClawMode, CodeReviewAgent, ComputerUseMode, CoworkMode, DebugMode,
+    Agent, AgenticMode, CodeReviewAgent, ComputerUseMode, CoworkMode, DebugMode,
     DeepResearchAgent, DesignMode, DesignReviewAgent, DispatcherMode, ExploreAgent,
     FileFinderAgent, GenerateDocAgent, InitAgent, LiveAppStudioMode, PlanMode, TeamMode,
 };
@@ -292,7 +292,6 @@ impl AgentRegistry {
             Arc::new(DesignMode::new()),
             Arc::new(DebugMode::new()),
             Arc::new(PlanMode::new()),
-            Arc::new(ClawMode::new()),
             Arc::new(DispatcherMode::new()),
             Arc::new(DeepResearchAgent::new()),
             Arc::new(TeamMode::new()),
@@ -1083,7 +1082,6 @@ mod tests {
             "Design",
             "Plan",
             "debug",
-            "Claw",
             "Dispatcher",
             "LiveAppStudio",
         ] {
