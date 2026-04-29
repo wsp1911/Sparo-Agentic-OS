@@ -34,6 +34,11 @@
   "loading": {
     "text": "Loading configuration..."
   },
+  "actions": {
+    "disableAll": "Disable",
+    "enableAll": "Enable",
+    "resetAll": "Reset"
+  },
   "hostScan": {
     "title": "Host Scan",
     "hint": "Maintain a background host overview so later sessions can better judge where code, documents, software, and new workspaces likely belong on this machine",
@@ -62,6 +67,12 @@
   "messages": {
     "loadFailed": "Failed to load configuration",
     "saveSuccess": "Settings saved",
-    "saveFailed": "Save failed"
+    "saveFailed": "Save failed",
+    "disableAllSuccess": "Auto memory and host scan disabled",
+    "disableAllFailed": "Failed to disable settings",
+    "enableAllSuccess": "Auto memory and host scan enabled",
+    "enableAllFailed": "Failed to enable settings",
+    "resetAllSuccess": "Memory settings reset to defaults",
+    "resetAllFailed": "Failed to reset settings"
   }
 }

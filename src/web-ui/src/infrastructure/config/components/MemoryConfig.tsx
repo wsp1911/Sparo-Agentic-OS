@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Info } from 'lucide-react';
-import { ConfigPageLoading, ConfigPageMessage, NumberInput, Select, Switch, Tooltip } from '@/component-library';
+import { Button, ConfigPageLoading, ConfigPageMessage, NumberInput, Select, Switch, Tooltip } from '@/component-library';
 import { createLogger } from '@/shared/utils/logger';
 import { configManager } from '../services/ConfigManager';
 import type { AppHostScanConfig, AutoMemoryScopeConfig } from '../types';
@@ -151,6 +151,7 @@ const MemoryConfig: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const messageTimeoutRef = useRef<number | null>(null);
+  const isMountedRef = useRef(true);
 
   const hostScanIntervalOptions = useMemo(
     () => [
@@ -174,10 +175,8 @@ const MemoryConfig: React.FC = () => {
     }, 3000);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadConfig = async () => {
+  const loadConfig = useCallback(
+    async () => {
       setIsLoading(true);
       try {
         const [
@@ -190,7 +189,7 @@ const MemoryConfig: React.FC = () => {
           configManager.getConfig<AppHostScanConfig>('app.host_scan'),
         ]);
 
-        if (cancelled) {
+        if (!isMountedRef.current) {
           return;
         }
 
@@ -213,22 +212,25 @@ const MemoryConfig: React.FC = () => {
         });
       } catch (error) {
         log.error('Failed to load auto memory settings', error);
-        if (!cancelled) {
+        if (isMountedRef.current) {
           showMessage('error', t('messages.loadFailed'));
         }
       } finally {
-        if (!cancelled) {
+        if (isMountedRef.current) {
           setIsLoading(false);
         }
       }
-    };
+    },
+    [showMessage, t]
+  );
 
+  useEffect(() => {
     void loadConfig();
 
     return () => {
-      cancelled = true;
+      isMountedRef.current = false;
     };
-  }, [showMessage, t]);
+  }, [loadConfig]);
 
   useEffect(() => () => {
     if (messageTimeoutRef.current !== null) {
@@ -248,6 +250,10 @@ const MemoryConfig: React.FC = () => {
       },
     }));
   };
+
+  const areAllBackgroundFeaturesDisabled =
+    AUTO_MEMORY_SCOPES.every((scope) => !autoMemoryState[scope].enabled) &&
+    !hostScanConfig.auto_scan_enabled;
 
   const saveEnabled = async (scope: AutoMemoryScopeKey, nextValue: boolean) => {
     const previousState = autoMemoryState[scope];
@@ -430,6 +436,82 @@ const MemoryConfig: React.FC = () => {
     [hostScanConfig, persistHostScanConfig, t]
   );
 
+  const handleToggleAllEnabled = useCallback(async () => {
+    const previousAutoMemoryState = autoMemoryState;
+    const previousHostScanConfig = hostScanConfig;
+    const shouldEnableAll = areAllBackgroundFeaturesDisabled;
+    const nextAutoMemoryState: AutoMemoryState = {
+      global: {
+        ...previousAutoMemoryState.global,
+        enabled: shouldEnableAll,
+      },
+      workspace: {
+        ...previousAutoMemoryState.workspace,
+        enabled: shouldEnableAll,
+      },
+    };
+    const nextHostScanConfig: AppHostScanConfig = {
+      ...previousHostScanConfig,
+      auto_scan_enabled: shouldEnableAll,
+    };
+
+    setAutoMemoryState(nextAutoMemoryState);
+    setHostScanConfig(nextHostScanConfig);
+    setIsSaving(true);
+
+    try {
+      await Promise.all([
+        configManager.setConfig(
+          AUTO_MEMORY_CONFIG_PATHS.global.scope,
+          serializeScopeState(nextAutoMemoryState.global)
+        ),
+        configManager.setConfig(
+          AUTO_MEMORY_CONFIG_PATHS.workspace.scope,
+          serializeScopeState(nextAutoMemoryState.workspace)
+        ),
+        configManager.setConfig('app.host_scan', nextHostScanConfig),
+      ]);
+      configManager.clearCache();
+      showMessage(
+        'success',
+        shouldEnableAll ? t('messages.enableAllSuccess') : t('messages.disableAllSuccess')
+      );
+    } catch (error) {
+      log.error('Failed to toggle memory page background features', {
+        shouldEnableAll,
+        error,
+      });
+      setAutoMemoryState(previousAutoMemoryState);
+      setHostScanConfig(previousHostScanConfig);
+      showMessage(
+        'error',
+        shouldEnableAll ? t('messages.enableAllFailed') : t('messages.disableAllFailed')
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }, [areAllBackgroundFeaturesDisabled, autoMemoryState, hostScanConfig, showMessage, t]);
+
+  const handleResetAll = useCallback(async () => {
+    setIsSaving(true);
+
+    try {
+      await Promise.all([
+        configManager.resetConfig(AUTO_MEMORY_CONFIG_PATHS.global.scope),
+        configManager.resetConfig(AUTO_MEMORY_CONFIG_PATHS.workspace.scope),
+        configManager.resetConfig('app.host_scan'),
+      ]);
+      configManager.clearCache();
+      await loadConfig();
+      showMessage('success', t('messages.resetAllSuccess'));
+    } catch (error) {
+      log.error('Failed to reset memory page configuration', { error });
+      showMessage('error', t('messages.resetAllFailed'));
+    } finally {
+      setIsSaving(false);
+    }
+  }, [loadConfig, showMessage, t]);
+
   if (isLoading) {
     return (
       <ConfigPageLayout className="bitfun-func-agent-config">
@@ -557,7 +639,32 @@ const MemoryConfig: React.FC = () => {
 
   return (
     <ConfigPageLayout className="bitfun-func-agent-config">
-      <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
+      <ConfigPageHeader
+        title={t('title')}
+        subtitle={t('subtitle')}
+        extra={(
+          <div className="bitfun-func-agent-config__page-actions">
+            <Button
+              variant="secondary"
+              size="small"
+              onClick={() => void handleToggleAllEnabled()}
+              disabled={isSaving}
+            >
+              {areAllBackgroundFeaturesDisabled
+                ? t('actions.enableAll')
+                : t('actions.disableAll')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="small"
+              onClick={() => void handleResetAll()}
+              disabled={isSaving}
+            >
+              {t('actions.resetAll')}
+            </Button>
+          </div>
+        )}
+      />
       <ConfigPageContent className="bitfun-func-agent-config__content">
         <ConfigPageMessage message={message} />
         {AUTO_MEMORY_SCOPES.map(renderScopeSection)}

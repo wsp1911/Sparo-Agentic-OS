@@ -34,6 +34,11 @@
   "loading": {
     "text": "加载配置中..."
   },
+  "actions": {
+    "disableAll": "禁用",
+    "enableAll": "启用",
+    "resetAll": "重置"
+  },
   "hostScan": {
     "title": "主机扫描",
     "hint": "后台维护主机级概览，帮助后续会话判断代码、文档、软件和新工作区更可能放在哪里",
@@ -62,6 +67,12 @@
   "messages": {
     "loadFailed": "加载配置失败",
     "saveSuccess": "设置已保存",
-    "saveFailed": "保存失败"
+    "saveFailed": "保存失败",
+    "disableAllSuccess": "已禁用自动记忆和主机扫描",
+    "disableAllFailed": "禁用失败",
+    "enableAllSuccess": "已启用自动记忆和主机扫描",
+    "enableAllFailed": "启用失败",
+    "resetAllSuccess": "已恢复记忆页默认设置",
+    "resetAllFailed": "重置失败"
   }
 }
