@@ -28,7 +28,8 @@ use crate::agentic::image_analysis::ImageContextData;
 use crate::agentic::memory_consolidation::{
     build_global_slow_pass_prompt, build_global_slow_pass_restrictions, build_mid_pass_prompt,
     build_mid_pass_restrictions, build_project_slow_pass_prompt,
-    build_project_slow_pass_restrictions, DecayConfig, MID_PASS_TURN_BUDGET, SLOW_PASS_TURN_BUDGET,
+    build_project_slow_pass_restrictions, LifecycleConfig, MID_PASS_TURN_BUDGET,
+    SLOW_PASS_TURN_BUDGET,
 };
 use crate::agentic::round_preempt::DialogRoundPreemptSource;
 use crate::agentic::session::SessionManager;
@@ -2165,38 +2166,41 @@ impl ConversationCoordinator {
         ensure_memory_store_for_target(memory_target).await?;
         let memory_dir = memory_store_dir_path_for_target(memory_target);
         let memory_dir_display = memory_dir.to_string_lossy().replace('\\', "/");
-        let decay_config = DecayConfig::from_env();
+        let lifecycle_config = LifecycleConfig::from_env();
 
-        // Run the deterministic decay pass in Rust before launching the fork
+        // Run the deterministic lifecycle pass in Rust before launching the fork
         // so the agent only needs to handle semantic clustering and conflict tasks.
-        let decay_summary = match crate::agentic::memory_consolidation::run_decay_pass(
+        let lifecycle_summary = match crate::agentic::memory_consolidation::run_lifecycle_pass(
             memory_target,
-            &decay_config,
+            &lifecycle_config,
         )
         .await
         {
             Ok(s) => s,
             Err(e) => {
                 warn!(
-                    "Mid-pass deterministic decay failed (continuing with fork): session_id={} error={}",
+                    "Mid-pass deterministic lifecycle failed (continuing with fork): session_id={} error={}",
                     session_id, e
                 );
-                crate::agentic::memory_consolidation::DecayPassSummary::default()
+                crate::agentic::memory_consolidation::LifecyclePassSummary::default()
             }
         };
 
-        let prompt =
-            build_mid_pass_prompt(&memory_dir_display, &decay_config, memory_scope.as_label());
-        // Prepend the decay summary so the fork agent knows what was already done.
-        let prompt_with_context = format!("{}\n\n{}", decay_summary.to_prompt_note(), prompt);
+        let prompt = build_mid_pass_prompt(
+            &memory_dir_display,
+            &lifecycle_config,
+            memory_scope.as_label(),
+        );
+        // Prepend the lifecycle summary so the fork agent knows what was already done.
+        let prompt_with_context = format!("{}\n\n{}", lifecycle_summary.to_prompt_note(), prompt);
         let snapshot = self.capture_fork_agent_context_snapshot(session_id).await?;
 
         debug!(
-            "Launching mid consolidation fork: session_id={} scope={} decay_scanned={} decay_archived={}",
+            "Launching mid consolidation fork: session_id={} scope={} lifecycle_scanned={} lifecycle_archived={}",
             session_id,
             memory_scope.as_label(),
-            decay_summary.total_scanned,
-            decay_summary.archived,
+            lifecycle_summary.total_scanned,
+            lifecycle_summary.archived,
         );
 
         let result = self

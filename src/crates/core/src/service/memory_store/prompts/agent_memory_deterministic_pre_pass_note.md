@@ -1,1 +1,1 @@
-Deterministic pre-pass completed: scanned={total_scanned} strength-updated={decayed} archived={archived} errors={errors}. Entries that fell below the archive threshold have already been moved to `archive/`. You do NOT need to apply decay or move files to archive — focus on semantic tasks only.
+Deterministic pre-pass completed: scanned={total_scanned} archived={archived} errors={errors}. Entries that exceeded the age threshold have already been moved to `archive/`. You do NOT need to compute ages or move files to archive — focus on semantic tasks only.

@@ -209,8 +209,9 @@ fn relative_entry_path_for_hit(memory_dir: &Path, read_path: &Path) -> Option<St
     let relative = read_path.strip_prefix(memory_dir).ok()?;
     let relative = relative.to_string_lossy().replace('\\', "/");
 
-    // Hit-strengthening is only for user-discoverable memory entries, not
-    // indexes, core singleton files, session summaries, or archive reads.
+    // Hit-tracking (last_seen bump) is only for user-discoverable memory
+    // entries, not indexes, core singleton files, session summaries, or
+    // archive reads.
     if relative.starts_with("episodes/") || relative.starts_with("pinned/") {
         Some(relative)
     } else {

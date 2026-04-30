@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
+import './SessionControlToolCard.scss';
 
 interface SessionSummary {
   session_id?: string;
@@ -235,24 +236,21 @@ export const SessionControlToolCard: React.FC<ToolCardProps> = React.memo(({
       )}
 
       {action === 'list' && sessions.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="compact-detail-list session-control-session-list">
           {sessions.map((item, index) => (
             <div
               key={`${item.session_id ?? 'session'}-${index}`}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-                padding: '8px 10px',
-                borderRadius: 8,
-                background: 'var(--color-bg-subtle, rgba(255,255,255,0.04))'
-              }}
+              className="compact-list-item session-control-session-row"
             >
-              <span style={{ fontFamily: 'var(--tool-card-font-mono)', wordBreak: 'break-all' }}>
+              <span className="session-control-session-row-id">
                 {item.session_id || t('toolCards.sessionControl.unknownSession')}
               </span>
-              <span>{item.session_name || t('toolCards.sessionControl.defaultSessionName')}</span>
-              <span style={{ opacity: 0.7 }}>{item.agent_type || '-'}</span>
+              <span className="session-control-session-row-meta">
+                {item.session_name || t('toolCards.sessionControl.defaultSessionName')}
+              </span>
+              <span className="session-control-session-row-meta">
+                {item.agent_type || '—'}
+              </span>
             </div>
           ))}
         </div>

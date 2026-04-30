@@ -1,8 +1,7 @@
 //! Memory store repair and index rebuild utilities.
 //!
-//! This module provides two kinds of operations:
+//! This module provides:
 //!
-//! - **Health check** — non-destructive scan that returns a list of issues.
 //! - **Repair** — idempotent fixes: create missing files/dirs, fill empty
 //!   templates, re-bucket mis-placed episodes.
 //! - **Index rebuild** — regenerate `MEMORY.md` from the current state of the
@@ -117,64 +116,6 @@ pub(crate) async fn repair_memory_store(target: MemoryStoreTarget<'_>) -> Repair
     report
 }
 
-/// Health check: returns a list of problems without modifying anything.
-pub(crate) async fn check_memory_health(target: MemoryStoreTarget<'_>) -> Vec<HealthIssue> {
-    let memory_dir = memory_store_dir_path_for_target(target);
-    let mut issues = Vec::new();
-
-    if !memory_dir.exists() {
-        issues.push(HealthIssue {
-            kind: HealthIssueKind::MissingDirectory,
-            path: memory_dir.to_string_lossy().to_string(),
-        });
-        return issues;
-    }
-
-    // Check index.
-    let index_path = memory_dir.join(MEMORY_INDEX_FILE);
-    let index_empty = is_path_empty_or_missing(&index_path).await;
-    if index_empty {
-        issues.push(HealthIssue {
-            kind: HealthIssueKind::EmptyOrMissingIndex,
-            path: "MEMORY.md".to_string(),
-        });
-    }
-
-    // Check core files.
-    let core_files: &[&str] = match target.scope() {
-        MemoryScope::GlobalAgenticOs => &["identity.md", "narrative.md", "persona.md", "habits.md"],
-        MemoryScope::WorkspaceProject => &["identity.md", "project.md", "habits.md"],
-    };
-    for &name in core_files {
-        let path = memory_dir.join(name);
-        if !path.exists() {
-            issues.push(HealthIssue {
-                kind: HealthIssueKind::MissingCoreFile,
-                path: name.to_string(),
-            });
-        }
-    }
-
-    // Check for episodes not bucketed in YYYY-MM.
-    let episodes_dir = memory_dir.join(EPISODES_DIR);
-    if episodes_dir.exists() {
-        if let Ok(mut entries) = fs::read_dir(&episodes_dir).await {
-            while let Ok(Some(entry)) = entries.next_entry().await {
-                let p = entry.path();
-                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if p.is_file() && name.ends_with(".md") {
-                    issues.push(HealthIssue {
-                        kind: HealthIssueKind::EpisodeNotBucketed,
-                        path: format!("episodes/{name}"),
-                    });
-                }
-            }
-        }
-    }
-
-    issues
-}
-
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
@@ -183,20 +124,6 @@ pub(crate) async fn check_memory_health(target: MemoryStoreTarget<'_>) -> Vec<He
 pub struct RepairReport {
     pub actions: Vec<String>,
     pub errors: Vec<String>,
-}
-
-#[derive(Debug)]
-pub struct HealthIssue {
-    pub kind: HealthIssueKind,
-    pub path: String,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum HealthIssueKind {
-    MissingDirectory,
-    EmptyOrMissingIndex,
-    MissingCoreFile,
-    EpisodeNotBucketed,
 }
 
 // ---------------------------------------------------------------------------

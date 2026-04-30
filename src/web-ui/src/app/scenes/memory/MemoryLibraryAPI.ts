@@ -75,8 +75,6 @@ export interface MemoryRecord {
   // New frontmatter fields (M4)
   layer?: string;
   status?: MemoryStatus;
-  /** Strength in [0, 1]. Undefined means unset (treated as 1.0). */
-  strength?: number;
   sensitivity?: MemorySensitivity;
   sourceSession?: string;
   tags?: string[];
@@ -360,7 +358,8 @@ export class MemoryLibraryAPI {
   }
 
   /**
-   * Record a memory read hit to update last_seen and boost strength.
+   * Record a memory read hit so the lifecycle pass treats this entry as
+   * recently used (bumps `last_seen`).
    */
   async recordHit(record: MemoryRecord, workspacePath?: string): Promise<void> {
     try {
@@ -427,7 +426,6 @@ export class MemoryLibraryAPI {
         ? 'MEMORY.md'
         : frontmatter.data.name || titleFromPath(rel);
 
-      const strengthRaw = parseFloat(frontmatter.data.strength ?? '');
       const tagsRaw = frontmatter.data.tags ?? '';
       const tags = tagsRaw
         ? tagsRaw
@@ -454,7 +452,6 @@ export class MemoryLibraryAPI {
         isWorkspaceOverview,
         layer: frontmatter.data.layer,
         status: (frontmatter.data.status as MemoryStatus | undefined),
-        strength: isNaN(strengthRaw) ? undefined : strengthRaw,
         sensitivity: (frontmatter.data.sensitivity as MemorySensitivity | undefined),
         sourceSession: frontmatter.data.source_session,
         tags,

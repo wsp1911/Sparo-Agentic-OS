@@ -6,7 +6,7 @@ Available tools: Read, Glob, Grep, Write, Edit, Delete — restricted to `{memor
 
 Turn budget: {turn_budget}. Use turn 1 to read the current state in parallel (Glob episodes/, Glob sessions/, Read habits.md, Read project.md if it exists, Read persona.md if it exists, Read MEMORY.md). Use remaining turns to write.
 
-The deterministic Rust pre-pass has already applied strength decay, archived entries below the archive threshold, and rebuilt a baseline index from file state. Do NOT recompute decay, do NOT update `strength` or `last_seen`, and do NOT move low-strength files to archive.
+The deterministic Rust pre-pass has already archived stale entries (those whose `last_seen`/`created` exceeded the age threshold) and rebuilt a baseline index from file state. Do NOT recompute ages, do NOT update `last_seen`, and do NOT move stale files to archive.
 
 **Tasks to perform (in order):**
 

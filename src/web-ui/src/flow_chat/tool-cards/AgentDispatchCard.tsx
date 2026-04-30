@@ -1,16 +1,16 @@
 /**
  * AgentDispatch tool card.
  *
- * Visually similar to TaskToolDisplay but represents an independent Standard
- * session (not a SubAgent). Clicking the card jumps to the created session.
+ * Compact row style (CompactToolCard), aligned with shell / session_control tools.
+ * Clicking the header when dispatch completed jumps to the created session.
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { Bot, Check, X, ExternalLink } from 'lucide-react';
+import { Check, Clock, Loader2, X, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DotMatrixLoader } from '@/component-library';
 import type { ToolCardProps } from '../types/flow-chat';
-import { BaseToolCard } from './BaseToolCard';
+import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
 import { openMainSession } from '../services/childSessionPanels';
 import { flowChatStore } from '../store/FlowChatStore';
 import { useSessionsExecutionRunning } from '../hooks/useSessionsExecutionRunning';
@@ -124,11 +124,14 @@ const AGENT_TYPE_COLORS: Record<string, string> = {
   debug: '#ef4444',
 };
 
-function AgentBadge({ agentType }: { agentType: string }) {
+function AgentBadge({ agentType, compact }: { agentType: string; compact?: boolean }) {
   const color = AGENT_TYPE_COLORS[agentType] ?? '#6366f1';
   return (
     <span
-      className="agent-dispatch-badge"
+      className={[
+        'agent-dispatch-badge',
+        compact ? 'agent-dispatch-badge--compact' : '',
+      ].filter(Boolean).join(' ')}
       style={{ '--agent-badge-color': color } as React.CSSProperties}
     >
       {agentType}
@@ -182,27 +185,25 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
 
     const runningSessionIds = useSessionsExecutionRunning(trackedSessionIds);
 
-    // Status icon
-    const statusIcon = useMemo(() => {
+    /** Collapsed header status icon — same vocabulary as SessionControl / LS (compact tools). */
+    const headerStatusIcon = useMemo(() => {
       switch (status) {
         case 'running':
         case 'streaming':
-          return (
-            <span className="agent-dispatch-dot-matrix-wrap agent-dispatch-dot-matrix-wrap--rail">
-              <DotMatrixLoader size="small" className="agent-dispatch-dot-matrix" />
-            </span>
-          );
+          return <Loader2 className="animate-spin" size={12} />;
         case 'completed':
-          return <Check size={14} className="agent-dispatch-status-icon agent-dispatch-status-icon--done" />;
+          return <Check size={12} className="icon-check-done" />;
         case 'error':
         case 'cancelled':
-          return <X size={14} className="agent-dispatch-status-icon agent-dispatch-status-icon--error" />;
+          return <X size={12} />;
+        case 'pending':
+        case 'preparing':
         default:
-          return null;
+          return <Clock size={12} />;
       }
     }, [status]);
 
-    /** After dispatch completes, the rail reflects the child session execution state (live). */
+    /** Right rail: live child session execution when dispatch completed (no duplicate of left status icon). */
     const headerRailIcon = useMemo(() => {
       if (action === 'dispatch' && status === 'completed' && createdSessionId) {
         if (runningSessionIds.has(createdSessionId)) {
@@ -213,10 +214,9 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
             </span>
           );
         }
-        return <Check size={13} className="agent-dispatch-status-icon agent-dispatch-status-icon--done" />;
       }
-      return statusIcon;
-    }, [action, createdSessionId, runningSessionIds, status, statusIcon, t]);
+      return undefined;
+    }, [action, createdSessionId, runningSessionIds, status, t]);
 
     // Header text
     const headerLine = useMemo(() => {
@@ -289,19 +289,6 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
       [t]
     );
 
-    const handleCardClick = useCallback(
-      () => {
-        if (action === 'dispatch' && status === 'completed' && createdSessionId) {
-          void openDispatchedSession(createdSessionId, workspace);
-          return;
-        }
-        if (action !== 'dispatch' || !createdSessionId) {
-          applyExpandedState(isExpanded, !isExpanded, setIsExpanded);
-        }
-      },
-      [action, applyExpandedState, createdSessionId, isExpanded, openDispatchedSession, status, workspace]
-    );
-
     // Expanded content (for list/status or create details)
     const expandedContent = useMemo(() => {
       if (action === 'dispatch') {
@@ -328,16 +315,23 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
         const workspaces = resultData?.workspaces ?? [];
         if (!workspaces.length) return <div className="agent-dispatch-empty">{t('toolCards.agentDispatch.noWorkspaces')}</div>;
         return (
-          <div className="agent-dispatch-workspace-list">
+          <div className="compact-detail-list agent-dispatch-workspace-list">
             {workspaces.map((ws, i) => (
               <div
                 key={i}
-                className={`agent-dispatch-workspace-item${ws.kind === 'global' ? ' agent-dispatch-workspace-item--global' : ''}${!ws.path ? ' agent-dispatch-workspace-item--no-path' : ''}`}
+                className={[
+                  'compact-list-item',
+                  'agent-dispatch-workspace-row',
+                  ws.kind === 'global' ? 'agent-dispatch-workspace-row--global' : '',
+                  !ws.path ? 'agent-dispatch-workspace-row--no-path' : '',
+                ].filter(Boolean).join(' ')}
               >
-                <div className="agent-dispatch-workspace-header">
+                <div className="agent-dispatch-workspace-row-head">
                   <span className="agent-dispatch-workspace-name">{ws.name ?? ws.path}</span>
                   {ws.kind === 'global' && (
-                    <span className="agent-dispatch-global-tag">{t('toolCards.agentDispatch.globalTag')}</span>
+                    <span className="agent-dispatch-global-tag agent-dispatch-global-tag--compact">
+                      {t('toolCards.agentDispatch.globalTag')}
+                    </span>
                   )}
                 </div>
                 {ws.path ? (
@@ -358,26 +352,42 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
         const sessions = resultData?.sessions ?? [];
         if (!sessions.length) return <div className="agent-dispatch-empty">{t('toolCards.agentDispatch.noSessions')}</div>;
         return (
-          <div className="agent-dispatch-session-list">
+          <div className="compact-detail-list agent-dispatch-session-list">
             {sessions.map((s, i) => {
               const sid = s.session_id;
               const isRunning = sid ? runningSessionIds.has(sid) : false;
               return (
                 <div
                   key={sid ?? `row-${i}`}
-                  className={`agent-dispatch-session-item${sid ? ' agent-dispatch-session-item--clickable' : ''}`}
+                  className={[
+                    'compact-list-item',
+                    'agent-dispatch-session-row',
+                    sid ? 'agent-dispatch-session-row--clickable' : '',
+                  ].filter(Boolean).join(' ')}
                   onClick={sid ? () => void openDispatchedSession(sid, s.workspace) : undefined}
+                  onKeyDown={
+                    sid
+                      ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          void openDispatchedSession(sid, s.workspace);
+                        }
+                      }
+                      : undefined
+                  }
+                  role={sid ? 'button' : undefined}
+                  tabIndex={sid ? 0 : undefined}
                 >
-                  <div className="agent-dispatch-session-item-main">
+                  <div className="agent-dispatch-session-row-main">
                     <span className="agent-dispatch-session-name">{s.session_name ?? s.session_id}</span>
-                    {s.agent_type && <AgentBadge agentType={s.agent_type} />}
+                    {s.agent_type && <AgentBadge agentType={s.agent_type} compact />}
                   </div>
                   {s.workspace ? (
                     <span className="agent-dispatch-session-path" title={s.workspace}>
                       {s.workspace}
                     </span>
                   ) : null}
-                  <div className="agent-dispatch-session-item-rail">
+                  <div className="agent-dispatch-session-row-rail">
                     {sid ? (
                       isRunning ? (
                         <span
@@ -410,43 +420,58 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
 
     const hasExpandedContent = !!expandedContent;
 
-    // Header content rendered inside BaseToolCard's header slot
-    const headerContent = (
-      <div className="agent-dispatch-header-wrapper">
-        {/* Left icon column */}
-        <div className="agent-dispatch-icon-col">
-          <div className="agent-dispatch-icon-marks">
-            <Bot className="agent-dispatch-icon" />
-          </div>
-        </div>
+    const headerExtra =
+      workspace && action === 'dispatch'
+        ? (
+          workspace === 'global'
+            ? (
+              <span className="agent-dispatch-global-tag agent-dispatch-global-tag--compact">
+                {t('toolCards.agentDispatch.globalTag')}
+              </span>
+            )
+            : <span className="agent-dispatch-header-path" title={workspace}>{workspace}</span>
+        )
+        : undefined;
 
-        {/* Main content */}
-        <div className="agent-dispatch-body">
-          <span className="agent-dispatch-label">{headerLine}</span>
-          {workspace && action === 'dispatch' && (
-            workspace === 'global'
-              ? <span className="agent-dispatch-global-tag agent-dispatch-global-tag--body">{t('toolCards.agentDispatch.globalTag')}</span>
-              : <span className="agent-dispatch-body-path" title={workspace}>{workspace}</span>
-          )}
-        </div>
+    const handleCardClick = useCallback(() => {
+      if (action === 'dispatch' && status === 'completed' && createdSessionId) {
+        void openDispatchedSession(createdSessionId, workspace);
+        return;
+      }
+      if (hasExpandedContent) {
+        applyExpandedState(isExpanded, !isExpanded, setIsExpanded);
+      }
+    }, [
+      action,
+      applyExpandedState,
+      createdSessionId,
+      hasExpandedContent,
+      isExpanded,
+      openDispatchedSession,
+      status,
+      workspace,
+    ]);
 
-        {/* Right rail: status icon only */}
-        <div className="agent-dispatch-rail">
-          {headerRailIcon}
-        </div>
-      </div>
-    );
+    const headerClickable = canNavigate || hasExpandedContent;
 
     return (
       <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
-        <BaseToolCard
+        <CompactToolCard
           status={status}
           isExpanded={isExpanded}
-          onClick={handleCardClick}
+          onClick={headerClickable ? handleCardClick : undefined}
           className="agent-dispatch-card"
+          clickable={headerClickable}
+          header={(
+            <CompactToolCardHeader
+              statusIcon={headerStatusIcon}
+              action={`${t('toolCards.agentDispatch.title')}:`}
+              content={headerLine}
+              extra={headerExtra}
+              rightIcon={headerRailIcon}
+            />
+          )}
           expandedContent={expandedContent}
-          headerExpandAffordance={hasExpandedContent && !canNavigate}
-          header={headerContent}
         />
       </div>
     );

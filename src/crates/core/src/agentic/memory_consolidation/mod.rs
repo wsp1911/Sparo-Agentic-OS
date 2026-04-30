@@ -20,8 +20,8 @@ pub(crate) mod mid_pass;
 pub(crate) mod schedule;
 pub(crate) mod slow_pass;
 
-pub use decay::DecayConfig;
-pub(crate) use executor::{run_decay_pass, DecayPassSummary};
+pub use decay::LifecycleConfig;
+pub(crate) use executor::{run_lifecycle_pass, LifecyclePassSummary};
 pub(crate) use mid_pass::{
     build_mid_pass_prompt, build_mid_pass_restrictions, MID_PASS_TURN_BUDGET,
 };

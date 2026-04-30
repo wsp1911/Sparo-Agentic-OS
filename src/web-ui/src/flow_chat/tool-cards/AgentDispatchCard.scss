@@ -1,96 +1,22 @@
-/* AgentDispatch tool card styles */
+/* AgentDispatch tool card — compact header (CompactToolCard) + dense lists */
 
 .agent-dispatch-card {
-  cursor: pointer;
+  cursor: default;
 
-  /* Header layout — matches TaskToolDisplay / BaseToolCard standard */
-  .agent-dispatch-header-wrapper {
-    display: flex;
-    align-items: stretch;
-    gap: 4px;
-    width: 100%;
+  &.clickable {
+    cursor: pointer;
   }
 
-  /* Left icon column — same as .tool-card-icon-slot */
-  .agent-dispatch-icon-col {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    align-self: stretch;
-    padding-right: 10px;
-    margin-right: 8px;
-    box-sizing: border-box;
-    min-height: 0;
-
-    &::after {
-      content: '';
-      position: absolute;
-      right: 0;
-      top: calc(-1 * var(--tool-card-header-pad-y, 10px));
-      bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-      width: 0;
-      border-right: 1px solid var(--border-base);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .agent-dispatch-icon-marks {
-      position: relative;
-      z-index: 1;
-      width: var(--tool-card-header-icon-rail, 28px);
-      height: var(--tool-card-header-icon-rail, 28px);
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .agent-dispatch-icon {
-      width: 20px;
-      height: 20px;
-      flex-shrink: 0;
-      color: var(--color-text-secondary, #6b7280);
-    }
-  }
-
-  /* Main content area */
-  .agent-dispatch-body {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    align-self: stretch;
-    justify-content: flex-start;
-    flex: 1;
-    min-width: 0;
-    gap: 6px;
-  }
-
-  .agent-dispatch-body-path {
-    font-size: 11px;
-    color: var(--color-text-muted, #9ca3af);
+  .agent-dispatch-header-path {
+    max-width: min(42vw, 220px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--flowchat-font-size-base);
     font-family: var(--tool-card-font-mono, monospace);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1 1 0;
-    min-width: 0;
-    text-align: right;
+    color: var(--color-text-muted, #9ca3af);
   }
 
-  .agent-dispatch-label {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--color-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex-shrink: 1;
-    min-width: 0;
-  }
-
-  /* Agent type badge — colored by agent */
   .agent-dispatch-badge {
     display: inline-flex;
     align-items: center;
@@ -103,35 +29,15 @@
     color: var(--agent-badge-color, #6366f1);
     background: color-mix(in srgb, var(--agent-badge-color, #6366f1) 14%, transparent);
     border: 1px solid color-mix(in srgb, var(--agent-badge-color, #6366f1) 28%, transparent);
-  }
 
-  /* Right rail — border extends to card edges via ::after negative offsets, same as icon col */
-  .agent-dispatch-rail {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    align-self: stretch;
-    flex-shrink: 0;
-    min-width: 40px;
-    margin-left: 4px;
-    padding-left: 8px;
-    gap: 4px;
-
-    &::after {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: calc(-1 * var(--tool-card-header-pad-y, 10px));
-      bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-      width: 0;
-      border-left: 1px solid var(--border-base);
-      pointer-events: none;
-      z-index: 1;
+    &--compact {
+      padding: 0 4px;
+      font-size: 9px;
+      border-radius: 3px;
+      line-height: 1.35;
     }
   }
 
-  /* DotMatrixLoader — matches ProcessingIndicator / TaskDetailPanel */
   .agent-dispatch-dot-matrix-wrap {
     display: inline-flex;
     align-items: center;
@@ -140,28 +46,15 @@
     color: var(--text-secondary, rgba(107, 114, 128, 0.85));
 
     &--rail {
-      /* header rail: vertically align with 13px lucide icons */
       min-height: 13px;
     }
   }
 
-  .agent-dispatch-status-icon {
-    color: var(--color-text-muted);
-
-    &--done {
-      color: var(--color-success, #10b981);
-    }
-
-    &--error {
-      color: var(--color-danger-text, #f87171);
-    }
-  }
-
-  /* Expanded panel */
+  /* Expanded: dispatch metadata */
   .agent-dispatch-details {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
 
   .agent-dispatch-detail-row {
@@ -179,51 +72,48 @@
   }
 
   .agent-dispatch-detail-value {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--color-text-primary);
     word-break: break-all;
 
     &--mono {
       font-family: var(--tool-card-font-mono, monospace);
-      font-size: 11px;
+      font-size: 10px;
     }
   }
 
-  /* Workspace list (action=list) */
+  /* Workspace rows (action=list) — single line, ls-style */
   .agent-dispatch-workspace-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    gap: 0;
   }
 
-  .agent-dispatch-workspace-item {
+  .agent-dispatch-workspace-row {
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 8px;
     min-width: 0;
-    padding: 8px 10px;
-    border-radius: 6px;
-    background: var(--color-bg-subtle, rgba(255, 255, 255, 0.04));
-    border: 1px solid var(--border-base);
 
-    &--global {
-      border-color: color-mix(in srgb, #6366f1 35%, transparent);
-      background: color-mix(in srgb, #6366f1 6%, transparent);
+    &--global .agent-dispatch-workspace-name {
+      color: var(--color-text-primary);
+    }
+
+    &--no-path .agent-dispatch-workspace-count {
+      margin-left: auto;
     }
   }
 
-  .agent-dispatch-workspace-header {
+  .agent-dispatch-workspace-row-head {
     display: flex;
     align-items: center;
     gap: 6px;
     flex: 0 1 auto;
     min-width: 0;
-    max-width: 36%;
+    max-width: 38%;
   }
 
   .agent-dispatch-workspace-name {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     color: var(--color-text-primary);
     min-width: 0;
@@ -232,7 +122,6 @@
     white-space: nowrap;
   }
 
-  /* "Global" tag shown for Agentic OS runtime workspaces */
   .agent-dispatch-global-tag {
     display: inline-flex;
     align-items: center;
@@ -245,10 +134,16 @@
     background: color-mix(in srgb, #6366f1 14%, transparent);
     border: 1px solid color-mix(in srgb, #6366f1 28%, transparent);
     flex-shrink: 0;
+
+    &--compact {
+      padding: 0 4px;
+      font-size: 9px;
+      border-radius: 3px;
+    }
   }
 
   .agent-dispatch-workspace-path {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--color-text-muted, #9ca3af);
     font-family: var(--tool-card-font-mono, monospace);
     overflow: hidden;
@@ -260,43 +155,33 @@
   }
 
   .agent-dispatch-workspace-count {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--color-text-secondary, #6b7280);
     flex-shrink: 0;
     white-space: nowrap;
   }
 
-  .agent-dispatch-workspace-item--no-path .agent-dispatch-workspace-count {
-    margin-left: auto;
-  }
-
-  /* Session list (action=status) */
+  /* Session rows (action=status) */
   .agent-dispatch-session-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    gap: 0;
   }
 
-  .agent-dispatch-session-item {
+  .agent-dispatch-session-row {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 8px;
-    border-radius: 5px;
-    background: var(--color-bg-subtle, rgba(255, 255, 255, 0.04));
-    border: 1px solid var(--border-base);
-    transition: background 0.15s ease;
+    min-width: 0;
 
     &--clickable {
       cursor: pointer;
 
       &:hover {
-        background: var(--tool-card-bg-hover, var(--color-bg-hover, rgba(255, 255, 255, 0.09)));
+        background: var(--tool-card-bg-hover, var(--color-bg-hover, rgba(255, 255, 255, 0.06)));
       }
     }
   }
 
-  .agent-dispatch-session-item-main {
+  .agent-dispatch-session-row-main {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -305,28 +190,28 @@
   }
 
   .agent-dispatch-session-path {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--color-text-muted, #9ca3af);
     font-family: var(--tool-card-font-mono, monospace);
     flex: 0 1 auto;
     min-width: 0;
-    max-width: min(48%, 280px);
+    max-width: min(40%, 240px);
     text-align: right;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .agent-dispatch-session-item-rail {
+  .agent-dispatch-session-row-rail {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 6px;
+    gap: 4px;
     flex-shrink: 0;
   }
 
   .agent-dispatch-session-name {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--color-text-primary);
     min-width: 0;
     overflow: hidden;
@@ -336,8 +221,8 @@
 
   .agent-dispatch-session-idle-dot {
     display: inline-block;
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background: var(--color-text-muted, #9ca3af);
     opacity: 0.65;
@@ -347,12 +232,12 @@
   .agent-dispatch-session-link-icon {
     color: var(--color-text-muted, #9ca3af);
     flex-shrink: 0;
+    opacity: 0.85;
   }
 
-  /* Empty state */
   .agent-dispatch-empty {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--color-text-muted, #9ca3af);
-    padding: 4px 0;
+    padding: 2px 0;
   }
 }

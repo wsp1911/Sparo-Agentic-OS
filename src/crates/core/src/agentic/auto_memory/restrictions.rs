@@ -18,10 +18,23 @@ pub fn build_auto_memory_runtime_restrictions_with_extra_roots(
     let delete_roots = write_roots.clone();
 
     ToolRuntimeRestrictions {
-        allowed_tool_names: ["Read", "Glob", "Grep", "Write", "Edit", "Delete"]
-            .into_iter()
-            .map(str::to_string)
-            .collect::<BTreeSet<_>>(),
+        // Expose ONLY the dedicated memory tools to the auto-memory fork.
+        // Generic file tools (Read/Glob/Grep/Write/Edit/Delete) are not in
+        // this allow-list, so the model can never call them. The memory
+        // tools internally enforce that every path resolves inside one of
+        // the `path_policy` roots — defense in depth alongside the runtime
+        // path enforcement that wraps the inner tools.
+        allowed_tool_names: [
+            "MemoryRead",
+            "MemoryGlob",
+            "MemoryGrep",
+            "MemoryWrite",
+            "MemoryEdit",
+            "MemoryDelete",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect::<BTreeSet<_>>(),
         denied_tool_names: BTreeSet::new(),
         path_policy: ToolPathPolicy {
             write_roots,

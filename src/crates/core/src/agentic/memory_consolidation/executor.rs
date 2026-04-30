@@ -1,16 +1,13 @@
 //! Deterministic consolidation executor.
 //!
 //! Runs before each mid-pass fork agent so that purely mechanical operations
-//! (strength decay, archive-threshold moves, index rebuild, episode
-//! re-bucketing) happen in Rust rather than being delegated to the fork's
-//! prompt instructions.  This makes consolidation more reliable and reduces
-//! the prompt complexity the fork agent must handle.
-//!
-//! After this executor completes, the mid-pass fork is given a summary of
-//! what was done so it can focus exclusively on semantic tasks: clustering,
-//! conflict detection, abstraction proposals, and narrative updates.
+//! (age-based archive moves, index rebuild) happen in Rust rather than being
+//! delegated to the fork's prompt instructions. After this executor completes,
+//! the mid-pass fork is given a summary of what was done so it can focus
+//! exclusively on semantic tasks: clustering, conflict detection, abstraction
+//! proposals, and narrative updates.
 
-use super::decay::{decayed_strength, is_decay_exempt, should_archive, DecayConfig};
+use super::decay::{is_archive_exempt, should_archive_by_age, LifecycleConfig};
 use crate::service::memory_store::{
     api::rebuild_index,
     format_manifest_path, list_memory_files_recursive, memory_store_dir_path_for_target,
@@ -32,47 +29,43 @@ const DETERMINISTIC_PRE_PASS_NOTE: &str =
 
 /// Summary of what the deterministic pass did.
 #[derive(Debug, Default)]
-pub struct DecayPassSummary {
+pub struct LifecyclePassSummary {
     pub total_scanned: usize,
-    pub decayed: usize,
     pub archived: usize,
     pub errors: usize,
 }
 
-impl DecayPassSummary {
+impl LifecyclePassSummary {
     /// Render a short human-readable summary suitable for inclusion in the
     /// mid-pass fork prompt so the agent knows what has already been done.
     pub fn to_prompt_note(&self) -> String {
         DETERMINISTIC_PRE_PASS_NOTE
             .replace("{total_scanned}", &self.total_scanned.to_string())
-            .replace("{decayed}", &self.decayed.to_string())
             .replace("{archived}", &self.archived.to_string())
             .replace("{errors}", &self.errors.to_string())
     }
 }
 
-/// Run the deterministic decay pass for the given target.
+/// Run the deterministic lifecycle pass for the given target.
 ///
 /// For each entry in the memory store (excluding archive, identity, narrative,
 /// pinned):
-/// 1. Read `strength` and `last_seen` from front matter.
-/// 2. Compute decayed strength.
-/// 3. If strength changed, write the updated entry back.
-/// 4. If the decayed strength is below `archive_threshold`, move the file to
-///    the `archive/` directory and set `status: archived`.
+/// 1. Read `last_seen` (or `created`) from front matter.
+/// 2. If the entry is older than `archive_after_days`, move it to `archive/`
+///    and set `status: archived`.
 ///
 /// After the pass, rebuilds the `MEMORY.md` index.
-pub async fn run_decay_pass(
+pub async fn run_lifecycle_pass(
     target: MemoryStoreTarget<'_>,
-    config: &DecayConfig,
-) -> BitFunResult<DecayPassSummary> {
+    config: &LifecycleConfig,
+) -> BitFunResult<LifecyclePassSummary> {
     let memory_dir = memory_store_dir_path_for_target(target);
     if !memory_dir.exists() {
-        return Ok(DecayPassSummary::default());
+        return Ok(LifecyclePassSummary::default());
     }
 
     let all_files = list_memory_files_recursive(&memory_dir).await?;
-    let mut summary = DecayPassSummary::default();
+    let mut summary = LifecyclePassSummary::default();
     let now: DateTime<Utc> = Utc::now();
 
     for path in &all_files {
@@ -88,7 +81,10 @@ pub async fn run_decay_pass(
         let raw = match fs::read_to_string(path).await {
             Ok(r) => r,
             Err(e) => {
-                debug!("Decay pass: failed to read file: path={} error={}", rel, e);
+                debug!(
+                    "Lifecycle pass: failed to read file: path={} error={}",
+                    rel, e
+                );
                 summary.errors += 1;
                 continue;
             }
@@ -98,45 +94,34 @@ pub async fn run_decay_pass(
         let layer = &parsed.front_matter.layer;
         let status = &parsed.front_matter.status;
 
-        if is_decay_exempt(layer, status, &rel) {
+        if is_archive_exempt(layer, status, &rel) {
             continue;
         }
 
-        let current_strength = parsed.front_matter.strength.unwrap_or(1.0);
-        let elapsed_days = compute_elapsed_days(&parsed.front_matter.last_seen, &now);
-        let new_strength = decayed_strength(current_strength, elapsed_days, config);
+        let elapsed_days = compute_elapsed_days(
+            parsed
+                .front_matter
+                .last_seen
+                .as_ref()
+                .or(parsed.front_matter.created.as_ref()),
+            &now,
+        );
 
-        if (new_strength - current_strength).abs() < 1e-4 {
-            continue; // no meaningful change
+        if !should_archive_by_age(elapsed_days, config) {
+            continue;
         }
 
-        parsed.front_matter.strength = Some(new_strength);
-        summary.decayed += 1;
-
-        if should_archive(new_strength, config) {
-            // Move to archive/.
-            match archive_file(path, &memory_dir, &mut parsed, &rel).await {
-                Ok(_) => {
-                    summary.archived += 1;
-                    info!(
-                        "Decay pass: archived low-strength entry: rel={} strength={:.3}",
-                        rel, new_strength
-                    );
-                }
-                Err(e) => {
-                    warn!(
-                        "Decay pass: failed to archive entry: rel={} error={}",
-                        rel, e
-                    );
-                    summary.errors += 1;
-                    // Still write back the updated strength even if archive failed.
-                    let _ = write_updated_entry(path, &parsed).await;
-                }
+        match archive_file(path, &memory_dir, &mut parsed, &rel).await {
+            Ok(_) => {
+                summary.archived += 1;
+                info!(
+                    "Lifecycle pass: archived stale entry: rel={} age_days={:.1}",
+                    rel, elapsed_days
+                );
             }
-        } else {
-            if let Err(e) = write_updated_entry(path, &parsed).await {
-                debug!(
-                    "Decay pass: failed to write updated entry: rel={} error={}",
+            Err(e) => {
+                warn!(
+                    "Lifecycle pass: failed to archive entry: rel={} error={}",
                     rel, e
                 );
                 summary.errors += 1;
@@ -144,16 +129,14 @@ pub async fn run_decay_pass(
         }
     }
 
-    // Rebuild the index after the pass so the fork has an accurate picture.
     if let Err(e) = rebuild_index(target).await {
-        warn!("Decay pass: index rebuild failed: error={}", e);
+        warn!("Lifecycle pass: index rebuild failed: error={}", e);
     }
 
     info!(
-        "Decay pass complete: scope={} scanned={} decayed={} archived={} errors={}",
+        "Lifecycle pass complete: scope={} scanned={} archived={} errors={}",
         target.scope().as_label(),
         summary.total_scanned,
-        summary.decayed,
         summary.archived,
         summary.errors
     );
@@ -165,14 +148,14 @@ pub async fn run_decay_pass(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-fn compute_elapsed_days(last_seen: &Option<String>, now: &DateTime<Utc>) -> f32 {
-    let Some(last_seen_str) = last_seen else {
+fn compute_elapsed_days(anchor: Option<&String>, now: &DateTime<Utc>) -> f32 {
+    let Some(anchor_str) = anchor else {
         return 0.0;
     };
-    let Ok(last_seen_dt) = DateTime::parse_from_rfc3339(last_seen_str) else {
+    let Ok(anchor_dt) = DateTime::parse_from_rfc3339(anchor_str) else {
         return 0.0;
     };
-    let elapsed = *now - last_seen_dt.with_timezone(&Utc);
+    let elapsed = *now - anchor_dt.with_timezone(&Utc);
     elapsed.num_seconds().max(0) as f32 / 86_400.0
 }
 
@@ -205,14 +188,4 @@ async fn archive_file(
         .map_err(|e| BitFunError::io(format!("Failed to remove original after archive: {e}")))?;
 
     Ok(())
-}
-
-async fn write_updated_entry(
-    path: &Path,
-    parsed: &crate::service::memory_store::schema::ParsedMemoryEntry,
-) -> BitFunResult<()> {
-    let content = render_entry(parsed);
-    fs::write(path, content)
-        .await
-        .map_err(|e| crate::util::errors::BitFunError::io(format!("Failed to write entry: {e}")))
 }

@@ -9,7 +9,7 @@
 //! Mechanical decay and archive-threshold moves are handled by the deterministic
 //! Rust pre-pass before this prompt runs.
 
-use super::decay::DecayConfig;
+use super::decay::LifecycleConfig;
 use crate::agentic::auto_memory::build_auto_memory_runtime_restrictions;
 use crate::service::memory_store::layout::ARCHIVE_DIR;
 
@@ -21,12 +21,12 @@ pub(crate) const MID_PASS_TURN_BUDGET: usize = 4;
 
 /// Build the mid-pass consolidation prompt.
 ///
-/// `memory_dir`      — absolute path to the memory directory (display form)  
-/// `_decay_config`   — current decay configuration, handled by the pre-pass  
-/// `scope_label`     — "workspace" or "global"  
+/// `memory_dir`        — absolute path to the memory directory (display form)
+/// `_lifecycle_config` — current lifecycle configuration, handled by the pre-pass
+/// `scope_label`       — "workspace" or "global"
 pub(crate) fn build_mid_pass_prompt(
     memory_dir: &str,
-    _decay_config: &DecayConfig,
+    _lifecycle_config: &LifecycleConfig,
     scope_label: &str,
 ) -> String {
     let proposals_dir = format!("{}/{}/proposals", memory_dir, ARCHIVE_DIR);
