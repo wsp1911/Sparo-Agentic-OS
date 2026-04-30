@@ -199,7 +199,7 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
 
         <div className="memory-drawer__path" title={record.path}>{record.relativePath}</div>
 
-        {/* Metadata row: layer / status / strength / sensitivity / tags */}
+        {/* Metadata row: layer / status / sensitivity / tags */}
         <div className="memory-drawer__meta-row">
           {record.layer ? (
             <span className="memory-drawer__meta-chip memory-drawer__meta-chip--layer">
@@ -215,15 +215,6 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
             <span className="memory-drawer__meta-chip memory-drawer__meta-chip--sensitivity">
               <Lock size={10} />
               {t(`memoryLibrary.sensitivity.${record.sensitivity}`)}
-            </span>
-          ) : null}
-          {typeof record.strength === 'number' ? (
-            <span className="memory-drawer__meta-chip memory-drawer__meta-chip--strength">
-              <span
-                className="memory-drawer__strength-bar"
-                style={{ '--strength': record.strength } as React.CSSProperties}
-                title={`${t('memoryLibrary.drawer.strength')}: ${Math.round(record.strength * 100)}%`}
-              />
             </span>
           ) : null}
           {record.tags?.map((tag) => (

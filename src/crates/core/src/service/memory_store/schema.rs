@@ -112,8 +112,6 @@ pub struct MemoryEntryFrontMatter {
     pub scope: Option<String>,
     pub created: Option<String>,
     pub last_seen: Option<String>,
-    /// Activity strength in [0, 1]. None means unset (treated as 0.5 on hit).
-    pub strength: Option<f32>,
     pub sensitivity: MemorySensitivity,
     pub status: MemoryStatus,
     pub tags: Vec<String>,
@@ -133,7 +131,6 @@ impl Default for MemoryEntryFrontMatter {
             scope: None,
             created: None,
             last_seen: None,
-            strength: None,
             sensitivity: MemorySensitivity::Normal,
             status: MemoryStatus::Confirmed,
             tags: Vec::new(),
@@ -200,7 +197,9 @@ pub fn parse_entry(content: &str) -> ParsedMemoryEntry {
             "scope" => fm.scope = Some(value.to_string()),
             "created" => fm.created = Some(value.to_string()),
             "last_seen" => fm.last_seen = Some(value.to_string()),
-            "strength" => fm.strength = value.parse::<f32>().ok(),
+            // `strength` was removed in favor of age-based archiving; silently
+            // drop the field so legacy files round-trip without preserving it.
+            "strength" => {}
             "sensitivity" => fm.sensitivity = MemorySensitivity::from_str(value),
             "status" => fm.status = MemoryStatus::from_str(value),
             "source_session" | "name" if key == "source_session" => {
@@ -252,8 +251,16 @@ fn parse_inline_list(raw: &str) -> Vec<String> {
 }
 
 /// Render a parsed memory entry back to its file representation.
+///
+/// Entries marked [`MemorySensitivity::Secret`] are coerced to `private` in the
+/// rendered output so they are never persisted as `secret` on disk.
 pub fn render_entry(entry: &ParsedMemoryEntry) -> String {
     let fm = &entry.front_matter;
+    let sensitivity_line = if validate_entry(fm).is_empty() {
+        fm.sensitivity.as_str()
+    } else {
+        MemorySensitivity::Private.as_str()
+    };
     let mut lines: Vec<String> = vec!["---".to_string()];
 
     if let Some(id) = &fm.id {
@@ -269,10 +276,7 @@ pub fn render_entry(entry: &ParsedMemoryEntry) -> String {
     if let Some(last_seen) = &fm.last_seen {
         lines.push(format!("last_seen: {}", last_seen));
     }
-    if let Some(strength) = fm.strength {
-        lines.push(format!("strength: {:.2}", strength));
-    }
-    lines.push(format!("sensitivity: {}", fm.sensitivity.as_str()));
+    lines.push(format!("sensitivity: {}", sensitivity_line));
     lines.push(format!("status: {}", fm.status.as_str()));
     if !fm.tags.is_empty() {
         lines.push(format!("tags: [{}]", fm.tags.join(", ")));
@@ -312,12 +316,6 @@ pub fn validate_entry(fm: &MemoryEntryFrontMatter) -> Vec<String> {
         errors.push("secret sensitivity entries must not be written to the filesystem".to_string());
     }
 
-    if let Some(strength) = fm.strength {
-        if !(0.0..=1.0).contains(&strength) {
-            errors.push(format!("strength {} is out of range [0, 1]", strength));
-        }
-    }
-
     errors
 }
 
@@ -354,10 +352,18 @@ Fixed OpenAI streaming event ordering."#;
         let entry = parse_entry(content);
         assert_eq!(entry.front_matter.id.as_deref(), Some("ep-2026-04-29-001"));
         assert_eq!(entry.front_matter.layer, MemoryLayer::Episodic);
-        assert_eq!(entry.front_matter.strength, Some(0.80));
         assert_eq!(entry.front_matter.tags, vec!["streaming", "openai"]);
         assert_eq!(entry.front_matter.status, MemoryStatus::Confirmed);
         assert!(entry.body.contains("Fixed OpenAI streaming"));
+    }
+
+    #[test]
+    fn parser_drops_legacy_strength_field() {
+        let content = "---\nlayer: episodic\nstrength: 0.5\nstatus: confirmed\n---\n\nbody";
+        let parsed = parse_entry(content);
+        // Strength is silently dropped; rendering the entry must not bring it back.
+        let rendered = render_entry(&parsed);
+        assert!(!rendered.contains("strength"));
     }
 
     #[test]
@@ -378,6 +384,19 @@ Fixed OpenAI streaming event ordering."#;
         fm.sensitivity = MemorySensitivity::Secret;
         let errors = validate_entry(&fm);
         assert!(!errors.is_empty());
+    }
+
+    #[test]
+    fn render_coerces_secret_sensitivity_to_private_on_disk() {
+        let mut fm = MemoryEntryFrontMatter::default();
+        fm.sensitivity = MemorySensitivity::Secret;
+        let entry = ParsedMemoryEntry {
+            front_matter: fm,
+            body: String::new(),
+        };
+        let rendered = render_entry(&entry);
+        assert!(rendered.contains("sensitivity: private"));
+        assert!(!rendered.contains("sensitivity: secret"));
     }
 
     #[test]

@@ -54,7 +54,6 @@ pub struct MemoryEntrySummary {
     pub title: String,
     pub layer: String,
     pub status: String,
-    pub strength: Option<f32>,
     pub sensitivity: String,
     pub tags: Vec<String>,
     pub source_session: Option<String>,
@@ -159,7 +158,6 @@ async fn read_entry_detail(
             title,
             layer: fm.layer.as_str().to_owned(),
             status: fm.status.as_str().to_owned(),
-            strength: fm.strength,
             sensitivity: fm.sensitivity.as_str().to_owned(),
             tags: fm.tags.clone(),
             source_session: fm.source_session.clone(),
@@ -256,7 +254,6 @@ pub async fn list_entries(
                 title,
                 layer: fm.layer.as_str().to_owned(),
                 status: fm.status.as_str().to_owned(),
-                strength: fm.strength,
                 sensitivity: fm.sensitivity.as_str().to_owned(),
                 tags: fm.tags.clone(),
                 source_session: fm.source_session.clone(),
@@ -356,10 +353,11 @@ pub async fn delete_entry(target: MemoryStoreTarget<'_>, relative_path: &str) ->
     Ok(())
 }
 
-/// Record a memory hit: update `last_seen` and boost `strength`.
+/// Record a memory hit: bump `last_seen` to now.
 ///
 /// Call this whenever a memory entry is explicitly read or referenced during
-/// a session so the decay curve reflects actual usage.
+/// a session so the lifecycle pass treats it as freshly used and defers
+/// auto-archive.
 pub async fn record_memory_hit(
     target: MemoryStoreTarget<'_>,
     relative_path: &str,
@@ -403,13 +401,8 @@ pub async fn record_memory_hit(
         return Ok(());
     }
 
-    // Update last_seen to now.
     let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     parsed.front_matter.last_seen = Some(now);
-
-    // Boost strength (additive, clamped to 1.0).
-    let current = parsed.front_matter.strength.unwrap_or(0.5);
-    parsed.front_matter.strength = Some((current + 0.1).min(1.0));
 
     let updated = render_entry(&parsed);
     fs::write(&full_path, updated)
@@ -417,9 +410,8 @@ pub async fn record_memory_hit(
         .map_err(|e| BitFunError::io(format!("record_memory_hit write: {e}")))?;
 
     debug!(
-        "Memory hit recorded: relative_path={} new_strength={:.2}",
-        normalized_relative_path,
-        parsed.front_matter.strength.unwrap_or(1.0)
+        "Memory hit recorded: relative_path={}",
+        normalized_relative_path
     );
 
     Ok(())

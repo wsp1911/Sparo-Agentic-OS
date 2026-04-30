@@ -13,6 +13,8 @@ Turn budget: {turn_budget}.
 - Turn 2 (parallel writes): write/update the summary file; update `status` on each tentative episode (`confirmed` or `archived`).
 - Turn 3 (optional): self-correct any malformed front matter.
 
+**Summaries are pointers, not transcripts.** Capture only what changes future behavior — decisions made, outcomes reached, threads left open. Do **not** retell what was tried, debated, read, or fixed: the full conversation is already preserved in the session log itself, and code/tests/git carry the rest. If your summary reads like a journal, cut it.
+
 The summary file MUST follow this exact structure (include all sections; write "None" if a section is empty):
 
 ```markdown
@@ -26,10 +28,10 @@ tags: [tag1, tag2]
 
 # <Short descriptive title, ≤10 words>
 
-<Summary in 3–5 sentences. What was accomplished, what decisions were made, what remains open.>
+<≤3 sentences. State only: the decision(s) made, the outcome reached, and the headline of what remains open. No narration of attempts, no recap of code changes, no emotional color.>
 
 ## Unfinished items
-- <item or None>
+- <one line per item, or None>
 
 ## Related episodes
 - <relative path from {memory_dir}/episodes/, or None>
@@ -38,6 +40,8 @@ tags: [tag1, tag2]
 - <id> → confirmed
 - <id> → archived (reason)
 ```
+
+Hard caps: title ≤10 words; the body paragraph ≤3 sentences and ≤80 words combined; each list item ≤1 line. The reader can always open the session log for detail.
 
 Rules for the promotion pass:
 

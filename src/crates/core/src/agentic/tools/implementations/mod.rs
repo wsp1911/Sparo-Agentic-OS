@@ -3,6 +3,7 @@
 pub mod agent_dispatch_tool;
 pub mod agent_session_dispatch;
 pub mod ask_user_question_tool;
+pub mod auto_memory;
 pub mod bash_tool;
 pub mod code_review_tool;
 pub mod computer_use_actions;
@@ -47,6 +48,10 @@ pub mod web_tools;
 
 pub use agent_dispatch_tool::AgentDispatchTool;
 pub use ask_user_question_tool::AskUserQuestionTool;
+pub use auto_memory::{
+    MemoryDeleteTool, MemoryEditTool, MemoryGlobTool, MemoryGrepTool, MemoryReadTool,
+    MemoryWriteTool,
+};
 pub use bash_tool::BashTool;
 pub use code_review_tool::CodeReviewTool;
 pub use computer_use_mouse_click_tool::ComputerUseMouseClickTool;

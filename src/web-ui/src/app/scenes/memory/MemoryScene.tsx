@@ -217,7 +217,7 @@ const MemoryScene: React.FC = () => {
   const handleSelect = useCallback((record: MemoryRecord) => {
     setSelectedId(record.id);
     setDrawerOpen(true);
-    // Best-effort: record the hit so last_seen and strength stay fresh.
+    // Best-effort: record the hit so last_seen stays fresh.
     void memoryLibraryAPI.recordHit(record, workspacePath ?? undefined);
   }, [workspacePath]);
 

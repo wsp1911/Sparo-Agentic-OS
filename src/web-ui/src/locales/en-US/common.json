@@ -1095,7 +1095,6 @@
       "sections": {
         "description": "Description"
       },
-      "strength": "Strength",
       "sourceSession": "Source session",
       "relations": {
         "empty": "No related memories yet",

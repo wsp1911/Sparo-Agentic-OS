@@ -22,8 +22,7 @@
 
 use super::{
     ensure_memory_store_for_target, format_path_for_prompt, memory_store_dir_path_for_target,
-    render_global_main_memory_prompt, render_workspace_main_memory_prompt, MemoryScope,
-    MemoryStoreTarget, MEMORY_INDEX_FILE,
+    render_main_memory_prompt, MemoryScope, MemoryStoreTarget, MEMORY_INDEX_FILE,
 };
 use crate::infrastructure::get_path_manager_arc;
 use crate::util::errors::*;
@@ -56,15 +55,11 @@ pub(crate) async fn build_memory_prompt_for_target(
     ensure_memory_store_for_target(target).await?;
     let memory_dir = memory_store_dir_path_for_target(target);
     let memory_dir_display = format_path_for_prompt(&memory_dir);
-    Ok(match target {
-        MemoryStoreTarget::WorkspaceProject(_) => render_workspace_main_memory_prompt(
-            &memory_dir_display,
-            MEMORY_INDEX_FILE,
-        ),
-        MemoryStoreTarget::GlobalAgenticOs => {
-            render_global_main_memory_prompt(&memory_dir_display, MEMORY_INDEX_FILE)
-        }
-    })
+    Ok(render_main_memory_prompt(
+        target.scope(),
+        &memory_dir_display,
+        MEMORY_INDEX_FILE,
+    ))
 }
 
 /// Build the cold-injection context that is prepended to every session's

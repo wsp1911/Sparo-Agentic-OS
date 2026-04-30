@@ -20,7 +20,7 @@ pub(crate) use paths::{
     ensure_memory_skeleton, ensure_memory_store_for_target, memory_store_dir_path_for_target,
 };
 pub(crate) use policy::{
-    render_global_main_memory_prompt, render_workspace_main_memory_prompt,
+    render_main_memory_prompt, MEMORY_NEVER_SAVE, MEMORY_PHILOSOPHY,
 };
 pub(crate) use prompt_context::{
     build_memory_files_context_for_target, build_memory_prompt_for_target,
@@ -28,7 +28,6 @@ pub(crate) use prompt_context::{
 
 pub(crate) const MEMORY_INDEX_FILE: &str = "MEMORY.md";
 const MEMORY_DIR_NAME: &str = "memory";
-const MEMORY_INDEX_MAX_LINES: usize = 200;
 const MEMORY_MANIFEST_MAX_FILES: usize = 200;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -6,7 +6,7 @@ pub(crate) const PINNED_DIR: &str = "pinned";
 pub(crate) const EPISODES_DIR: &str = "episodes";
 /// Subdirectory for per-session summary files.
 pub(crate) const SESSIONS_DIR: &str = "sessions";
-/// Subdirectory for archived (low-strength or superseded) entries.
+/// Subdirectory for archived (stale or superseded) entries.
 pub(crate) const ARCHIVE_DIR: &str = "archive";
 /// Subdirectory for workspace routing overviews (global scope only).
 pub(crate) const WORKSPACES_OVERVIEW_DIR: &str = "workspaces_overview";
@@ -150,43 +150,6 @@ so the user does not need to repeat guidance across sessions.
 <!-- Populated when the user corrects or confirms specific approaches. -->
 ";
 
-/// Compute the path for an episode entry.
-///
-/// `date` must be in `YYYY-MM-DD` format; `slug` is a short kebab-case label.
-/// Result: `<memory_dir>/episodes/YYYY-MM/YYYY-MM-DD-<slug>.md`
-pub(crate) fn episode_path_for(memory_dir: &Path, date: &str, slug: &str) -> PathBuf {
-    let month = &date[..7]; // "YYYY-MM"
-    memory_dir
-        .join(EPISODES_DIR)
-        .join(month)
-        .join(format!("{}-{}.md", date, slug))
-}
-
-/// Compute the path for a session summary entry.
-///
-/// Result: `<memory_dir>/sessions/YYYY-MM-DD-<session_id>.md`
-pub(crate) fn session_summary_path_for(memory_dir: &Path, date: &str, session_id: &str) -> PathBuf {
-    memory_dir
-        .join(SESSIONS_DIR)
-        .join(format!("{}-{}.md", date, session_id))
-}
-
-/// Compute the path for a pinned entry.
-///
-/// Result: `<memory_dir>/pinned/<slug>.md`
-pub(crate) fn pinned_path_for(memory_dir: &Path, slug: &str) -> PathBuf {
-    memory_dir.join(PINNED_DIR).join(format!("{}.md", slug))
-}
-
-/// Compute the archive path for a file being superseded.
-///
-/// Result: `<memory_dir>/archive/<date>-<original_name>`
-pub(crate) fn archive_path_for(memory_dir: &Path, date: &str, original_name: &str) -> PathBuf {
-    memory_dir
-        .join(ARCHIVE_DIR)
-        .join(format!("{}-{}", date, original_name))
-}
-
 /// Compute the legacy migration archive directory.
 ///
 /// Result: `<memory_dir>/archive/legacy-<date>/`
@@ -237,7 +200,7 @@ pub(crate) fn classify_relative_path(rel: &str) -> MemoryPathCategory {
     if normalized.starts_with("sessions/") {
         return MemoryPathCategory::Session;
     }
-    if normalized.starts_with("workspaces_overview/") {
+    if rel_starts_with_dir(&normalized, WORKSPACES_OVERVIEW_DIR) {
         return MemoryPathCategory::WorkspaceOverview;
     }
     if normalized.starts_with("archive/") {
@@ -246,18 +209,21 @@ pub(crate) fn classify_relative_path(rel: &str) -> MemoryPathCategory {
     MemoryPathCategory::Other
 }
 
+fn rel_starts_with_dir(normalized: &str, dir: &str) -> bool {
+    normalized == dir
+        || (normalized.starts_with(dir)
+            && normalized.as_bytes().get(dir.len()).copied() == Some(b'/'))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
-    fn episode_path_has_correct_structure() {
-        let dir = PathBuf::from("/memory");
-        let path = episode_path_for(&dir, "2026-04-29", "fix-streaming");
+    fn episode_relative_path_has_correct_shape() {
         assert_eq!(
-            path.to_string_lossy().replace('\\', "/"),
-            "/memory/episodes/2026-04/2026-04-29-fix-streaming.md"
+            classify_relative_path("episodes/2026-04/2026-04-29-fix-streaming.md"),
+            MemoryPathCategory::Episode
         );
     }
 

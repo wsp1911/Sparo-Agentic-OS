@@ -88,17 +88,10 @@ const nodeRadiusFor = (record: MemoryRecord): number => {
   if (record.isIndex) return 11;
   if (record.isWorkspaceOverview) return 10;
   const baseLen = (record.content?.length ?? 0) + (record.description?.length ?? 0);
-  let base: number;
-  if (baseLen > 4000) base = 9;
-  else if (baseLen > 1500) base = 8;
-  else if (baseLen > 400) base = 7;
-  else base = 6;
-  // Scale radius by strength if present: weak entries shrink slightly.
-  if (record.strength !== undefined) {
-    const scale = 0.7 + 0.3 * record.strength;
-    return Math.max(4, Math.round(base * scale));
-  }
-  return base;
+  if (baseLen > 4000) return 9;
+  if (baseLen > 1500) return 8;
+  if (baseLen > 400) return 7;
+  return 6;
 };
 
 const placeRecordsInsideRing = (

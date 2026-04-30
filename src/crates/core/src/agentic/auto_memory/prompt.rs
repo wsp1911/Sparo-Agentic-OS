@@ -1,8 +1,7 @@
 use crate::agentic::core::{Message, MessageRole, MessageSemanticKind};
-use crate::service::memory_store::MemoryScope;
+use crate::service::memory_store::{MemoryScope, MEMORY_NEVER_SAVE, MEMORY_PHILOSOPHY};
 
-const EXTRACT_WORKSPACE: &str = include_str!("prompts/agent_memory_extract_workspace.md");
-const EXTRACT_GLOBAL: &str = include_str!("prompts/agent_memory_extract_global.md");
+const EXTRACT: &str = include_str!("prompts/agent_memory_extract.md");
 
 pub fn count_recent_model_visible_messages(
     messages: &[Message],
@@ -106,22 +105,39 @@ pub fn build_extract_prompt_with_global(
         ),
     };
 
-    let write_roots_description = match global_memory_dir {
-        Some(global_dir) if !global_dir.is_empty() && global_dir != memory_dir => {
-            format!("paths inside `{memory_dir}` or `{global_dir}`")
-        }
-        _ => format!("paths inside `{memory_dir}`"),
+    let scope_block = match memory_scope {
+        MemoryScope::WorkspaceProject => format!(
+            "**Active scope: WORKSPACE.** You may write only to:\n\
+- `{memory_dir}/episodes/YYYY-MM/YYYY-MM-DD-<slug>.md`\n\
+- `{memory_dir}/project.md`\n\
+- `{memory_dir}/habits.md`\n\
+- `{memory_dir}/identity.md` (project-rules anchor only)\n\
+- `{memory_dir}/pinned/<slug>.md`\n\
+- `{memory_dir}/MEMORY.md` (must be updated as the last step of every write)\n\n\
+You must NOT write `persona.md`, `narrative.md`, anything under `sessions/`, `workspaces_overview/`, or any path outside `{memory_dir}` (unless the routing block below explicitly escalates a memory to global).\n\n\
+Applicable type sections in §6: `episodic`, `project`, `habit`, `identity` (project-rules anchor), `reference`. Skip `persona`, `workspaces_overview` — they belong to GLOBAL."
+        ),
+        MemoryScope::GlobalAgenticOs => format!(
+            "**Active scope: GLOBAL.** You may write only to:\n\
+- `{memory_dir}/persona.md`\n\
+- `{memory_dir}/habits.md`\n\
+- `{memory_dir}/identity.md` (top-level assistant identity)\n\
+- `{memory_dir}/pinned/<slug>.md`\n\
+- `{memory_dir}/workspaces_overview/<slug>.md`\n\
+- `{memory_dir}/MEMORY.md` (must be updated as the last step of every write)\n\n\
+You must NOT write any `episodes/*` (episodes belong to workspaces), `project.md`, `narrative.md` (owned by the slow consolidation pass), or anything under `sessions/` (owned by the session-summary pass).\n\n\
+Applicable type sections in §6: `persona`, `habit`, `identity` (top-level assistant identity), `reference`, `workspaces_overview`. Skip `episodic`, `project` — they belong to WORKSPACE."
+        ),
     };
 
     let r_count = recent_message_count.to_string();
-    let tpl = match memory_scope {
-        MemoryScope::WorkspaceProject => EXTRACT_WORKSPACE,
-        MemoryScope::GlobalAgenticOs => EXTRACT_GLOBAL,
-    };
 
-    tpl.replace("{recent_message_count}", &r_count)
-        .replace("{write_roots_description}", &write_roots_description)
+    EXTRACT
+        .replace("{recent_message_count}", &r_count)
+        .replace("{scope_block}", &scope_block)
         .replace("{routing_section}", &routing_section)
+        .replace("{philosophy_block}", MEMORY_PHILOSOPHY.trim_end())
+        .replace("{never_save_block}", MEMORY_NEVER_SAVE.trim_end())
         .replace("{manifest}", &manifest)
 }
 
@@ -244,12 +260,31 @@ mod tests {
             crate::service::memory_store::MemoryScope::GlobalAgenticOs,
         );
 
-        assert!(prompt.contains("## Special workspace overview files"));
-        assert!(prompt.contains("<name>identity</name>"));
-        assert!(prompt.contains("<name>narrative</name>"));
-        assert!(prompt.contains("<name>vision</name>"));
-        assert!(!prompt.contains("<name>project</name>"));
+        // Global scope must declare itself, list its applicable types, and
+        // forbid workspace-only files.
+        assert!(prompt.contains("Active scope: GLOBAL"));
+        assert!(prompt.contains("persona.md"));
+        assert!(prompt.contains("workspaces_overview"));
+        assert!(prompt.contains("Skip `episodic`, `project`"));
+        // narrative is never written by extraction in any scope.
+        assert!(prompt.contains("narrative.md"));
+        // Access-memory guidance from the older prompt must not return.
         assert!(!prompt.contains("## When to access memories"));
+    }
+
+    #[test]
+    fn workspace_extract_prompt_declares_workspace_scope_and_types() {
+        let prompt = build_extract_prompt(
+            7,
+            "/workspace/memory",
+            None,
+            crate::service::memory_store::MemoryScope::WorkspaceProject,
+        );
+
+        assert!(prompt.contains("Active scope: WORKSPACE"));
+        assert!(prompt.contains("episodes/YYYY-MM"));
+        assert!(prompt.contains("project.md"));
+        assert!(prompt.contains("Skip `persona`, `workspaces_overview`"));
     }
 
     // -------- New behavior tests for the optimized memory prompts ----------
@@ -331,7 +366,8 @@ mod tests {
 
         // The philosophy header is the single source of truth for "why we
         // have memory at all". It must be present in every memory prompt.
-        assert!(prompt.contains("## Memory philosophy (read first)"));
+        // The merged prompt numbers its sections (`## 2. ...`).
+        assert!(prompt.contains("Memory philosophy (read first)"));
         assert!(prompt.contains("Behavior over narration"));
         assert!(prompt.contains("Memory ≠ facts"));
     }

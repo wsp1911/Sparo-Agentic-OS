@@ -296,6 +296,31 @@
   color: var(--border-base);
 }
 
+/* Shared dense list for LS, glob, agent dispatch session list, etc. */
+.compact-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.compact-list-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  padding: 4px 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
 .compact-expanded-results-list {
   display: flex;
   flex-direction: column;

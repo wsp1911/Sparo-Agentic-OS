@@ -1099,7 +1099,6 @@
       "sections": {
         "description": "描述"
       },
-      "strength": "强度",
       "sourceSession": "来源会话",
       "relations": {
         "empty": "暂无与之相关的记忆",

@@ -122,11 +122,6 @@ const MemoryList: React.FC<MemoryListProps> = ({
                           {record.status}
                         </span>
                       ) : null}
-                      {typeof record.strength === 'number' && record.strength < 0.5 ? (
-                        <span className="memory-list__badge memory-list__badge--weak">
-                          {Math.round(record.strength * 100)}%
-                        </span>
-                      ) : null}
                     </span>
                     {record.updatedAt ? (
                       <span className="memory-list__item-time">{formatDate(record.updatedAt)}</span>
