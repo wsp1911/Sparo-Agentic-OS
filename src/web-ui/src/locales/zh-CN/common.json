@@ -165,7 +165,6 @@
     "items": {
       "sessions": "任务",
       "project": "目录",
-      "persona": "助理",
       "memory": "记忆",
       "agents": "思维应用",
       "skills": "技能",
@@ -177,7 +176,6 @@
       "subAgent": "SubAgent"
     },
     "tooltips": {
-      "persona": "助理 — 创建与管理所有助理实例",
       "agents": "它能调用哪些 Agent",
       "skills": "它懂什么专项知识 — 技能知识文件",
       "tools": "它能用什么工具 — 内置工具与 MCP 服务",
@@ -193,8 +191,7 @@
       "sessions": "任务",
       "agentApp": "智能应用",
       "devKit": "开发套件",
-      "shell": "Shell",
-      "assistantSessions": "助理任务"
+      "shell": "Shell"
     },
     "collapseSessions": "收起任务列表",
     "sessionCapsule": {
@@ -258,24 +255,15 @@
       "triggerPlaceholder": "搜索",
       "headerSearchHint": "Alt + F 搜索",
       "triggerTooltip": "搜索 (Alt+F)",
-      "inputPlaceholder": "搜索工作区、助理、智能应用、灵动应用、任务...",
+      "inputPlaceholder": "搜索工作区、智能应用、灵动应用、任务...",
       "groupWorkspaces": "已打开工作区",
-      "groupAssistants": "助理",
       "groupAgentApps": "智能应用",
       "groupLiveApps": "灵动应用",
       "groupSessions": "所有任务",
       "groupRecentTasks": "最近任务",
       "empty": "未找到相关结果",
-      "noRecentTasks": "暂无最近任务，输入关键词可搜索工作区、助理、智能应用、灵动应用等",
+      "noRecentTasks": "暂无最近任务，输入关键词可搜索工作区、智能应用、灵动应用等",
       "sessionWorkspaceHint": "位于 {{workspace}}"
-    },
-    "displayModes": {
-      "pro": "专业模式",
-      "assistant": "助理模式",
-      "switchToPro": "点击切换到专业模式",
-      "switchToAssistant": "点击切换到助理模式",
-      "proDesc": "适合目标明确、一次完成的即时任务。",
-      "assistantDesc": "适合持续推进、需要延续上下文和个人偏好的任务。"
     },
     "myAgent": {
       "title": "扩展",
@@ -323,7 +311,6 @@
       "newCodeSessionShort": "编码任务",
       "newCoworkSessionShort": "办公任务",
       "newDesignSessionShort": "设计任务",
-      "newClawSession": "Claw 任务",
       "newDeepResearchSession": "Deep Research 任务",
       "newLiveAppStudioSession": "灵动应用任务",
       "modeLiveAppStudio": "灵动应用工坊",
@@ -343,16 +330,14 @@
       "showMore": "还有 {{count}} 个任务",
       "showAll": "还有 {{count}} 个（展开全部）",
       "showLess": "收起",
-      "assistantOwner": "所属助理：{{name}}",
-      "sessionContext": "所属：{{name}}",
-      "needProjectWorkspaceForSession": "请先打开或添加项目工作区。Code、Cowork 与 Design 任务不能在助理区域创建。"
+      "workspaceOwner": "所属工作区：{{name}}",
+      "sessionContext": "所属：{{name}}"
     },
     "scheduledJobs": {
       "title": "定时任务",
       "open": "打开定时任务",
       "shortLabel": "定时任务",
       "listTitle": "任务列表",
-      "assistantFallback": "当前助理",
       "loading": "正在加载定时任务...",
       "never": "未安排",
       "nextRunLabel": "下次执行",
@@ -376,7 +361,7 @@
         "name": "例如：每日全球新闻简报",
         "anchorMs": "留空则使用创建时刻",
         "timezone": "例如：Asia/Shanghai",
-        "prompt": "请输入定时触发时发送给助理的内容"
+        "prompt": "请输入定时触发时发送的内容"
       },
       "scheduleKinds": {
         "at": "单次执行",
@@ -425,8 +410,7 @@
         "deleteFailed": "删除定时任务失败：{{error}}",
         "deleteSuccess": "定时任务已删除",
         "createSuccess": "定时任务已创建",
-        "updateSuccess": "定时任务已更新",
-        "sessionRequired": "当前没有可用会话，请先为该助理创建一个会话后再添加定时任务。"
+        "updateSuccess": "定时任务已更新"
       },
       "validation": {
         "nameRequired": "请输入任务名称",
@@ -438,12 +422,7 @@
     "workspaces": {
       "empty": "暂无已打开工作区",
       "emptyProjects": "暂无普通工作区",
-      "emptyAssistants": "暂无个人助理",
-      "primaryAssistant": "主助理",
       "closeFailed": "关闭工作区失败",
-      "createAssistantFailed": "新建个人助理失败",
-      "deleteAssistantFailed": "删除个人助理失败",
-      "assistantDeleted": "已删除个人助理",
       "resetWorkspaceFailed": "重置工作区失败",
       "workspaceReset": "已重置工作区",
       "reorderFailed": "调整工作区顺序失败",
@@ -462,14 +441,11 @@
       "expandSessions": "展开任务列表",
       "collapseSessions": "收起任务列表",
       "groups": {
-        "projects": "普通工作区",
-        "assistants": "个人助理"
+        "projects": "普通工作区"
       },
       "actions": {
         "more": "更多操作",
         "newSession": "新建任务",
-        "newAssistant": "新建个人助理",
-        "deleteAssistant": "删除个人助理",
         "resetWorkspace": "重置工作区",
         "initAgents": "初始化 AGENTS.md",
         "newWorktree": "新建 worktree",
@@ -478,14 +454,9 @@
         "reveal": "在资源管理器中打开",
         "close": "关闭工作区"
       },
-      "deleteAssistantDialog": {
-        "title": "删除 {{name}}？",
-        "message": "此操作会永久删除该个人助理的工作区目录，以及其中的所有文件。",
-        "pathLabel": "工作区路径"
-      },
       "resetWorkspaceDialog": {
         "title": "重置 {{name}}？",
-        "message": "此操作会清空该工作区目录下的所有内容，并恢复默认 persona 文件；不会删除工作区目录本身。",
+        "message": "此操作会清空该工作区目录下的所有内容，但不会删除工作区目录本身。",
         "pathLabel": "工作区路径"
       },
       "deleteWorktreeDialog": {
@@ -516,8 +487,7 @@
     "notifications": "通知",
     "menuPanel": {
       "subtitle": "今天想做些什么？",
-      "agenticOSDesc": "调度并管理 AI 任务",
-      "assistantDesc": "有个性、有记忆的对话伙伴"
+      "agenticOSDesc": "调度并管理 AI 任务"
     }
   },
   "window": {
@@ -971,7 +941,6 @@
     "skills": "技能",
     "tools": "工具箱",
     "mermaidEditor": "Mermaid 图表",
-    "assistant": "助理",
     "shell": "Shell",
     "panelView": "面板视图",
     "taskDetail": "任务管理"
@@ -1196,13 +1165,6 @@
     "newCodeSessionDesc": "开始代码任务、调试问题，或打开一个项目进入开发状态",
     "newCoworkSession": "新建 Cowork 会话",
     "newCoworkSessionDesc": "适合整理需求、推进任务、起草内容和日常协作",
-    "newClawSession": "新建 Claw 会话",
-    "newClawSessionDesc": "进入个人助理工作区，延续上下文与偏好持续协作",
-    "assistantEntryLabel": "个人助理",
-    "assistantEntryTitle": "除了项目工作流，你也可以直接使用 Sparo OS 助理",
-    "assistantEntryDescription": "不用先选项目。进入助理工作区后，可以直接聊天、整理思路、起草文字，或让助理持续跟进你的任务。",
-    "assistantEntryAction": "进入助理模式",
-    "assistantHint": "除了 Code 和 Cowork，你也可以直接进入助理模式，处理项目之外的整理、起草和日常协作。",
     "workspaceSectionTitle": "项目与工作区",
     "workspaceSectionHint": "打开项目开始 Code 或 Cowork，也可以切换到最近使用的工作区。",
     "noRecentWorkspaces": "暂无最近工作区",
@@ -1222,8 +1184,8 @@
         "description": "为不同场景配置 Code、Cowork 和更多 Agent，让它们分工协作，完成复杂任务。"
       },
       "assistant": {
-        "title": "助理会持续成长",
-        "description": "助理工作区会保留上下文和个人偏好，适合整理思路、起草内容和日常协作。"
+        "title": "会持续成长的工作区",
+        "description": "共享运行时工作区会保留上下文，适合持续协作。"
       }
     },
     "comingSoon": "即将推出",

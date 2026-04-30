@@ -188,7 +188,6 @@ const AppContent: React.FC = () => {
           <SessionListPage
             sessionMgr={sessionMgrRef.current}
             onSelectSession={handleSelectSession}
-            onOpenWorkspace={handleOpenWorkspace}
           />
         </div>
       )}

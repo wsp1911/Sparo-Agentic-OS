@@ -43,7 +43,6 @@ export interface ApplicationState {
 
 export enum WorkspaceKind {
   Normal = 'normal',
-  Assistant = 'assistant',
   Remote = 'remote',
 }
 
@@ -61,7 +60,6 @@ export interface WorkspaceInfo {
   name: string;
   rootPath: string;
   workspaceKind: WorkspaceKind;
-  assistantId?: string | null;
   openedAt: string;
   lastAccessed: string;
   identity?: WorkspaceIdentity | null;
@@ -69,7 +67,7 @@ export interface WorkspaceInfo {
   connectionName?: string;
   /**
    * Logical workspace host for stable scoping: `{sshHost}:{rootPath}`.
-   * Local / assistant workspaces use `localhost` (from backend); remote uses SSH config host.
+   * Local workspaces use `localhost` (from backend); remote uses SSH config host.
    */
   sshHost?: string;
 }
@@ -135,9 +133,6 @@ export interface GlobalStateAPI {
     connectionName: string,
     sshHost?: string
   ): Promise<WorkspaceInfo>;
-  createAssistantWorkspace(): Promise<WorkspaceInfo>;
-  deleteAssistantWorkspace(workspaceId: string): Promise<void>;
-  resetAssistantWorkspace(workspaceId: string): Promise<WorkspaceInfo>;
   closeWorkspace(workspaceId: string): Promise<void>;
   setActiveWorkspace(workspaceId: string): Promise<WorkspaceInfo>;
   reorderOpenedWorkspaces(workspaceIds: string[]): Promise<void>;
@@ -184,8 +179,6 @@ function createDefaultUserSettings(): UserSettings {
 
 function mapWorkspaceKind(workspaceKind: APIWorkspaceInfo['workspaceKind']): WorkspaceKind {
   switch (workspaceKind) {
-    case WorkspaceKind.Assistant:
-      return WorkspaceKind.Assistant;
     case WorkspaceKind.Remote:
       return WorkspaceKind.Remote;
     default:
@@ -214,7 +207,6 @@ function mapWorkspaceInfo(workspace: APIWorkspaceInfo): WorkspaceInfo {
     name: workspace.name,
     rootPath: workspace.rootPath,
     workspaceKind: mapWorkspaceKind(workspace.workspaceKind),
-    assistantId: workspace.assistantId ?? undefined,
     openedAt: workspace.openedAt,
     lastAccessed: workspace.lastAccessed,
     identity: mapWorkspaceIdentity(workspace.identity),
@@ -280,18 +272,6 @@ export function createGlobalStateAPI(): GlobalStateAPI {
       return mapWorkspaceInfo(
         await globalAPI.openRemoteWorkspace(remotePath, connectionId, connectionName, sshHost)
       );
-    },
-
-    async createAssistantWorkspace(): Promise<WorkspaceInfo> {
-      return mapWorkspaceInfo(await globalAPI.createAssistantWorkspace());
-    },
-
-    async deleteAssistantWorkspace(workspaceId: string): Promise<void> {
-      return await globalAPI.deleteAssistantWorkspace(workspaceId);
-    },
-
-    async resetAssistantWorkspace(workspaceId: string): Promise<WorkspaceInfo> {
-      return mapWorkspaceInfo(await globalAPI.resetAssistantWorkspace(workspaceId));
     },
 
     async closeWorkspace(workspaceId: string): Promise<void> {

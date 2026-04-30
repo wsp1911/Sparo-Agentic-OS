@@ -5,7 +5,7 @@
 //! **`(connection_id, remote_root_path)`** — *not* by remote path alone, so two
 //! different servers opened at the same path (e.g. `/`) do not overwrite each other.
 
-use crate::infrastructure::{get_path_manager_arc, PathManager};
+use crate::infrastructure::PathManager;
 use crate::service::remote_ssh::{RemoteFileService, RemoteTerminalManager, SSHConnectionManager};
 use dunce::canonicalize;
 use sha2::{Digest, Sha256};
@@ -429,25 +429,6 @@ impl RemoteWorkspaceStateManager {
         path: &str,
         preferred_connection_id: Option<&str>,
     ) -> Option<RemoteWorkspaceEntry> {
-        // Assistant sessions use client-local paths under ~/.bitfun/personal_assistant.
-        // A registered remote root of `/` matches every absolute path; without an explicit
-        // `remote_connection_id`, those paths must not be treated as SSH workspaces.
-        let is_local_assistant_path =
-            get_path_manager_arc().is_local_assistant_workspace_path(path);
-        if is_local_assistant_path {
-            let preferred_connection_id = preferred_connection_id?;
-            let guard = self.registrations.read().await;
-            let registration = guard
-                .iter()
-                .find(|r| r.connection_id == preferred_connection_id)?;
-            return Some(RemoteWorkspaceEntry {
-                connection_id: registration.connection_id.clone(),
-                connection_name: registration.connection_name.clone(),
-                ssh_host: registration.ssh_host.clone(),
-                remote_root: registration.remote_root.clone(),
-            });
-        }
-
         let path_norm = normalize_remote_workspace_path(path);
         let hint = self.active_connection_hint.read().await.clone();
         let guard = self.registrations.read().await;
@@ -493,9 +474,6 @@ impl RemoteWorkspaceStateManager {
 
     /// True if `path` could belong to **any** registered remote root (before disambiguation).
     pub async fn is_remote_path(&self, path: &str) -> bool {
-        if get_path_manager_arc().is_local_assistant_workspace_path(path) {
-            return false;
-        }
         let path_norm = normalize_remote_workspace_path(path);
         let guard = self.registrations.read().await;
         guard
@@ -697,35 +675,7 @@ mod tests {
         sanitize_ssh_connection_id_for_local_dir, workspace_session_identity,
         LOCAL_WORKSPACE_SSH_HOST,
     };
-    use crate::infrastructure::PathManager;
     use std::path::PathBuf;
-
-    #[tokio::test]
-    async fn local_assistant_path_not_remote_without_connection_id() {
-        let pm = PathManager::default();
-        let assistant_path = pm
-            .assistant_workspace_dir("d3726520", None)
-            .to_string_lossy()
-            .to_string();
-        let m = super::RemoteWorkspaceStateManager::new();
-        m.register_remote_workspace(
-            "/".to_string(),
-            "conn".to_string(),
-            "S".to_string(),
-            "h1".to_string(),
-        )
-        .await;
-        assert!(
-            m.lookup_connection(&assistant_path, None).await.is_none(),
-            "assistant workspace must not bind to SSH when remote_connection_id is omitted"
-        );
-        assert!(
-            m.lookup_connection(&assistant_path, Some("conn"))
-                .await
-                .is_some(),
-            "explicit remote_connection_id should still resolve for edge cases"
-        );
-    }
 
     #[tokio::test]
     async fn two_servers_same_root_both_registered() {

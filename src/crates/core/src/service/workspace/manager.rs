@@ -28,8 +28,8 @@ pub enum WorkspaceStatus {
 #[serde(rename_all = "lowercase")]
 pub enum WorkspaceKind {
     #[default]
+    #[serde(alias = "assistant")]
     Normal,
-    Assistant,
     Remote,
 }
 
@@ -103,35 +103,6 @@ impl WorkspaceIdentity {
             && self.emoji.is_none()
     }
 
-    pub(crate) fn collect_changed_fields(
-        previous: Option<&WorkspaceIdentity>,
-        current: Option<&WorkspaceIdentity>,
-    ) -> Vec<String> {
-        let previous_name = previous.and_then(|identity| identity.name.as_deref());
-        let current_name = current.and_then(|identity| identity.name.as_deref());
-        let previous_creature = previous.and_then(|identity| identity.creature.as_deref());
-        let current_creature = current.and_then(|identity| identity.creature.as_deref());
-        let previous_vibe = previous.and_then(|identity| identity.vibe.as_deref());
-        let current_vibe = current.and_then(|identity| identity.vibe.as_deref());
-        let previous_emoji = previous.and_then(|identity| identity.emoji.as_deref());
-        let current_emoji = current.and_then(|identity| identity.emoji.as_deref());
-
-        let mut changed_fields = Vec::new();
-        if previous_name != current_name {
-            changed_fields.push("name".to_string());
-        }
-        if previous_creature != current_creature {
-            changed_fields.push("creature".to_string());
-        }
-        if previous_vibe != current_vibe {
-            changed_fields.push("vibe".to_string());
-        }
-        if previous_emoji != current_emoji {
-            changed_fields.push("emoji".to_string());
-        }
-
-        changed_fields
-    }
 }
 
 fn normalize_identity_field(value: Option<String>) -> Option<String> {
@@ -154,12 +125,6 @@ pub struct WorkspaceInfo {
     pub root_path: PathBuf,
     #[serde(rename = "workspaceKind", default)]
     pub workspace_kind: WorkspaceKind,
-    #[serde(
-        rename = "assistantId",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub assistant_id: Option<String>,
     pub status: WorkspaceStatus,
     #[serde(rename = "openedAt")]
     pub opened_at: chrono::DateTime<chrono::Utc>,
@@ -176,7 +141,6 @@ pub struct WorkspaceOpenOptions {
     pub auto_set_current: bool,
     pub add_to_recent: bool,
     pub workspace_kind: WorkspaceKind,
-    pub assistant_id: Option<String>,
     pub display_name: Option<String>,
     /// For [`WorkspaceKind::Remote`], must match persisted `metadata["connectionId"]` so two
     /// servers opened at the same path (e.g. `/`) are separate workspace tabs.
@@ -184,7 +148,7 @@ pub struct WorkspaceOpenOptions {
     /// SSH `host` (connection config) for remote mirror paths and metadata.
     pub remote_ssh_host: Option<String>,
     /// Deterministic workspace id for remote workspaces (see `remote_workspace_stable_id`).
-    /// Local/assistant workspaces use a stable `local_*` id from `localhost` + canonical root path.
+    /// Local workspaces use a stable `local_*` id from `localhost` + canonical root path.
     pub stable_workspace_id: Option<String>,
 }
 
@@ -194,7 +158,6 @@ impl Default for WorkspaceOpenOptions {
             auto_set_current: true,
             add_to_recent: true,
             workspace_kind: WorkspaceKind::Normal,
-            assistant_id: None,
             display_name: None,
             remote_connection_id: None,
             remote_ssh_host: None,
@@ -220,11 +183,6 @@ impl WorkspaceInfo {
             .unwrap_or("Unknown")
             .to_string();
         let workspace_kind = options.workspace_kind.clone();
-        let assistant_id = if workspace_kind == WorkspaceKind::Assistant {
-            options.assistant_id.clone()
-        } else {
-            None
-        };
 
         let now = chrono::Utc::now();
         let is_remote = workspace_kind == WorkspaceKind::Remote;
@@ -248,7 +206,6 @@ impl WorkspaceInfo {
             name: options.display_name.clone().unwrap_or(default_name),
             root_path: resolved_root_path,
             workspace_kind,
-            assistant_id,
             status: WorkspaceStatus::Loading,
             opened_at: now,
             last_accessed: now,
@@ -307,15 +264,6 @@ impl WorkspaceInfo {
             }
         };
 
-        if self.workspace_kind == WorkspaceKind::Assistant {
-            if let Some(name) = identity
-                .as_ref()
-                .and_then(|identity| identity.name.as_ref())
-            {
-                self.name = name.clone();
-            }
-        }
-
         self.identity = identity;
     }
 
@@ -339,7 +287,6 @@ impl WorkspaceInfo {
             name: self.name.clone(),
             root_path: self.root_path.clone(),
             workspace_kind: self.workspace_kind.clone(),
-            assistant_id: self.assistant_id.clone(),
             status: self.status.clone(),
             last_accessed: self.last_accessed,
         }
@@ -355,8 +302,6 @@ pub struct WorkspaceSummary {
     pub root_path: PathBuf,
     #[serde(rename = "workspaceKind")]
     pub workspace_kind: WorkspaceKind,
-    #[serde(rename = "assistantId", skip_serializing_if = "Option::is_none")]
-    pub assistant_id: Option<String>,
     pub status: WorkspaceStatus,
     #[serde(rename = "lastAccessed")]
     pub last_accessed: chrono::DateTime<chrono::Utc>,
@@ -368,7 +313,6 @@ pub struct WorkspaceManager {
     opened_workspace_ids: Vec<String>,
     current_workspace_id: Option<String>,
     recent_workspaces: Vec<String>,
-    recent_assistant_workspaces: Vec<String>,
     max_recent_workspaces: usize,
 }
 
@@ -396,7 +340,6 @@ impl WorkspaceManager {
             opened_workspace_ids: Vec::new(),
             current_workspace_id: None,
             recent_workspaces: Vec::new(),
-            recent_assistant_workspaces: Vec::new(),
             max_recent_workspaces: config.max_recent_workspaces,
         }
     }
@@ -442,11 +385,6 @@ impl WorkspaceManager {
             }
         }
         for rid in &mut self.recent_workspaces {
-            if rid.as_str() == old_id {
-                *rid = new_id.clone();
-            }
-        }
-        for rid in &mut self.recent_assistant_workspaces {
             if rid.as_str() == old_id {
                 *rid = new_id.clone();
             }
@@ -614,11 +552,6 @@ impl WorkspaceManager {
         if let Some(workspace_id) = existing_workspace_id {
             if let Some(workspace) = self.workspaces.get_mut(&workspace_id) {
                 workspace.workspace_kind = options.workspace_kind.clone();
-                workspace.assistant_id = if options.workspace_kind == WorkspaceKind::Assistant {
-                    options.assistant_id.clone()
-                } else {
-                    None
-                };
                 if let Some(display_name) = &options.display_name {
                     workspace.name = display_name.clone();
                 }
@@ -819,14 +752,6 @@ impl WorkspaceManager {
             .collect()
     }
 
-    /// Returns recently accessed assistant workspace records.
-    pub fn get_recent_assistant_workspace_infos(&self) -> Vec<&WorkspaceInfo> {
-        self.recent_assistant_workspaces
-            .iter()
-            .filter_map(|id| self.workspaces.get(id))
-            .collect()
-    }
-
     /// Searches workspaces.
     pub fn search_workspaces(&self, query: &str) -> Vec<WorkspaceSummary> {
         let query_lower = query.to_lowercase();
@@ -859,8 +784,6 @@ impl WorkspaceManager {
 
             self.opened_workspace_ids.retain(|id| id != workspace_id);
             self.recent_workspaces.retain(|id| id != workspace_id);
-            self.recent_assistant_workspaces
-                .retain(|id| id != workspace_id);
 
             Ok(())
         } else {
@@ -892,23 +815,10 @@ impl WorkspaceManager {
     /// Updates the recent-workspaces list.
     fn update_recent_workspaces(&mut self, workspace_id: String) {
         self.recent_workspaces.retain(|id| id != &workspace_id);
-        self.recent_assistant_workspaces
-            .retain(|id| id != &workspace_id);
+        self.recent_workspaces.insert(0, workspace_id);
 
-        let is_assistant = self
-            .workspaces
-            .get(&workspace_id)
-            .map(|workspace| workspace.workspace_kind == WorkspaceKind::Assistant)
-            .unwrap_or(false);
-        let target_list = if is_assistant {
-            &mut self.recent_assistant_workspaces
-        } else {
-            &mut self.recent_workspaces
-        };
-        target_list.insert(0, workspace_id);
-
-        if target_list.len() > self.max_recent_workspaces {
-            target_list.truncate(self.max_recent_workspaces);
+        if self.recent_workspaces.len() > self.max_recent_workspaces {
+            self.recent_workspaces.truncate(self.max_recent_workspaces);
         }
     }
 
@@ -1013,12 +923,6 @@ impl WorkspaceManager {
         if self.recent_workspaces.len() != before {
             changed = true;
         }
-        let before_a = self.recent_assistant_workspaces.len();
-        self.recent_assistant_workspaces
-            .retain(|id| id != workspace_id);
-        if self.recent_assistant_workspaces.len() != before_a {
-            changed = true;
-        }
         changed
     }
 
@@ -1034,25 +938,7 @@ impl WorkspaceManager {
             .filter(|id| {
                 self.workspaces
                     .get(id)
-                    .map(|workspace| workspace.workspace_kind == WorkspaceKind::Normal)
-                    .unwrap_or(false)
-            })
-            .collect();
-    }
-
-    /// Returns a reference to the recent assistant-workspaces list.
-    pub fn get_recent_assistant_workspaces(&self) -> &Vec<String> {
-        &self.recent_assistant_workspaces
-    }
-
-    /// Sets the recent assistant-workspaces list.
-    pub fn set_recent_assistant_workspaces(&mut self, recent: Vec<String>) {
-        self.recent_assistant_workspaces = recent
-            .into_iter()
-            .filter(|id| {
-                self.workspaces
-                    .get(id)
-                    .map(|workspace| workspace.workspace_kind == WorkspaceKind::Assistant)
+                    .map(|workspace| workspace.workspace_kind != WorkspaceKind::Remote)
                     .unwrap_or(false)
             })
             .collect();

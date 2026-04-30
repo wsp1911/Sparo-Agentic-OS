@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FolderOpen, Clock, Folder, Bot } from 'lucide-react';
+import { FolderOpen, Clock, Folder } from 'lucide-react';
 import { useWorkspaceContext } from '../../../infrastructure/contexts/WorkspaceContext';
 import { WorkspaceInfo, WorkspaceKind } from '../../../shared/types';
 import { Modal } from '@/component-library';
@@ -28,7 +28,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
   const {
     currentWorkspace,
     recentWorkspaces,
-    assistantWorkspacesList,
     loading,
     error,
     switchWorkspace,
@@ -95,10 +94,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
   };
 
   const getWorkspaceIcon = (workspace: WorkspaceInfo) => {
-    if (workspace.workspaceKind === WorkspaceKind.Assistant) {
-      return <Bot size={16} />;
-    }
-
     return workspace.workspaceKind === WorkspaceKind.Remote
       ? <Folder size={16} />
       : <FolderOpen size={16} />;
@@ -117,10 +112,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
       return dateStr;
     }
   };
-
-  const otherAssistantWorkspaces = assistantWorkspacesList.filter(
-    workspace => workspace.id !== currentWorkspace?.id
-  );
 
   return (
     <Modal
@@ -230,44 +221,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
           ) : (
             <div className="no-recent">
               <p>No recent workspaces</p>
-            </div>
-          )}
-        </div>
-
-        <div className="recent-workspaces-section">
-          <h3>Personal Assistants</h3>
-          {otherAssistantWorkspaces.length > 0 ? (
-            <div className="workspace-list">
-              {otherAssistantWorkspaces.map((workspace) => (
-                <div
-                  key={workspace.id}
-                  className="workspace-card recent"
-                  onClick={() => handleWorkspaceSelect(workspace)}
-                >
-                  <div className="workspace-header">
-                    <div className="workspace-icon">
-                      <Bot size={16} />
-                    </div>
-                    <div className="workspace-info">
-                      <div className="workspace-name">{getWorkspaceDisplayName(workspace)}</div>
-                      <div className="workspace-path">{workspace.rootPath}</div>
-                      <div className="workspace-meta">
-                        {workspace.lastAccessed && (
-                          <span className="workspace-time">
-                            <Clock size={12} />
-                            {formatDate(workspace.lastAccessed)}
-                          </span>
-                        )}
-                      </div>
-                      {renderIdentityDetails(workspace)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="no-recent">
-              <p>No personal assistants</p>
             </div>
           )}
         </div>

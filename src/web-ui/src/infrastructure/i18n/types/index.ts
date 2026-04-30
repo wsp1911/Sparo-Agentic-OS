@@ -40,7 +40,6 @@ export type I18nNamespace =
   | 'scenes/capabilities'
   | 'scenes/apps'
   | 'scenes/subagents'
-  | 'scenes/profile'
   | 'scenes/skills'
   | 'scenes/tools'
   | 'settings/memory';      

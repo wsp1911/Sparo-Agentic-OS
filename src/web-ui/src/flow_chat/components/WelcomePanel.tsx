@@ -21,7 +21,6 @@ import { createLogger } from '@/shared/utils/logger';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import type { WorkspaceInfo } from '@/shared/types';
 import CoworkExampleCards from './CoworkExampleCards';
-import { useAgentIdentityDocument } from '@/app/scenes/my-agent/useAgentIdentityDocument';
 import './WelcomePanel.css';
 
 const log = createLogger('WelcomePanel');
@@ -51,7 +50,6 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
   onQuickAction,
   className = '',
   sessionMode,
-  workspacePath = '',
 }) => {
   const { t } = useTranslation('flow-chat');
   const [workspaceDropdownOpen, setWorkspaceDropdownOpen] = useState(false);
@@ -68,7 +66,6 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
   const sessionModeLower = (sessionMode || '').toLowerCase();
   const isCoworkSession = sessionModeLower === 'cowork';
   const isDesignSession = sessionModeLower === 'design';
-  const isClawSession = sessionModeLower === 'claw';
   const isDispatcherSession = sessionModeLower === 'dispatcher';
   const isLiveAppStudioSession = sessionModeLower === 'liveappstudio';
   // code sessions use mode='agentic'; cowork sessions use mode='cowork'
@@ -80,18 +77,13 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
     sessionModeLower !== 'dispatcher' &&
     sessionModeLower !== 'liveappstudio';
 
-  const { document: identityDoc } = useAgentIdentityDocument(isClawSession ? workspacePath : '');
-  const assistantName = isClawSession ? (identityDoc.name || '') : '';
-
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
     const s = isCoworkSession
       ? 'Cowork'
       : isDesignSession
         ? 'Design'
-        : isClawSession
-          ? 'Claw'
-          : isDispatcherSession
+        : isDispatcherSession
             ? 'Dispatcher'
             : isLiveAppStudioSession
               ? 'LiveAppStudio'
@@ -100,16 +92,14 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
     if (hour >= 12 && hour < 18) return { title: t('welcome.greetingAfternoon'), subtitle: t(`welcome.subtitleAfternoon${s}`) };
     if (hour >= 18 && hour < 23) return { title: t('welcome.greetingEvening'), subtitle: t(`welcome.subtitleEvening${s}`) };
     return { title: t('welcome.greetingNight'), subtitle: t(`welcome.subtitleNight${s}`) };
-  }, [t, isCoworkSession, isDesignSession, isClawSession, isDispatcherSession, isLiveAppStudioSession]);
+  }, [t, isCoworkSession, isDesignSession, isDispatcherSession, isLiveAppStudioSession]);
 
   const tagline = greeting.subtitle;
   const aiPartnerKey = isCoworkSession
     ? 'welcome.aiPartnerCowork'
     : isDesignSession
       ? 'welcome.aiPartnerDesign'
-      : isClawSession
-        ? 'welcome.aiPartnerClaw'
-        : isDispatcherSession
+      : isDispatcherSession
           ? 'welcome.aiPartnerDispatcher'
           : isLiveAppStudioSession
             ? 'welcome.aiPartnerLiveAppStudio'
@@ -187,7 +177,6 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                 ) : (
                   <>
                     {greeting.title}，{t(aiPartnerKey)}
-                    {isClawSession && assistantName ? `，${assistantName}` : ''}
                   </>
                 )}
               </h1>
@@ -203,8 +192,6 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
           <p className="welcome-panel__narrative-text">
             {isDispatcherSession ? (
               t('welcome.narrativeDispatcher')
-            ) : isClawSession ? (
-              t('welcome.narrativeClaw')
             ) : isLiveAppStudioSession ? (
               t('welcome.narrativeLiveAppStudio')
             ) : !hasWorkspace ? (

@@ -1,8 +1,8 @@
 /**
- * TaskDetailScene — styles mirroring AssistantConfigPage (acp-layout).
+ * TaskDetailScene — styles aligned with the shared profile/template panel layout.
  *
  * Variables, spacing rhythm, and visual language are intentionally kept
- * in sync with NurseryView.scss / AssistantConfigPage so the two panels
+ * in sync with the template workspace configuration surface so the panels
  * feel like siblings inside the same design system.
  */
 
@@ -638,7 +638,6 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
 
   &--code   { background: var(--color-accent-100);          color: var(--color-accent-500); }
   &--cowork { background: rgba(16, 185, 129, 0.10);         color: #10b981; }
-  &--claw   { background: rgba(245, 158, 11, 0.10);         color: #f59e0b; }
   &--live-app { background: color-mix(in srgb, var(--color-accent-500) 12%, transparent); color: var(--color-accent-500); }
   &--ws {
     background: var(--element-bg-medium);

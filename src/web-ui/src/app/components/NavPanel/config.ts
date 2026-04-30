@@ -6,19 +6,12 @@
  *
  * Section groups:
  *   - workspace: project workspace essentials (sessions, files)
- *   - assistant: assistant persona / nursery (profile)
  *   - extensions: top strip expand row → agents / skills (each own scene tab)
  */
 
 import type { NavSection } from './types';
 
 export const NAV_SECTIONS: NavSection[] = [
-  {
-    id: 'assistants',
-    label: 'Assistants',
-    collapsible: false,
-    items: [],
-  },
   {
     id: 'workspace',
     label: 'Workspace',

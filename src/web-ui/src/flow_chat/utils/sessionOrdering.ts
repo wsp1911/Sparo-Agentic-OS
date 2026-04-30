@@ -20,9 +20,8 @@ export function resolveWorkspaceForSession(
 }
 
 /**
- * Short folder label when `WorkspaceInfo` is not available. Assistant roots often end with
- * `.../personal_assistant/workspace` or legacy `.../.bitfun/workspace` — using only the last
- * segment yields the meaningless word "workspace".
+ * Short folder label when `WorkspaceInfo` is not available. If a saved path ends with a generic
+ * `workspace` folder name, prefer the parent folder so the label remains meaningful.
  */
 export function fallbackWorkspaceFolderLabel(workspacePath: string): string {
   const norm = workspacePath.replace(/\\/g, '/').replace(/\/+$/, '');

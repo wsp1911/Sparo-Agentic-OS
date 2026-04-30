@@ -15,22 +15,15 @@ export interface WorkspaceInfo {
   path?: string;
   project_name?: string;
   git_branch?: string;
-  /** Mirrors desktop `WorkspaceKind`: normal project, Claw assistant workspace, or remote SSH. */
-  workspace_kind?: 'normal' | 'assistant' | 'remote';
-  assistant_id?: string;
+  /** Mirrors desktop `WorkspaceKind`: normal project workspace or remote SSH workspace. */
+  workspace_kind?: 'normal' | 'remote';
 }
 
 export interface RecentWorkspaceEntry {
   path: string;
   name: string;
   last_opened: string;
-  workspace_kind?: 'normal' | 'assistant' | 'remote';
-}
-
-export interface AssistantEntry {
-  path: string;
-  name: string;
-  assistant_id?: string;
+  workspace_kind?: 'normal' | 'remote';
 }
 
 export interface SessionInfo {
@@ -132,8 +125,7 @@ export interface InitialSyncData {
   path?: string;
   project_name?: string;
   git_branch?: string;
-  workspace_kind?: 'normal' | 'assistant' | 'remote';
-  assistant_id?: string;
+  workspace_kind?: 'normal' | 'remote';
   sessions: SessionInfo[];
   has_more_sessions: boolean;
   authenticated_user_id?: string;
@@ -167,7 +159,6 @@ export class RemoteSessionManager {
       project_name: resp.project_name,
       git_branch: resp.git_branch,
       workspace_kind: resp.workspace_kind,
-      assistant_id: resp.assistant_id,
     };
   }
 
@@ -188,25 +179,6 @@ export class RemoteSessionManager {
     error?: string;
   }> {
     return this.request({ cmd: 'set_workspace', path });
-  }
-
-  async listAssistants(): Promise<AssistantEntry[]> {
-    const resp = await this.request<{
-      resp: string;
-      assistants: AssistantEntry[];
-    }>({ cmd: 'list_assistants' });
-    return resp.assistants || [];
-  }
-
-  async setAssistant(
-    path: string,
-  ): Promise<{
-    success: boolean;
-    path?: string;
-    name?: string;
-    error?: string;
-  }> {
-    return this.request({ cmd: 'set_assistant', path });
   }
 
   async listSessions(

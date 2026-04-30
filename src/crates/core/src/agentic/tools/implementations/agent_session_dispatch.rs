@@ -7,7 +7,7 @@ use crate::agentic::core::{PromptEnvelope, SessionConfig};
 use crate::agentic::tools::framework::ToolUseContext;
 use crate::agentic::tools::workspace_paths::posix_style_path_is_absolute;
 use crate::agentic::SessionSummary;
-use crate::service::workspace::get_global_workspace_service;
+use crate::infrastructure::try_get_path_manager_arc;
 use crate::util::errors::{BitFunError, BitFunResult};
 use std::path::Path;
 
@@ -54,15 +54,11 @@ pub struct AgentSessionDispatchOutcome {
 }
 
 pub async fn get_global_workspace_path() -> String {
-    if let Some(ws_service) = get_global_workspace_service() {
-        let assistants = ws_service.get_assistant_workspaces().await;
-        let global = assistants
-            .iter()
-            .find(|workspace| workspace.assistant_id.is_none())
-            .or_else(|| assistants.first());
-        if let Some(workspace) = global {
-            return workspace.root_path.to_string_lossy().into_owned();
-        }
+    if let Ok(path_manager) = try_get_path_manager_arc() {
+        return path_manager
+            .agentic_os_runtime_root()
+            .to_string_lossy()
+            .into_owned();
     }
 
     dirs::home_dir()

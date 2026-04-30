@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "lowercase")]
 pub enum WorkspaceKindDto {
     Normal,
-    Assistant,
     Remote,
 }
 
@@ -28,7 +27,6 @@ pub struct WorkspaceInfoDto {
     pub name: String,
     pub root_path: String,
     pub workspace_kind: WorkspaceKindDto,
-    pub assistant_id: Option<String>,
     pub opened_at: String,
     pub last_accessed: String,
     pub identity: Option<WorkspaceIdentityDto>,
@@ -78,7 +76,6 @@ impl WorkspaceInfoDto {
             name: info.name.clone(),
             root_path,
             workspace_kind: WorkspaceKindDto::from_workspace_kind(&info.workspace_kind),
-            assistant_id: info.assistant_id.clone(),
             opened_at: info.opened_at.to_rfc3339(),
             last_accessed: info.last_accessed.to_rfc3339(),
             identity: info
@@ -112,7 +109,6 @@ impl WorkspaceKindDto {
         use bitfun_core::service::workspace::manager::WorkspaceKind;
         match workspace_kind {
             WorkspaceKind::Normal => WorkspaceKindDto::Normal,
-            WorkspaceKind::Assistant => WorkspaceKindDto::Assistant,
             WorkspaceKind::Remote => WorkspaceKindDto::Remote,
         }
     }

@@ -49,10 +49,6 @@
       "name": "Design",
       "description": "A standalone Agent app for HTML prototypes, visual artifacts, and design exploration."
     },
-    "claw": {
-      "name": "Claw",
-      "description": "A standalone Agent app for persistent personal-assistant style collaboration with memory and preferences."
-    },
     "deepResearch": {
       "name": "Deep Research",
       "description": "A standalone Agent app for open-ended research that dispatches parallel sub-agents and synthesizes comprehensive sourced reports."

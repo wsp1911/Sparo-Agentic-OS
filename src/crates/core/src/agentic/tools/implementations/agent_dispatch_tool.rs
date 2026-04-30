@@ -9,6 +9,7 @@ use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::agentic::SessionSummary;
+use crate::infrastructure::try_get_path_manager_arc;
 use crate::service::workspace::get_global_workspace_service;
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
@@ -347,32 +348,33 @@ Parameters for "status":
                     .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
                 let mut workspace_entries: Vec<Value> = Vec::new();
 
-                if let Some(ws_service) = get_global_workspace_service() {
-                    let assistant_workspaces = ws_service.get_assistant_workspaces().await;
-                    for workspace_info in &assistant_workspaces {
-                        let workspace_path =
-                            workspace_info.root_path.to_string_lossy().into_owned();
-                        let path = Path::new(&workspace_path);
-                        let sessions: Vec<SessionSummary> = if path.exists() {
-                            coordinator.list_sessions(path).await.unwrap_or_default()
-                        } else {
-                            Vec::new()
-                        };
-                        workspace_entries.push(json!({
-                            "name": workspace_info.name,
-                            "path": workspace_path,
-                            "kind": "global",
-                            "session_count": sessions.len(),
-                            "sessions": sessions.iter().map(|session| json!({
-                                "session_id": session.session_id,
-                                "session_name": session.session_name,
-                                "agent_type": session.agent_type,
-                                "created_at": session.created_at,
-                                "last_activity_at": session.last_activity_at,
-                            })).collect::<Vec<_>>(),
-                        }));
-                    }
+                if let Ok(path_manager) = try_get_path_manager_arc() {
+                    let workspace_path = path_manager
+                        .agentic_os_runtime_root()
+                        .to_string_lossy()
+                        .into_owned();
+                    let path = Path::new(&workspace_path);
+                    let sessions: Vec<SessionSummary> = if path.exists() {
+                        coordinator.list_sessions(path).await.unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    };
+                    workspace_entries.push(json!({
+                        "name": "Agentic OS",
+                        "path": workspace_path,
+                        "kind": "global",
+                        "session_count": sessions.len(),
+                        "sessions": sessions.iter().map(|session| json!({
+                            "session_id": session.session_id,
+                            "session_name": session.session_name,
+                            "agent_type": session.agent_type,
+                            "created_at": session.created_at,
+                            "last_activity_at": session.last_activity_at,
+                        })).collect::<Vec<_>>(),
+                    }));
+                }
 
+                if let Some(ws_service) = get_global_workspace_service() {
                     let candidates = ws_service.list_workspace_routing_candidates().await;
                     for workspace_info in candidates {
                         let workspace_path =
@@ -449,21 +451,20 @@ Parameters for "status":
 
                 let mut dispatcher_sessions: Vec<Value> = Vec::new();
 
-                if let Some(ws_service) = get_global_workspace_service() {
-                    let assistant_workspaces = ws_service.get_assistant_workspaces().await;
-                    for workspace_info in &assistant_workspaces {
-                        let path = workspace_info.root_path.as_path();
-                        if !path.exists() {
-                            continue;
-                        }
-                        let sessions = coordinator.list_sessions(path).await.unwrap_or_default();
+                if let Ok(path_manager) = try_get_path_manager_arc() {
+                    let global_path = path_manager.agentic_os_runtime_root();
+                    if global_path.exists() {
+                        let sessions = coordinator
+                            .list_sessions(global_path.as_path())
+                            .await
+                            .unwrap_or_default();
                         for session in sessions {
                             if session.created_by.as_deref() == Some(&creator_marker) {
                                 dispatcher_sessions.push(json!({
                                     "session_id": session.session_id,
                                     "session_name": session.session_name,
                                     "agent_type": session.agent_type,
-                                    "workspace": workspace_info.root_path.to_string_lossy(),
+                                    "workspace": global_path.to_string_lossy(),
                                     "workspace_kind": "global",
                                     "created_at": session.created_at,
                                     "last_activity_at": session.last_activity_at,
@@ -471,7 +472,9 @@ Parameters for "status":
                             }
                         }
                     }
+                }
 
+                if let Some(ws_service) = get_global_workspace_service() {
                     let candidates = ws_service.list_workspace_routing_candidates().await;
                     for workspace_info in candidates {
                         let path = workspace_info.root_path.as_path();

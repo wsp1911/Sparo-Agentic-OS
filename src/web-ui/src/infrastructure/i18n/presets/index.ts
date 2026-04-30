@@ -67,7 +67,6 @@ export const ALL_NAMESPACES = [
   'components',
   'scenes/apps',
   'scenes/subagents',
-  'scenes/profile',
   'scenes/skills',
   'scenes/tools',
   'scenes/capabilities',

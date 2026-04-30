@@ -31,7 +31,7 @@ type NetworkTab = 'lan' | 'ngrok' | 'bitfun_server' | 'custom_server';
 type BotTab = 'telegram' | 'feishu' | 'weixin';
 
 /**
- * iLink `qrcode_img_content` is the string to encode in a QR (OpenClaw passes it to
+ * iLink `qrcode_img_content` is the string to encode in a QR (the legacy reference client passes it to
  * `qrcode-terminal.generate`), not necessarily an `<img src>` raster URL. Only treat
  * as raster when it is clearly a data-URL or direct image link.
  */

@@ -46,17 +46,13 @@ pub struct BotStrings {
     pub bootstrap_ready: &'static str,
 
     // ── Mode / context labels ────────────────────────────────────
-    pub mode_assistant: &'static str,
     pub mode_expert: &'static str,
     pub current_session_label: &'static str,
     pub current_workspace_label: &'static str,
-    pub current_assistant_label: &'static str,
     pub no_session: &'static str,
     pub no_workspace: &'static str,
-    pub no_assistant: &'static str,
 
     // ── Main menu (one-line title) ───────────────────────────────
-    pub main_title_assistant: &'static str,
     pub main_title_expert: &'static str,
     pub settings_title: &'static str,
     pub welcome_title: &'static str,
@@ -67,13 +63,11 @@ pub struct BotStrings {
     pub item_new_code_session: &'static str,
     pub item_new_cowork_session: &'static str,
     pub item_resume_session: &'static str,
-    pub item_switch_assistant: &'static str,
     pub item_switch_workspace: &'static str,
     pub item_settings: &'static str,
     pub item_back: &'static str,
     pub item_help: &'static str,
     pub item_switch_to_expert: &'static str,
-    pub item_switch_to_assistant: &'static str,
     pub item_verbose_on: &'static str,
     pub item_verbose_off: &'static str,
     pub item_cancel_task: &'static str,
@@ -89,7 +83,6 @@ pub struct BotStrings {
     // ── Footer hints ─────────────────────────────────────────────
     pub footer_reply_or_menu: &'static str,
     pub footer_reply_workspace: &'static str,
-    pub footer_reply_assistant: &'static str,
     pub footer_reply_session_or_next: &'static str,
     pub footer_reply_session: &'static str,
     pub footer_question_single: &'static str,
@@ -103,9 +96,7 @@ pub struct BotStrings {
     pub help_body: &'static str,
 
     pub switch_pick_workspace: &'static str,
-    pub switch_pick_assistant: &'static str,
     pub switch_no_workspaces: &'static str,
-    pub switch_no_assistants: &'static str,
     pub current_marker: &'static str,
 
     pub resume_no_sessions: &'static str,
@@ -131,9 +122,7 @@ pub struct BotStrings {
     pub send_failed_prefix: &'static str,
 
     pub mode_switched_to_expert: &'static str,
-    pub mode_switched_to_assistant: &'static str,
     pub mode_already_expert: &'static str,
-    pub mode_already_assistant: &'static str,
     pub mode_confirm_switch_prefix: &'static str,
 
     pub verbose_enabled: &'static str,
@@ -148,7 +137,6 @@ pub struct BotStrings {
     pub session_system_unavailable: &'static str,
     pub workspace_service_unavailable: &'static str,
     pub workspace_open_failed_prefix: &'static str,
-    pub assistant_create_failed_prefix: &'static str,
 
     pub pending_expired: &'static str,
     pub pending_invalid_input: &'static str,
@@ -178,19 +166,15 @@ const STRINGS_ZH: BotStrings = BotStrings {
     need_pairing: "尚未连接 BitFun 桌面端。请先发送 6 位配对码。",
     invalid_pairing_code: "配对码无效或已过期，请到桌面端重新生成后再发送。",
     bootstrap_workspace_unavailable: "工作区服务暂时不可用，请稍后再试。",
-    bootstrap_session_failed_prefix: "已进入助理模式，但创建会话失败：",
-    bootstrap_ready: "已为你新建助理会话，直接发送消息即可开始。",
+    bootstrap_session_failed_prefix: "创建默认会话失败：",
+    bootstrap_ready: "已为你新建会话，直接发送消息即可开始。",
 
-    mode_assistant: "助理模式",
     mode_expert: "专业模式",
     current_session_label: "当前会话",
     current_workspace_label: "当前工作区",
-    current_assistant_label: "当前助理",
     no_session: "尚未选择会话",
     no_workspace: "尚未选择工作区",
-    no_assistant: "尚未选择助理",
 
-    main_title_assistant: "BitFun · 助理模式",
     main_title_expert: "BitFun · 专业模式",
     settings_title: "设置",
     welcome_title: "BitFun",
@@ -200,13 +184,11 @@ const STRINGS_ZH: BotStrings = BotStrings {
     item_new_code_session: "新建编码会话",
     item_new_cowork_session: "新建协作会话",
     item_resume_session: "恢复会话",
-    item_switch_assistant: "切换助理",
     item_switch_workspace: "切换工作区",
     item_settings: "设置",
     item_back: "返回",
     item_help: "帮助",
     item_switch_to_expert: "切换到专业模式",
-    item_switch_to_assistant: "切换到助理模式",
     item_verbose_on: "开启执行细节",
     item_verbose_off: "关闭执行细节",
     item_cancel_task: "取消任务",
@@ -220,7 +202,6 @@ const STRINGS_ZH: BotStrings = BotStrings {
 
     footer_reply_or_menu: "回复编号，或发送 /menu 返回主菜单",
     footer_reply_workspace: "回复工作区编号，或发送 0 返回",
-    footer_reply_assistant: "回复助理编号，或发送 0 返回",
     footer_reply_session_or_next: "回复会话编号；发送 0 查看下一页或返回",
     footer_reply_session: "回复会话编号，或发送 0 返回",
     footer_question_single: "回复单个选项编号；发送 /menu 退出",
@@ -235,16 +216,14 @@ const STRINGS_ZH: BotStrings = BotStrings {
 /menu  返回主菜单
 /new   新建会话
 /resume  恢复历史会话
-/switch  切换助理或工作区
+/switch  切换工作区
 /cancel  取消当前任务
-/expert  /assistant  切换模式
+/expert  切换模式
 /verbose /concise  开关执行细节
 /help  显示本帮助",
 
     switch_pick_workspace: "请选择要切换的工作区：",
-    switch_pick_assistant: "请选择要切换的助理：",
     switch_no_workspaces: "尚未发现工作区，请先在 BitFun 桌面端打开一个项目。",
-    switch_no_assistants: "尚未发现助理，请先在 BitFun 桌面端创建一个助理。",
     current_marker: " · 当前",
 
     resume_no_sessions: "当前还没有会话，可以发送 /new 直接新建。",
@@ -270,9 +249,7 @@ const STRINGS_ZH: BotStrings = BotStrings {
     send_failed_prefix: "发送失败：",
 
     mode_switched_to_expert: "已切换到专业模式，可创建编码 / 协作会话。",
-    mode_switched_to_assistant: "已切换到助理模式，适合日常持续对话。",
     mode_already_expert: "当前已在专业模式。",
-    mode_already_assistant: "当前已在助理模式。",
     mode_confirm_switch_prefix: "该操作需要切换到另一种模式，确认继续吗？",
 
     verbose_enabled: "已开启「执行细节」，下一次任务会显示思考与工具过程。",
@@ -287,7 +264,6 @@ const STRINGS_ZH: BotStrings = BotStrings {
     session_system_unavailable: "BitFun 会话系统尚未就绪，请稍后再试。",
     workspace_service_unavailable: "工作区服务暂时不可用。",
     workspace_open_failed_prefix: "打开工作区失败：",
-    assistant_create_failed_prefix: "创建助理工作区失败：",
 
     pending_expired: "上一步已超时，已为你返回主菜单。",
     pending_invalid_input: "输入无效，请按提示回复或发送 /menu 返回主菜单。",
@@ -317,19 +293,15 @@ Open Remote Connect in BitFun Desktop and send the 6-digit pairing code here to 
     need_pairing: "Not connected yet. Please send the 6-digit pairing code first.",
     invalid_pairing_code: "Invalid or expired pairing code. Generate a new one in BitFun Desktop and try again.",
     bootstrap_workspace_unavailable: "Workspace service is unavailable. Please try again shortly.",
-    bootstrap_session_failed_prefix: "Assistant mode is on but session creation failed: ",
-    bootstrap_ready: "A new assistant session is ready. Send a message to start.",
+    bootstrap_session_failed_prefix: "Failed to create the default session: ",
+    bootstrap_ready: "A new session is ready. Send a message to start.",
 
-    mode_assistant: "Assistant Mode",
     mode_expert: "Expert Mode",
     current_session_label: "Current session",
     current_workspace_label: "Current workspace",
-    current_assistant_label: "Current assistant",
     no_session: "No session selected",
     no_workspace: "No workspace selected",
-    no_assistant: "No assistant selected",
 
-    main_title_assistant: "BitFun · Assistant",
     main_title_expert: "BitFun · Expert",
     settings_title: "Settings",
     welcome_title: "BitFun",
@@ -339,13 +311,11 @@ Open Remote Connect in BitFun Desktop and send the 6-digit pairing code here to 
     item_new_code_session: "New Code Session",
     item_new_cowork_session: "New Cowork Session",
     item_resume_session: "Resume Session",
-    item_switch_assistant: "Switch Assistant",
     item_switch_workspace: "Switch Workspace",
     item_settings: "Settings",
     item_back: "Back",
     item_help: "Help",
     item_switch_to_expert: "Switch to Expert Mode",
-    item_switch_to_assistant: "Switch to Assistant Mode",
     item_verbose_on: "Show Execution Details",
     item_verbose_off: "Hide Execution Details",
     item_cancel_task: "Cancel Task",
@@ -359,7 +329,6 @@ Open Remote Connect in BitFun Desktop and send the 6-digit pairing code here to 
 
     footer_reply_or_menu: "Reply with a number, or send /menu to return.",
     footer_reply_workspace: "Reply with a workspace number, or 0 to go back.",
-    footer_reply_assistant: "Reply with an assistant number, or 0 to go back.",
     footer_reply_session_or_next: "Reply with a session number; send 0 for next page or to go back.",
     footer_reply_session: "Reply with a session number, or 0 to go back.",
     footer_question_single: "Reply with one option number; send /menu to exit.",
@@ -374,16 +343,14 @@ Common commands:
 /menu  Return to the main menu
 /new   Create a new session
 /resume  Resume an existing session
-/switch  Switch assistant or workspace
+/switch  Switch workspace
 /cancel  Cancel the current task
-/expert  /assistant  Switch modes
+/expert  Switch modes
 /verbose /concise  Toggle execution details
 /help  Show this help",
 
     switch_pick_workspace: "Pick a workspace to switch to:",
-    switch_pick_assistant: "Pick an assistant to switch to:",
     switch_no_workspaces: "No workspaces found. Open a project in BitFun Desktop first.",
-    switch_no_assistants: "No assistants found. Create one in BitFun Desktop first.",
     current_marker: " · current",
 
     resume_no_sessions: "No sessions yet. Send /new to create one.",
@@ -409,9 +376,7 @@ Common commands:
     send_failed_prefix: "Send failed: ",
 
     mode_switched_to_expert: "Switched to Expert mode. You can create code or cowork sessions.",
-    mode_switched_to_assistant: "Switched to Assistant mode. Best for ongoing conversations.",
     mode_already_expert: "Already in Expert mode.",
-    mode_already_assistant: "Already in Assistant mode.",
     mode_confirm_switch_prefix: "This action needs the other mode. Switch and continue?",
 
     verbose_enabled: "Execution details enabled. The next task will show thinking and tool steps.",
@@ -426,7 +391,6 @@ Common commands:
     session_system_unavailable: "BitFun session system is not ready yet.",
     workspace_service_unavailable: "Workspace service unavailable.",
     workspace_open_failed_prefix: "Failed to open workspace: ",
-    assistant_create_failed_prefix: "Failed to create assistant workspace: ",
 
     pending_expired: "Previous step expired. Returned to the main menu.",
     pending_invalid_input: "Invalid input. Follow the prompt above, or send /menu to return.",

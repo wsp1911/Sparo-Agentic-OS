@@ -41,9 +41,6 @@ export function enrichAgentCapabilities(agent: AgentWithCapabilities): AgentWith
   if (id === 'cowork') {
     return { ...agent, iconKey: 'briefcase', capabilities: [{ category: '文档', level: 4 }, { category: '创意', level: 3 }] };
   }
-  if (id === 'claw') {
-    return { ...agent, iconKey: 'bot', capabilities: [{ category: '分析', level: 4 }, { category: '文档', level: 4 }] };
-  }
 
   if (name.includes('code') || name.includes('debug') || name.includes('test')) {
     return { ...agent, capabilities: [{ category: '编码', level: 4 }] };

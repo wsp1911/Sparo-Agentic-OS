@@ -11,7 +11,6 @@ export interface WorkspaceInfo {
   name: string;
   rootPath: string;
   workspaceKind: string;
-  assistantId?: string | null;
   openedAt: string;
   lastAccessed: string;
   identity?: {

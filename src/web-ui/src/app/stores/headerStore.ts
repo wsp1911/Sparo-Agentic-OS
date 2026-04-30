@@ -10,20 +10,13 @@
 
 import { create } from 'zustand';
 
-export interface AssistantWorkspaceRef {
-  id: string;
-  rootPath: string;
-}
-
 export interface SessionHeaderContext {
-  /** Session mode string, e.g. "Dispatcher", "Cowork", "Claw". */
+  /** Session mode string, e.g. "Dispatcher", "Cowork", "Design". */
   mode: string;
   /** Workspace root path shown next to the mode label. */
   workspacePath?: string;
   /** Resolved display name (same as sidebar), not the raw path basename. */
   workspaceDisplayName?: string;
-  /** Assistant workspace used when creating a new Dispatcher session. */
-  assistantWorkspace?: AssistantWorkspaceRef | null;
 }
 
 interface HeaderState {

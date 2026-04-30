@@ -55,13 +55,12 @@ const AGENT_SCENE = 'session' as const;
 /** Default visible rows in the expanded capsule; search still filters within this slice. */
 const RECENT_SESSION_LIMIT = 7;
 
-type SessionMode = 'code' | 'cowork' | 'design' | 'claw' | 'deepresearch' | 'liveappstudio';
+type SessionMode = 'code' | 'cowork' | 'design' | 'deepresearch' | 'liveappstudio';
 
 const resolveSessionModeType = (session: Session): SessionMode => {
   const normalizedMode = session.mode?.toLowerCase();
   if (normalizedMode === 'cowork') return 'cowork';
   if (normalizedMode === 'design') return 'design';
-  if (normalizedMode === 'claw') return 'claw';
   if (normalizedMode === 'deepresearch') return 'deepresearch';
   if (normalizedMode === 'liveappstudio') return 'liveappstudio';
   return 'code';
@@ -510,8 +509,6 @@ const SessionCapsule: React.FC = () => {
                   ? ListTodo
                   : mode === 'design'
                     ? Brush
-                    : mode === 'claw'
-                      ? Sparkles
                     : mode === 'deepresearch' || mode === 'liveappstudio'
                       ? Sparkles
                       : Code2;

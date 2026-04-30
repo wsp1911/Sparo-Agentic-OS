@@ -12,7 +12,6 @@ import React, { useState, useCallback, useEffect, useMemo, useRef, useContext } 
 import { open } from '@tauri-apps/plugin-dialog';
 import { useWorkspaceContext } from '../../infrastructure/contexts/WorkspaceContext';
 import { useWindowControls } from '../hooks/useWindowControls';
-import { useAssistantBootstrap } from '../hooks/useAssistantBootstrap';
 import { useApp } from '../hooks/useApp';
 import { configManager } from '@/infrastructure/config';
 
@@ -63,7 +62,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
       : 'local';
 
   const { isToolbarMode } = useToolbarModeContext();
-  const { ensureForWorkspace: ensureAssistantBootstrapForWorkspace } = useAssistantBootstrap();
 
   const { handleMinimize, handleMaximize, handleClose, isMaximized } =
     useWindowControls({ isToolbarMode });
@@ -202,10 +200,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
           sessionStorage.removeItem('bitfun:flowchat:preferredMode');
         }
 
-        const initializationPreferredMode =
-          currentWorkspace.workspaceKind === WorkspaceKind.Assistant
-            ? 'Claw'
-            : explicitPreferredMode;
+        const initializationPreferredMode = explicitPreferredMode;
         const suppressAutoSessionSelection = consumeDeferredNewSessionWorkspace(
           currentWorkspace.rootPath
         );
@@ -227,17 +222,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
         let sessionId: string | undefined;
         const { flowChatStore } = await import('@/flow_chat/store/FlowChatStore');
         if (!hasHistoricalSessions && !suppressAutoSessionSelection) {
-          const initialSessionMode =
-            currentWorkspace.workspaceKind === WorkspaceKind.Assistant
-              ? 'Claw'
-              : explicitPreferredMode || 'agentic';
+          const initialSessionMode = explicitPreferredMode || 'agentic';
           sessionId = await flowChatManager.createChatSession({}, initialSessionMode);
         }
 
         const workspaceScopedActiveId = sessionId || flowChatStore.getState().activeSessionId;
-        if (currentWorkspace.workspaceKind === WorkspaceKind.Assistant && workspaceScopedActiveId) {
-          ensureAssistantBootstrapForWorkspace(currentWorkspace, workspaceScopedActiveId);
-        }
 
         const pendingDescription = sessionStorage.getItem('pendingProjectDescription');
         if (pendingDescription && pendingDescription.trim()) {
@@ -306,7 +295,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
     currentWorkspace?.connectionId,
     currentWorkspace?.sshHost,
     remoteSshFlowChatKey,
-    ensureAssistantBootstrapForWorkspace,
     t,
   ]);
 
@@ -315,11 +303,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
       return;
     }
 
-    const recentProjectWorkspaces = recentWorkspaces.filter(
-      workspace => workspace.workspaceKind !== WorkspaceKind.Assistant
-    );
     const preloadTargetMap = new Map<string, (typeof recentWorkspaces)[number]>();
-    recentProjectWorkspaces
+    recentWorkspaces
       .slice(0, RECENT_WORKSPACE_PRELOAD_LIMIT)
       .forEach(workspace => preloadTargetMap.set(workspace.id, workspace));
     const preloadTargets = Array.from(preloadTargetMap.values());

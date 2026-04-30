@@ -411,8 +411,6 @@ export class FlowChatManager {
     options?: {
       reinitialize?: boolean;
       preferredMode?: string;
-      /** After reinit, ask core to run assistant bootstrap if BOOTSTRAP.md is present (e.g. workspace reset). */
-      ensureAssistantBootstrap?: boolean;
     }
   ): Promise<void> {
     const workspacePath = workspace.rootPath;
@@ -464,24 +462,6 @@ export class FlowChatManager {
         },
         options.preferredMode
       );
-    }
-
-    if (options?.ensureAssistantBootstrap) {
-      const sid = this.context.flowChatStore.getState().activeSessionId;
-      if (sid) {
-        try {
-          const { agentAPI } = await import('@/infrastructure/api/service-api/AgentAPI');
-          await agentAPI.ensureAssistantBootstrap({
-            sessionId: sid,
-            workspacePath,
-          });
-        } catch (error) {
-          log.warn('ensureAssistantBootstrap after resetWorkspaceSessions failed', {
-            workspacePath,
-            error,
-          });
-        }
-      }
     }
   }
 

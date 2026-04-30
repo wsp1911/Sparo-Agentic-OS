@@ -34,7 +34,6 @@ import zhCNComponents from '../../../locales/zh-CN/components.json';
 import zhCNScenesCapabilities from '../../../locales/zh-CN/scenes/capabilities.json';
 import zhCNScenesApps from '../../../locales/zh-CN/scenes/apps.json';
 import zhCNScenesSubagents from '../../../locales/zh-CN/scenes/subagents.json';
-import zhCNScenesProfile from '../../../locales/zh-CN/scenes/profile.json';
 import zhCNScenesSkills from '../../../locales/zh-CN/scenes/skills.json';
 import zhCNScenesTools from '../../../locales/zh-CN/scenes/tools.json';
 import zhCNPanelsFiles from '../../../locales/zh-CN/panels/files.json';
@@ -67,7 +66,6 @@ import enUSComponents from '../../../locales/en-US/components.json';
 import enUSScenesCapabilities from '../../../locales/en-US/scenes/capabilities.json';
 import enUSScenesApps from '../../../locales/en-US/scenes/apps.json';
 import enUSScenesSubagents from '../../../locales/en-US/scenes/subagents.json';
-import enUSScenesProfile from '../../../locales/en-US/scenes/profile.json';
 import enUSScenesSkills from '../../../locales/en-US/scenes/skills.json';
 import enUSScenesTools from '../../../locales/en-US/scenes/tools.json';
 import enUSPanelsFiles from '../../../locales/en-US/panels/files.json';
@@ -107,7 +105,6 @@ const resources = {
     'scenes/capabilities': zhCNScenesCapabilities,
     'scenes/apps': zhCNScenesApps,
     'scenes/subagents': zhCNScenesSubagents,
-    'scenes/profile': zhCNScenesProfile,
     'scenes/skills': zhCNScenesSkills,
     'scenes/tools': zhCNScenesTools,
     'panels/files': zhCNPanelsFiles,
@@ -141,7 +138,6 @@ const resources = {
     'scenes/capabilities': enUSScenesCapabilities,
     'scenes/apps': enUSScenesApps,
     'scenes/subagents': enUSScenesSubagents,
-    'scenes/profile': enUSScenesProfile,
     'scenes/skills': enUSScenesSkills,
     'scenes/tools': enUSScenesTools,
     'panels/files': enUSPanelsFiles,
@@ -198,7 +194,6 @@ export class I18nService {
           'scenes/capabilities',
           'scenes/apps',
           'scenes/subagents',
-          'scenes/profile',
           'scenes/skills',
           'scenes/tools',
           'panels/files',

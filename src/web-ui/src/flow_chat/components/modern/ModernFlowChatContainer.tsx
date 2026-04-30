@@ -67,11 +67,7 @@ export const ModernFlowChatContainer: React.FC<ModernFlowChatContainerProps> = (
   const virtualListRef = useRef<VirtualMessageListRef>(null);
   const chatScopeRef = useRef<HTMLDivElement>(null);
   const turnListSidebarRef = useRef<HTMLElement | null>(null);
-  const { workspacePath, assistantWorkspacesList, openedWorkspacesList } = useWorkspaceContext();
-  const defaultAssistantWorkspace = useMemo(
-    () => assistantWorkspacesList.find(w => !w.assistantId) ?? assistantWorkspacesList[0] ?? null,
-    [assistantWorkspacesList]
-  );
+  const { workspacePath, openedWorkspacesList } = useWorkspaceContext();
   const {
     exploreGroupStates,
     onExploreGroupToggle: handleExploreGroupToggle,
@@ -302,11 +298,8 @@ export const ModernFlowChatContainer: React.FC<ModernFlowChatContainerProps> = (
       mode: activeSession.mode ?? '',
       workspacePath: activeSession.workspacePath,
       workspaceDisplayName,
-      assistantWorkspace: defaultAssistantWorkspace
-        ? { id: defaultAssistantWorkspace.id, rootPath: defaultAssistantWorkspace.rootPath }
-        : null,
     });
-  }, [activeSession, defaultAssistantWorkspace, workspaceDisplayName, setSessionContext, clearSessionContext]);
+  }, [activeSession, workspaceDisplayName, setSessionContext, clearSessionContext]);
 
   useShortcut(
     'chat.stopGeneration',

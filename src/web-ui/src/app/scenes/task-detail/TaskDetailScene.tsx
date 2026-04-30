@@ -17,7 +17,6 @@ import {
   ListTodo,
   Loader2,
   MessageSquare,
-  Sparkles,
   ArrowRight,
   Clock,
   Radio,
@@ -75,13 +74,12 @@ function formatAgenticDotDate(ts: number): string {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-type ExecMode = 'code' | 'cowork' | 'design' | 'claw';
+type ExecMode = 'code' | 'cowork' | 'design';
 
 function resolveExecMode(s: Session): ExecMode {
   const m = s.mode?.toLowerCase();
   if (m === 'cowork') return 'cowork';
   if (m === 'design') return 'design';
-  if (m === 'claw') return 'claw';
   return 'code';
 }
 
@@ -89,14 +87,12 @@ const MODE_LABELS: Record<ExecMode, string> = {
   code: 'Code',
   cowork: 'Cowork',
   design: 'Design',
-  claw: 'Claw',
 };
 
 function ModeIcon({ mode, size = 13, className }: { mode: ExecMode; size?: number; className?: string }) {
   switch (mode) {
     case 'cowork': return <ListTodo size={size} className={className} />;
     case 'design': return <Brush size={size} className={className} />;
-    case 'claw': return <Sparkles size={size} className={className} />;
     default: return <Code2 size={size} className={className} />;
   }
 }

@@ -331,7 +331,6 @@ mod tests {
             name: name.to_string(),
             root_path: PathBuf::from(root_path),
             workspace_kind: WorkspaceKind::Normal,
-            assistant_id: None,
             status: WorkspaceStatus::Inactive,
             opened_at: chrono::Utc::now(),
             last_accessed: chrono::Utc::now(),
