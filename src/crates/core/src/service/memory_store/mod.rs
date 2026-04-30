@@ -1,8 +1,14 @@
+pub mod api;
 mod global_overview;
+pub(crate) mod layout;
 mod manifest;
+pub(crate) mod migration;
 mod paths;
 mod policy;
 mod prompt_context;
+pub(crate) mod repair;
+pub(crate) mod schema;
+pub mod sensitivity;
 
 use crate::util::errors::*;
 use std::path::{Path, PathBuf};
@@ -10,10 +16,11 @@ use tokio::fs;
 
 pub(crate) use global_overview::build_global_workspace_overviews_context;
 pub(crate) use manifest::build_memory_manifest_for_target;
-pub(crate) use paths::{ensure_memory_store_for_target, memory_store_dir_path_for_target};
+pub(crate) use paths::{
+    ensure_memory_skeleton, ensure_memory_store_for_target, memory_store_dir_path_for_target,
+};
 pub(crate) use policy::{
-    build_global_memory_policy_sections, build_workspace_memory_policy_sections,
-    SharedMemoryPolicyProfile,
+    render_global_main_memory_prompt, render_workspace_main_memory_prompt,
 };
 pub(crate) use prompt_context::{
     build_memory_files_context_for_target, build_memory_prompt_for_target,
@@ -21,7 +28,6 @@ pub(crate) use prompt_context::{
 
 pub(crate) const MEMORY_INDEX_FILE: &str = "MEMORY.md";
 const MEMORY_DIR_NAME: &str = "memory";
-const MEMORY_INDEX_TEMPLATE: &str = "";
 const MEMORY_INDEX_MAX_LINES: usize = 200;
 const MEMORY_MANIFEST_MAX_FILES: usize = 200;
 
@@ -32,7 +38,7 @@ pub enum MemoryScope {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum MemoryStoreTarget<'a> {
+pub enum MemoryStoreTarget<'a> {
     WorkspaceProject(&'a Path),
     GlobalAgenticOs,
 }
@@ -55,11 +61,11 @@ impl<'a> MemoryStoreTarget<'a> {
     }
 }
 
-pub(super) fn format_path_for_prompt(path: &Path) -> String {
+pub(crate) fn format_path_for_prompt(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
-pub(super) async fn ensure_markdown_placeholder(path: &Path, content: &str) -> BitFunResult<bool> {
+pub(crate) async fn ensure_markdown_placeholder(path: &Path, content: &str) -> BitFunResult<bool> {
     if path.exists() {
         return Ok(false);
     }
@@ -71,7 +77,7 @@ pub(super) async fn ensure_markdown_placeholder(path: &Path, content: &str) -> B
     Ok(true)
 }
 
-pub(super) async fn list_memory_files_recursive(memory_dir: &Path) -> BitFunResult<Vec<PathBuf>> {
+pub(crate) async fn list_memory_files_recursive(memory_dir: &Path) -> BitFunResult<Vec<PathBuf>> {
     let mut files = Vec::new();
     let mut pending_dirs = vec![memory_dir.to_path_buf()];
 
@@ -119,7 +125,7 @@ pub(super) async fn list_memory_files_recursive(memory_dir: &Path) -> BitFunResu
     Ok(files)
 }
 
-pub(super) fn format_manifest_path(path: &Path, memory_dir: &Path) -> String {
+pub(crate) fn format_manifest_path(path: &Path, memory_dir: &Path) -> String {
     path.strip_prefix(memory_dir)
         .unwrap_or(path)
         .to_string_lossy()

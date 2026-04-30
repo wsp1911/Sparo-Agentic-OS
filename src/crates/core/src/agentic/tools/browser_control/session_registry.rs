@@ -106,7 +106,11 @@ impl BrowserSessionState {
         }
         match event.method.as_str() {
             "Network.requestWillBeSent" => {
-                let request = event.params.get("request").cloned().unwrap_or_else(|| json!({}));
+                let request = event
+                    .params
+                    .get("request")
+                    .cloned()
+                    .unwrap_or_else(|| json!({}));
                 Self::push_capped(
                     &self.network_events,
                     json!({
@@ -126,7 +130,11 @@ impl BrowserSessionState {
                 .await;
             }
             "Network.responseReceived" => {
-                let response = event.params.get("response").cloned().unwrap_or_else(|| json!({}));
+                let response = event
+                    .params
+                    .get("response")
+                    .cloned()
+                    .unwrap_or_else(|| json!({}));
                 Self::push_capped(
                     &self.network_events,
                     json!({
@@ -214,8 +222,12 @@ impl BrowserSessionState {
             if let Some(status_filter) = status {
                 let status_value = item.get("status").and_then(|v| v.as_u64());
                 let matched = match status_filter {
-                    "4xx" => status_value.map(|s| (400..500).contains(&s)).unwrap_or(false),
-                    "5xx" => status_value.map(|s| (500..600).contains(&s)).unwrap_or(false),
+                    "4xx" => status_value
+                        .map(|s| (400..500).contains(&s))
+                        .unwrap_or(false),
+                    "5xx" => status_value
+                        .map(|s| (500..600).contains(&s))
+                        .unwrap_or(false),
                     raw => raw
                         .parse::<u64>()
                         .ok()
@@ -240,11 +252,17 @@ impl BrowserSessionState {
         since: Option<&str>,
         limit: usize,
     ) -> Vec<Value> {
-        let events = self.query_network(filter, method, status, since, usize::MAX).await;
+        let events = self
+            .query_network(filter, method, status, since, usize::MAX)
+            .await;
         let mut order = Vec::<String>::new();
         let mut by_id = HashMap::<String, Value>::new();
         for event in events.into_iter().rev() {
-            let Some(request_id) = event.get("request_id").and_then(|v| v.as_str()).map(str::to_string) else {
+            let Some(request_id) = event
+                .get("request_id")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+            else {
                 continue;
             };
             let entry = by_id.entry(request_id.clone()).or_insert_with(|| {
@@ -450,7 +468,9 @@ impl BrowserSessionRegistry {
                                 if let Some(text) = handler.prompt_text {
                                     params["promptText"] = json!(text);
                                 }
-                                let _ = client.send("Page.handleJavaScriptDialog", Some(params)).await;
+                                let _ = client
+                                    .send("Page.handleJavaScriptDialog", Some(params))
+                                    .await;
                             }
                         }
                         state.record_event(event).await;

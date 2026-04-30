@@ -26,7 +26,7 @@ export interface MemoryEdge {
   id: string;
   fromId: string;
   toId: string;
-  kind: 'index-spoke' | 'co-folder' | 'cross-scope';
+  kind: 'index-spoke' | 'co-folder' | 'cross-scope' | 'source-session' | 'link';
 }
 
 export interface MemoryLayout {
@@ -46,12 +46,22 @@ export interface BuildLayoutInput {
 }
 
 export const TYPE_COLORS: Record<MemoryRecordType, string> = {
+  // Core index
   index: '#d4a017',
+  // New layer-aligned types
+  identity: '#e8c44a',    // warm gold — anchor/rules
+  narrative: '#e05dab',   // vivid pink — "our story"
+  persona: '#4a90e2',     // blue — user profile
+  project: '#5cb85c',     // green — project ontology
+  habit: '#e09a4a',       // amber — collaboration style
+  episodic: '#6f8ad8',    // periwinkle — time-anchored events
+  pinned: '#3cb4ac',      // teal — explicit pins
+  session: '#9099a8',     // grey — session summaries
+  reference: '#9b6dd0',   // purple — external references
+  workspace_overview: '#3cb4ac',
+  // Legacy (migration period)
   user: '#4a90e2',
   feedback: '#e0709b',
-  project: '#5cb85c',
-  reference: '#9b6dd0',
-  workspace_overview: '#3cb4ac',
   unknown: '#9099a8',
 };
 
@@ -77,11 +87,18 @@ const stableHash = (input: string): number => {
 const nodeRadiusFor = (record: MemoryRecord): number => {
   if (record.isIndex) return 11;
   if (record.isWorkspaceOverview) return 10;
-  const len = (record.content?.length ?? 0) + (record.description?.length ?? 0);
-  if (len > 4000) return 9;
-  if (len > 1500) return 8;
-  if (len > 400) return 7;
-  return 6;
+  const baseLen = (record.content?.length ?? 0) + (record.description?.length ?? 0);
+  let base: number;
+  if (baseLen > 4000) base = 9;
+  else if (baseLen > 1500) base = 8;
+  else if (baseLen > 400) base = 7;
+  else base = 6;
+  // Scale radius by strength if present: weak entries shrink slightly.
+  if (record.strength !== undefined) {
+    const scale = 0.7 + 0.3 * record.strength;
+    return Math.max(4, Math.round(base * scale));
+  }
+  return base;
 };
 
 const placeRecordsInsideRing = (

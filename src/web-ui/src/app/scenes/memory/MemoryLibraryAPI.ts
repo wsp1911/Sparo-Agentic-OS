@@ -10,7 +10,27 @@ const MEMORY_INDEX_FILE = 'MEMORY.md';
 const MAX_MEMORY_FILES = 250;
 
 export type MemoryScopeKey = 'global' | 'workspace';
-export type MemoryRecordType = 'index' | 'user' | 'feedback' | 'project' | 'reference' | 'workspace_overview' | 'unknown';
+export type MemoryRecordType =
+  | 'index'
+  // New layer-aligned types
+  | 'identity'
+  | 'narrative'
+  | 'persona'
+  | 'project'
+  | 'habit'
+  | 'episodic'
+  | 'pinned'
+  | 'session'
+  | 'reference'
+  | 'workspace_overview'
+  // Legacy (kept for migration-period display)
+  | 'user'
+  | 'feedback'
+  | 'unknown';
+
+export type MemoryStatus = 'tentative' | 'confirmed' | 'consolidated' | 'archived';
+export type MemorySensitivity = 'normal' | 'private' | 'secret';
+export type ConsolidationKind = 'mid' | 'slow_global' | 'slow_project';
 
 export interface MemoryStoragePaths {
   userConfigDir: string;
@@ -52,6 +72,15 @@ export interface MemoryRecord {
   size?: number;
   isIndex: boolean;
   isWorkspaceOverview: boolean;
+  // New frontmatter fields (M4)
+  layer?: string;
+  status?: MemoryStatus;
+  /** Strength in [0, 1]. Undefined means unset (treated as 1.0). */
+  strength?: number;
+  sensitivity?: MemorySensitivity;
+  sourceSession?: string;
+  tags?: string[];
+  lastSeen?: string;
 }
 
 export interface AutoMemoryStatus {
@@ -118,9 +147,31 @@ const normalizeRecordType = (value: string | undefined, relative: string): Memor
   const type = value?.trim().toLowerCase();
   if (relative === MEMORY_INDEX_FILE) return 'index';
   if (relative.startsWith('workspaces_overview/')) return 'workspace_overview';
-  if (type === 'user' || type === 'feedback' || type === 'project' || type === 'reference') {
-    return type;
-  }
+  if (relative.startsWith('episodes/')) return 'episodic';
+  if (relative.startsWith('sessions/')) return 'session';
+  if (relative.startsWith('pinned/')) return 'pinned';
+  // Layer-aligned types
+  if (type === 'identity' || type === 'assistant_identity') return 'identity';
+  if (type === 'narrative') return 'narrative';
+  if (type === 'persona') return 'persona';
+  if (type === 'project') return 'project';
+  if (type === 'habit' || type === 'habits') return 'habit';
+  if (type === 'episodic' || type === 'episode') return 'episodic';
+  if (type === 'pinned') return 'pinned';
+  if (type === 'session') return 'session';
+  if (type === 'reference') return 'reference';
+  if (type === 'workspace_overview') return 'workspace_overview';
+  // Legacy migration mappings
+  if (type === 'user') return 'persona';
+  if (type === 'feedback' || type === 'collaboration') return 'habit';
+  if (type === 'vision') return 'narrative';
+  // Infer from file name for core singleton files
+  const fileName = relative.split('/').pop() ?? '';
+  if (fileName === 'identity.md') return 'identity';
+  if (fileName === 'narrative.md') return 'narrative';
+  if (fileName === 'persona.md') return 'persona';
+  if (fileName === 'project.md') return 'project';
+  if (fileName === 'habits.md') return 'habit';
   return 'unknown';
 };
 
@@ -196,8 +247,15 @@ export class MemoryLibraryAPI {
     return records.filter((record): record is MemoryRecord => Boolean(record));
   }
 
-  async saveMemoryRecord(record: MemoryRecord, content: string): Promise<MemoryRecord> {
-    await workspaceAPI.writeFileContent(record.path, record.path, content);
+  async saveMemoryRecord(record: MemoryRecord, content: string, workspacePath?: string): Promise<MemoryRecord> {
+    await api.invoke('memory_update_entry', {
+      request: {
+        scope: record.scope,
+        workspacePath: record.scope === 'workspace' ? (workspacePath ?? '') : undefined,
+        relativePath: record.relativePath,
+        content,
+      },
+    });
     const refreshed = await this.readMemoryRecord(
       {
         scope: record.scope,
@@ -210,16 +268,112 @@ export class MemoryLibraryAPI {
     return refreshed ?? { ...record, content };
   }
 
-  async deleteMemoryRecord(record: MemoryRecord): Promise<void> {
-    await workspaceAPI.deleteFile(record.path);
-  }
-
   async revealMemoryRecord(record: MemoryRecord): Promise<void> {
     await workspaceAPI.revealInExplorer(record.path);
   }
 
   async revealMemorySpace(space: MemorySpace): Promise<void> {
     await workspaceAPI.revealInExplorer(space.memoryDir);
+  }
+
+  /**
+   * Archive a memory record (sets status=archived) via the backend API.
+   */
+  async archiveMemoryRecord(record: MemoryRecord, workspacePath?: string): Promise<void> {
+    await api.invoke('memory_archive_entry', {
+      request: {
+        scope: record.scope,
+        workspacePath: record.scope === 'workspace' ? (workspacePath ?? '') : undefined,
+        relativePath: record.relativePath,
+      },
+    });
+  }
+
+  /**
+   * Delete a memory record permanently via the backend API.
+   */
+  async deleteMemoryRecord(record: MemoryRecord, workspacePath?: string): Promise<void> {
+    await api.invoke('memory_delete_entry', {
+      request: {
+        scope: record.scope,
+        workspacePath: record.scope === 'workspace' ? (workspacePath ?? '') : undefined,
+        relativePath: record.relativePath,
+      },
+    });
+  }
+
+  /**
+   * Forget all memory entries tagged with `tag` within the given scope.
+   */
+  async forgetByTag(scope: MemoryScopeKey, tag: string, workspacePath?: string): Promise<void> {
+    await api.invoke('memory_forget_by_tag', {
+      request: {
+        scope,
+        workspacePath: scope === 'workspace' ? (workspacePath ?? '') : undefined,
+        tag,
+      },
+    });
+  }
+
+  /**
+   * Manually trigger a memory consolidation pass.
+   */
+  async triggerConsolidation(
+    scope: MemoryScopeKey,
+    kind: ConsolidationKind,
+    sessionId?: string,
+    workspacePath?: string,
+  ): Promise<void> {
+    await api.invoke('memory_trigger_consolidation', {
+      request: {
+        scope,
+        kind,
+        sessionId: sessionId ?? '',
+        workspacePath: scope === 'workspace' ? (workspacePath ?? '') : undefined,
+      },
+    });
+  }
+
+  /**
+   * Rebuild the MEMORY.md index from the current file state.
+   * Preserves user-authored "Active Topics" and "Open Loops" sections.
+   */
+  async rebuildIndex(scope: MemoryScopeKey, workspacePath?: string): Promise<void> {
+    await api.invoke('memory_rebuild_index', {
+      request: {
+        scope,
+        workspacePath: scope === 'workspace' ? (workspacePath ?? '') : undefined,
+      },
+    });
+  }
+
+  /**
+   * Run the repair pass: fill empty templates, rebucket episodes, write bootstrap marker.
+   */
+  async runRepair(scope: MemoryScopeKey, workspacePath?: string): Promise<{ actions: string[]; errors: string[] }> {
+    return api.invoke('memory_run_repair', {
+      request: {
+        scope,
+        workspacePath: scope === 'workspace' ? (workspacePath ?? '') : undefined,
+      },
+    });
+  }
+
+  /**
+   * Record a memory read hit to update last_seen and boost strength.
+   */
+  async recordHit(record: MemoryRecord, workspacePath?: string): Promise<void> {
+    try {
+      await api.invoke('memory_record_hit', {
+        request: {
+          scope: record.scope,
+          workspacePath: record.scope === 'workspace' ? (workspacePath ?? '') : undefined,
+          relativePath: record.relativePath,
+        },
+      });
+    } catch (error) {
+      log.warn('memory_record_hit failed (best-effort)', { relativePath: record.relativePath, error });
+    }
   }
 
   private async collectMarkdownFiles(memoryDir: string): Promise<string[]> {
@@ -273,6 +427,16 @@ export class MemoryLibraryAPI {
         ? 'MEMORY.md'
         : frontmatter.data.name || titleFromPath(rel);
 
+      const strengthRaw = parseFloat(frontmatter.data.strength ?? '');
+      const tagsRaw = frontmatter.data.tags ?? '';
+      const tags = tagsRaw
+        ? tagsRaw
+          .replace(/^\[|\]$/g, '')
+          .split(',')
+          .map((t) => t.trim().replace(/^['"]|['"]$/g, ''))
+          .filter(Boolean)
+        : undefined;
+
       return {
         id: `${space.scope}:${rel}`,
         scope: space.scope,
@@ -288,6 +452,13 @@ export class MemoryLibraryAPI {
         size: typeof metadata.size === 'number' ? metadata.size : undefined,
         isIndex,
         isWorkspaceOverview,
+        layer: frontmatter.data.layer,
+        status: (frontmatter.data.status as MemoryStatus | undefined),
+        strength: isNaN(strengthRaw) ? undefined : strengthRaw,
+        sensitivity: (frontmatter.data.sensitivity as MemorySensitivity | undefined),
+        sourceSession: frontmatter.data.source_session,
+        tags,
+        lastSeen: frontmatter.data.last_seen,
       };
     } catch (error) {
       log.warn('Failed to read memory record', { path, error });

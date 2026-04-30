@@ -1,4 +1,4 @@
-﻿//! ControlHub 鈥?unified entry point for browser, terminal, and routing metadata.
+//! ControlHub 鈥?unified entry point for browser, terminal, and routing metadata.
 //!
 //! Routes requests by `domain` to the appropriate backend:
 //!   browser  鈫?CDP-based browser control (new)
@@ -455,7 +455,8 @@ Branch on `ok` and `error.code`, not on English messages.
                     headless_profile = requested_user_data_dir
                         .map(str::to_string)
                         .unwrap_or(BrowserLauncher::managed_user_data_dir("headless")?);
-                    BrowserLauncher::launch_headless_with_cdp(&kind, port, &headless_profile).await?
+                    BrowserLauncher::launch_headless_with_cdp(&kind, port, &headless_profile)
+                        .await?
                 } else {
                     BrowserLauncher::launch_with_cdp_opts(&kind, port, user_data_dir).await?
                 };
@@ -800,7 +801,9 @@ Branch on `ok` and `error.code`, not on English messages.
                         client: Arc::new(client),
                         state: Arc::new(BrowserSessionState::new()),
                     };
-                    let _ = BrowserActions::new(session.client.as_ref()).enable_observers().await;
+                    let _ = BrowserActions::new(session.client.as_ref())
+                        .enable_observers()
+                        .await;
                     registry.register(session.clone()).await;
                     session
                 };
@@ -867,7 +870,12 @@ Branch on `ok` and `error.code`, not on English messages.
                 let actions = BrowserActions::new(session.client.as_ref());
                 let _action_seq = if matches!(
                     action,
-                    "network" | "network_requests" | "console" | "errors" | "trace" | "list_sessions"
+                    "network"
+                        | "network_requests"
+                        | "console"
+                        | "errors"
+                        | "trace"
+                        | "list_sessions"
                 ) {
                     None
                 } else {
@@ -2381,5 +2389,3 @@ mod control_hub_tests {
         );
     }
 }
-
-

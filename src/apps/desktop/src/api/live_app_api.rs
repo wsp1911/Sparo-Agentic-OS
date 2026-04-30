@@ -313,11 +313,7 @@ async fn emit_live_app_event(event_name: &str, payload: Value) {
 }
 
 async fn emit_live_app_runtime_issues_cleared(app_id: &str) {
-    emit_live_app_event(
-        "liveapp-runtime-errors-cleared",
-        json!({ "appId": app_id }),
-    )
-    .await;
+    emit_live_app_event("liveapp-runtime-errors-cleared", json!({ "appId": app_id })).await;
 }
 
 fn workspace_root_from_input(workspace_path: Option<&str>) -> Option<PathBuf> {
@@ -372,7 +368,9 @@ fn resolve_live_app_agentic_workspace(
             .map(|agentic| agentic.allow_workspace)
             .unwrap_or(false);
         if !allowed {
-            return Err("This Live App is not allowed to bind Agentic sessions to a workspace".to_string());
+            return Err(
+                "This Live App is not allowed to bind Agentic sessions to a workspace".to_string(),
+            );
         }
         return Ok(path.to_string());
     }
@@ -1549,11 +1547,8 @@ pub async fn live_app_agentic_create_session(
         .to_string();
     validate_live_app_agent_type(&app, &agent_type)?;
 
-    let workspace_path = resolve_live_app_agentic_workspace(
-        &state,
-        &app,
-        request.workspace_path.as_deref(),
-    )?;
+    let workspace_path =
+        resolve_live_app_agentic_workspace(&state, &app, request.workspace_path.as_deref())?;
 
     if let Some(max_sessions) = app
         .permissions
@@ -1561,13 +1556,9 @@ pub async fn live_app_agentic_create_session(
         .as_ref()
         .and_then(|agentic| agentic.max_sessions)
     {
-        let count = count_live_app_agentic_sessions(
-            &coordinator,
-            &state,
-            &request.app_id,
-            &workspace_path,
-        )
-        .await?;
+        let count =
+            count_live_app_agentic_sessions(&coordinator, &state, &request.app_id, &workspace_path)
+                .await?;
         if count >= max_sessions as usize {
             return Err(format!(
                 "Live App Agentic session limit exceeded: max {} sessions",
@@ -1627,11 +1618,8 @@ pub async fn live_app_agentic_send_message(
         .map_err(|e| e.to_string())?;
     validate_live_app_agentic_access(&app)?;
 
-    let session = ensure_live_app_owns_agentic_session(
-        &coordinator,
-        &request.app_id,
-        &request.session_id,
-    )?;
+    let session =
+        ensure_live_app_owns_agentic_session(&coordinator, &request.app_id, &request.session_id)?;
     let agent_type = request
         .agent_type
         .as_deref()
@@ -1789,11 +1777,8 @@ pub async fn live_app_agentic_delete_session(
         .await
         .map_err(|e| e.to_string())?;
     validate_live_app_agentic_access(&app)?;
-    let session = ensure_live_app_owns_agentic_session(
-        &coordinator,
-        &request.app_id,
-        &request.session_id,
-    )?;
+    let session =
+        ensure_live_app_owns_agentic_session(&coordinator, &request.app_id, &request.session_id)?;
     let workspace_path = session
         .config
         .workspace_path

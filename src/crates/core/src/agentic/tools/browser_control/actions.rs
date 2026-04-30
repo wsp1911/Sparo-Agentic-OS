@@ -158,10 +158,7 @@ impl<'a> BrowserActions<'a> {
 
     pub async fn reload(&self, ignore_cache: bool) -> BitFunResult<Value> {
         self.client
-            .send(
-                "Page.reload",
-                Some(json!({ "ignoreCache": ignore_cache })),
-            )
+            .send("Page.reload", Some(json!({ "ignoreCache": ignore_cache })))
             .await?;
         Ok(json!({ "success": true, "action": "reload", "ignore_cache": ignore_cache }))
     }
@@ -323,7 +320,10 @@ impl<'a> BrowserActions<'a> {
         let mut refs = BTreeMap::<String, Value>::new();
         for element in elements {
             let reference = element.get("ref").and_then(|v| v.as_str()).unwrap_or("");
-            let tag = element.get("tag").and_then(|v| v.as_str()).unwrap_or("element");
+            let tag = element
+                .get("tag")
+                .and_then(|v| v.as_str())
+                .unwrap_or("element");
             let role = element.get("role").and_then(|v| v.as_str()).unwrap_or("");
             let text = element
                 .get("ariaLabel")
@@ -339,8 +339,15 @@ impl<'a> BrowserActions<'a> {
                 .get("frame_path")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let scope = element.get("scope").and_then(|v| v.as_str()).unwrap_or("document");
-            let mut label = if role.is_empty() { tag.to_string() } else { role.to_string() };
+            let scope = element
+                .get("scope")
+                .and_then(|v| v.as_str())
+                .unwrap_or("document");
+            let mut label = if role.is_empty() {
+                tag.to_string()
+            } else {
+                role.to_string()
+            };
             if !type_text.is_empty() {
                 label.push(':');
                 label.push_str(type_text);
@@ -357,7 +364,9 @@ impl<'a> BrowserActions<'a> {
                     text.to_string()
                 };
                 line.push(' ');
-                line.push_str(&serde_json::to_string(&clipped).unwrap_or_else(|_| "\"\"".to_string()));
+                line.push_str(
+                    &serde_json::to_string(&clipped).unwrap_or_else(|_| "\"\"".to_string()),
+                );
             }
             if !id.is_empty() {
                 line.push_str(&format!(" id={}", id));
@@ -455,16 +464,25 @@ impl<'a> BrowserActions<'a> {
     /// genuinely empty. The lookup walks shadow roots / same-origin
     /// iframes, matching the rest of the browser action surface.
     pub async fn get_text(&self, selector: &str) -> BitFunResult<Option<String>> {
-        self.get_attribute(selector, "text").await.map(|v| v.map(|v| v.as_str().unwrap_or("").to_string()))
+        self.get_attribute(selector, "text")
+            .await
+            .map(|v| v.map(|v| v.as_str().unwrap_or("").to_string()))
     }
 
-    pub async fn get_attribute(&self, selector: &str, attribute: &str) -> BitFunResult<Option<Value>> {
+    pub async fn get_attribute(
+        &self,
+        selector: &str,
+        attribute: &str,
+    ) -> BitFunResult<Option<Value>> {
         let resolve = Self::resolve_element_js(selector);
         let getter = match attribute {
             "text" => "(el.textContent || '').trim().slice(0, 5000)".to_string(),
             "value" => "('value' in el ? el.value : '')".to_string(),
             "html" => "el.outerHTML".to_string(),
-            other => format!("el.getAttribute('{}')", other.replace('\\', "\\\\").replace('\'', "\\'")),
+            other => format!(
+                "el.getAttribute('{}')",
+                other.replace('\\', "\\\\").replace('\'', "\\'")
+            ),
         };
         let js = format!(
             r#"(function(){{
@@ -869,8 +887,16 @@ impl<'a> BrowserActions<'a> {
                     .get("cssContentSize")
                     .or_else(|| metrics.get("contentSize"));
                 if let Some(size) = size {
-                    let width = size.get("width").and_then(|v| v.as_f64()).unwrap_or(0.0).ceil() as u64;
-                    let height = size.get("height").and_then(|v| v.as_f64()).unwrap_or(0.0).ceil() as u64;
+                    let width = size
+                        .get("width")
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0)
+                        .ceil() as u64;
+                    let height = size
+                        .get("height")
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0)
+                        .ceil() as u64;
                     if width > 0 && height > 0 {
                         let _ = self
                             .client
@@ -901,7 +927,10 @@ impl<'a> BrowserActions<'a> {
             .send("Page.captureScreenshot", Some(params))
             .await?;
         if full_page {
-            let _ = self.client.send("Emulation.clearDeviceMetricsOverride", None).await;
+            let _ = self
+                .client
+                .send("Emulation.clearDeviceMetricsOverride", None)
+                .await;
         }
         let data = result.get("data").and_then(|v| v.as_str()).unwrap_or("");
         Ok(json!({
@@ -988,8 +1017,17 @@ impl<'a> BrowserActions<'a> {
         let mut set = 0usize;
         let mut errors = Vec::<Value>::new();
         for cookie in cookies {
-            match self.client.send("Network.setCookie", Some(cookie.clone())).await {
-                Ok(result) if result.get("success").and_then(|v| v.as_bool()).unwrap_or(true) => {
+            match self
+                .client
+                .send("Network.setCookie", Some(cookie.clone()))
+                .await
+            {
+                Ok(result)
+                    if result
+                        .get("success")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(true) =>
+                {
                     set += 1;
                 }
                 Ok(result) => errors.push(json!({ "cookie": cookie, "result": result })),
@@ -1010,7 +1048,9 @@ impl<'a> BrowserActions<'a> {
         files: &[String],
     ) -> BitFunResult<Value> {
         if files.is_empty() {
-            return Err(BitFunError::tool("set_file_input_files requires non-empty 'files'".to_string()));
+            return Err(BitFunError::tool(
+                "set_file_input_files requires non-empty 'files'".to_string(),
+            ));
         }
         let query = selector.unwrap_or("input[type=\"file\"]");
         let css_selector = if query.starts_with("@e") {
@@ -1033,7 +1073,10 @@ impl<'a> BrowserActions<'a> {
             .await?;
         let node_id = node.get("nodeId").and_then(|v| v.as_i64()).unwrap_or(0);
         if node_id == 0 {
-            return Err(BitFunError::tool(format!("No file input found for selector: {}", query)));
+            return Err(BitFunError::tool(format!(
+                "No file input found for selector: {}",
+                query
+            )));
         }
         self.client
             .send(
@@ -1087,7 +1130,8 @@ impl<'a> BrowserActions<'a> {
                 }}
             }})()"#,
             url = serde_json::to_string(url).unwrap_or_else(|_| "\"\"".to_string()),
-            method = serde_json::to_string(&method.to_uppercase()).unwrap_or_else(|_| "\"GET\"".to_string()),
+            method = serde_json::to_string(&method.to_uppercase())
+                .unwrap_or_else(|_| "\"GET\"".to_string()),
             headers = headers,
             body = body
                 .map(|b| serde_json::to_string(b).unwrap_or_else(|_| "null".to_string()))

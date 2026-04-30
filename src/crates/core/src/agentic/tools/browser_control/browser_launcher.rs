@@ -417,7 +417,10 @@ impl BrowserLauncher {
         user_data_dir: &str,
     ) -> BitFunResult<LaunchResult> {
         if Self::is_cdp_available(port).await {
-            info!("CDP already available on port {} for headless {}", port, kind);
+            info!(
+                "CDP already available on port {} for headless {}",
+                port, kind
+            );
             return Ok(LaunchResult::AlreadyConnected);
         }
 
