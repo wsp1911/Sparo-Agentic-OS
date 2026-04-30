@@ -529,7 +529,10 @@ mod tests {
 
         assert_eq!(request_body["tools"][0]["type"], "function");
         assert_eq!(request_body["tools"][0]["name"], "get_weather");
-        assert_eq!(request_body["tools"][0]["description"], "Get the weather of a city");
+        assert_eq!(
+            request_body["tools"][0]["description"],
+            "Get the weather of a city"
+        );
         assert_eq!(request_body["tools"][0]["parameters"]["type"], "object");
         assert_eq!(request_body["tools"][0]["strict"], false);
         assert!(request_body["tools"][0].get("function").is_none());

@@ -105,7 +105,7 @@ const MemoryList: React.FC<MemoryListProps> = ({
             {group.records.map((record) => (
               <div
                 key={record.id}
-                className={`memory-list__item${selectedId === record.id ? ' is-selected' : ''}`}
+                className={`memory-list__item${selectedId === record.id ? ' is-selected' : ''}${record.status === 'archived' ? ' is-archived' : ''}`}
                 style={{ '--item-dot-color': getTypeColor(record.type) } as React.CSSProperties}
               >
                 <button
@@ -116,6 +116,18 @@ const MemoryList: React.FC<MemoryListProps> = ({
                   <span className="memory-list__item-icon" aria-hidden />
                   <span className="memory-list__item-title-row">
                     <span className="memory-list__item-title">{record.title}</span>
+                    <span className="memory-list__item-badges">
+                      {record.status && record.status !== 'confirmed' ? (
+                        <span className={`memory-list__badge memory-list__badge--${record.status}`}>
+                          {record.status}
+                        </span>
+                      ) : null}
+                      {typeof record.strength === 'number' && record.strength < 0.5 ? (
+                        <span className="memory-list__badge memory-list__badge--weak">
+                          {Math.round(record.strength * 100)}%
+                        </span>
+                      ) : null}
+                    </span>
                     {record.updatedAt ? (
                       <span className="memory-list__item-time">{formatDate(record.updatedAt)}</span>
                     ) : null}

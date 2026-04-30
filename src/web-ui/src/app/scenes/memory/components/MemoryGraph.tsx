@@ -244,8 +244,9 @@ const MemoryGraph: React.FC<MemoryGraphProps> = ({
                 <g
                   key={node.record.id}
                   data-node-id={node.record.id}
-                  className={`memory-graph__node${selected ? ' is-selected' : ''}${hovered ? ' is-hovered' : ''}${faded ? ' is-faded' : ''}`}
+                  className={`memory-graph__node${selected ? ' is-selected' : ''}${hovered ? ' is-hovered' : ''}${faded ? ' is-faded' : ''}${node.record.status === 'archived' ? ' is-archived' : ''}`}
                   transform={`translate(${node.x} ${node.y})`}
+                  style={{ opacity: node.record.status === 'archived' ? 0.4 : undefined }}
                   onPointerEnter={() => setHoveredId(node.record.id)}
                   onPointerLeave={() => setHoveredId((current) => (current === node.record.id ? null : current))}
                   onClick={(event) => {
@@ -263,8 +264,20 @@ const MemoryGraph: React.FC<MemoryGraphProps> = ({
                       style={{ fill: color }}
                     />
                   ) : (
-                    <circle className="memory-graph__node-shape" r={r} style={{ fill: color }} />
+                    <circle className="memory-graph__node-shape" r={r} style={{ fill: node.record.status === 'archived' ? '#888' : color }} />
                   )}
+                  {/* Lock badge for private sensitivity */}
+                  {node.record.sensitivity === 'private' ? (
+                    <text
+                      x={r * 0.55}
+                      y={-r * 0.55}
+                      fontSize={r * 0.7}
+                      className="memory-graph__node-lock"
+                      aria-hidden
+                    >
+                      🔒
+                    </text>
+                  ) : null}
                 </g>
               );
             })}

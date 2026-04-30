@@ -1,8 +1,8 @@
 use crate::agentic::core::{Message, MessageRole, MessageSemanticKind};
-use crate::service::memory_store::{
-    build_global_memory_policy_sections, build_workspace_memory_policy_sections, MemoryScope,
-    SharedMemoryPolicyProfile,
-};
+use crate::service::memory_store::MemoryScope;
+
+const EXTRACT_WORKSPACE: &str = include_str!("prompts/agent_memory_extract_workspace.md");
+const EXTRACT_GLOBAL: &str = include_str!("prompts/agent_memory_extract_global.md");
 
 pub fn count_recent_model_visible_messages(
     messages: &[Message],
@@ -48,6 +48,27 @@ pub fn build_extract_prompt(
     existing_memories: Option<&str>,
     memory_scope: MemoryScope,
 ) -> String {
+    build_extract_prompt_with_global(
+        recent_message_count,
+        memory_dir,
+        None,
+        existing_memories,
+        memory_scope,
+    )
+}
+
+/// Build the extraction prompt with optional dual-scope routing.
+///
+/// When `global_memory_dir` is provided (non-empty and different from
+/// `memory_dir`), the agent is instructed to route user-level memories to the
+/// global scope while keeping project-specific content in the workspace scope.
+pub fn build_extract_prompt_with_global(
+    recent_message_count: usize,
+    memory_dir: &str,
+    global_memory_dir: Option<&str>,
+    existing_memories: Option<&str>,
+    memory_scope: MemoryScope,
+) -> String {
     let manifest = existing_memories
         .filter(|value| !value.trim().is_empty())
         .map(|value| {
@@ -58,29 +79,57 @@ pub fn build_extract_prompt(
         })
         .unwrap_or_default();
 
-    format!(
-        "You are now acting as the memory extraction subagent. Analyze the most recent ~{recent_message_count} messages above and use them to update your persistent memory systems.\n\n\
-Available tools: Read, Grep, Glob, and Write/Edit/Delete for paths inside `{memory_dir}` only. All other tools will be denied.\n\n\
-You have a limited turn budget. Edit requires a prior Read of the same file, so the efficient strategy is: turn 1 — issue all Read calls in parallel for every file you might update; turn 2 — issue all Write/Edit/Delete calls in parallel. Do not interleave reads and writes across multiple turns.\n\n\
-You MUST only use content from the last ~{recent_message_count} messages to update your persistent memories. Do not waste any turns attempting to investigate or verify that content further — no grepping source files, no reading code to confirm a pattern exists, no git commands.\n\n\
-The conversation may not contain anything worth adding to or changing in memory. If there is nothing to update, respond with exactly `Nothing to update`.\n\n\
-If you do update memory, do not include a summary of what changed. A brief confirmation that the update is complete is enough.{manifest}\n\n{}",
-        match memory_scope {
-            MemoryScope::WorkspaceProject => build_workspace_memory_policy_sections(
-                "MEMORY.md",
-                SharedMemoryPolicyProfile::Extraction,
-            ),
-            MemoryScope::GlobalAgenticOs => build_global_memory_policy_sections(
-                "MEMORY.md",
-                SharedMemoryPolicyProfile::Extraction,
-            ),
+    // Build the scope routing section.
+    //
+    // - For workspace extraction with a global dir available, emit dual-scope routing
+    //   with a clear default (workspace) and a no-double-write rule.
+    // - For global extraction, emit a short single-scope reminder.
+    let routing_section = match (memory_scope, global_memory_dir) {
+        (MemoryScope::WorkspaceProject, Some(global_dir))
+            if !global_dir.is_empty() && global_dir != memory_dir =>
+        {
+            format!(
+                "\n\n**Scope routing — pick exactly one directory per memory:**\n\
+- **Default scope: workspace** (`{memory_dir}`). When in doubt, route here.\n\
+- Escalate to **global** (`{global_dir}`) ONLY when the memory is clearly about the user as a person across projects: communication style, durable preferences, cross-workspace tools, identity-level direction. Write global items to `{global_dir}/habits.md`, `{global_dir}/identity.md`, or `{global_dir}/pinned/<slug>.md`. Do NOT write `persona.md` from extraction — let the slow consolidation pass author it.\n\
+- Workspace items go to `{memory_dir}/project.md`, `{memory_dir}/habits.md`, `{memory_dir}/identity.md` (project-rules anchor only), `{memory_dir}/pinned/<slug>.md`, or `{memory_dir}/episodes/YYYY-MM/YYYY-MM-DD-<slug>.md`.\n\
+- **Never double-write.** Do not save the same memory to both scopes. Pick one.\n\
+- Episodic entries always go in the workspace scope (`{memory_dir}/episodes/`); never write episodes to global.\n\
+- Do **not** write under `{memory_dir}/sessions/` or `{global_dir}/sessions/` — those paths are owned by the session-summary pass."
+            )
         }
-    )
+        (MemoryScope::GlobalAgenticOs, _) => format!(
+            "\n\n**Scope: global.** You are extracting cross-project memories about the user. Episodic entries belong to workspaces — do not write any episodes here. Do not write under `{memory_dir}/sessions/` (owned by the session-summary pass). Do not write `narrative.md` (owned by the slow consolidation pass)."
+        ),
+        _ => format!(
+            "\n\n**Scope: workspace (single).** Do not write under `{memory_dir}/sessions/` (owned by the session-summary pass)."
+        ),
+    };
+
+    let write_roots_description = match global_memory_dir {
+        Some(global_dir) if !global_dir.is_empty() && global_dir != memory_dir => {
+            format!("paths inside `{memory_dir}` or `{global_dir}`")
+        }
+        _ => format!("paths inside `{memory_dir}`"),
+    };
+
+    let r_count = recent_message_count.to_string();
+    let tpl = match memory_scope {
+        MemoryScope::WorkspaceProject => EXTRACT_WORKSPACE,
+        MemoryScope::GlobalAgenticOs => EXTRACT_GLOBAL,
+    };
+
+    tpl.replace("{recent_message_count}", &r_count)
+        .replace("{write_roots_description}", &write_roots_description)
+        .replace("{routing_section}", &routing_section)
+        .replace("{manifest}", &manifest)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{build_extract_prompt, count_recent_model_visible_messages};
+    use super::{
+        build_extract_prompt, build_extract_prompt_with_global, count_recent_model_visible_messages,
+    };
     use crate::agentic::core::{Message, MessageSemanticKind, ToolCall, ToolResult};
     use serde_json::json;
 
@@ -196,10 +245,94 @@ mod tests {
         );
 
         assert!(prompt.contains("## Special workspace overview files"));
-        assert!(prompt.contains("<name>assistant_identity</name>"));
-        assert!(prompt.contains("<name>collaboration</name>"));
+        assert!(prompt.contains("<name>identity</name>"));
+        assert!(prompt.contains("<name>narrative</name>"));
         assert!(prompt.contains("<name>vision</name>"));
         assert!(!prompt.contains("<name>project</name>"));
         assert!(!prompt.contains("## When to access memories"));
+    }
+
+    // -------- New behavior tests for the optimized memory prompts ----------
+
+    #[test]
+    fn extract_prompt_inverts_default_to_do_nothing() {
+        let prompt = build_extract_prompt(
+            7,
+            "/workspace/memory",
+            None,
+            crate::service::memory_store::MemoryScope::WorkspaceProject,
+        );
+
+        // The salience gate must default to "do nothing" so extraction is
+        // biased toward signal over coverage.
+        assert!(
+            prompt.contains("Default action") && prompt.contains("do nothing"),
+            "extract prompt should make 'do nothing' the explicit default"
+        );
+        // Lifecycle: extraction writes tentative, not confirmed directly.
+        assert!(
+            prompt.contains("status: tentative"),
+            "extract prompt should require status: tentative on new entries"
+        );
+        assert!(
+            prompt.contains("session-summary pass will promote"),
+            "extract prompt should hand off promotion to session-summary"
+        );
+        // Front matter must require entities and links to keep entries
+        // discoverable via agentic search.
+        assert!(prompt.contains("entities:"));
+        assert!(prompt.contains("links:"));
+        // Reverse triggers must be present.
+        assert!(prompt.contains("Never save (reverse triggers)"));
+        // Single-line success format.
+        assert!(prompt.contains("Memory updated: N entries."));
+    }
+
+    #[test]
+    fn extract_prompt_workspace_scope_routing_defaults_to_workspace() {
+        let prompt = build_extract_prompt_with_global(
+            7,
+            "/workspace/memory",
+            Some("/global/memory"),
+            None,
+            crate::service::memory_store::MemoryScope::WorkspaceProject,
+        );
+
+        assert!(prompt.contains("Default scope: workspace"));
+        assert!(prompt.contains("Never double-write"));
+        assert!(prompt.contains("never write episodes to global"));
+        // sessions/ is owned by the session-summary pass.
+        assert!(prompt.contains("session-summary pass"));
+    }
+
+    #[test]
+    fn extract_prompt_global_scope_uses_short_routing_section() {
+        let prompt = build_extract_prompt_with_global(
+            7,
+            "/global/memory",
+            Some("/global/memory"),
+            None,
+            crate::service::memory_store::MemoryScope::GlobalAgenticOs,
+        );
+
+        assert!(prompt.contains("Scope: global"));
+        assert!(prompt.contains("Episodic entries belong to workspaces"));
+        assert!(prompt.contains("narrative.md"));
+    }
+
+    #[test]
+    fn extract_prompt_carries_philosophy_header() {
+        let prompt = build_extract_prompt(
+            7,
+            "/workspace/memory",
+            None,
+            crate::service::memory_store::MemoryScope::WorkspaceProject,
+        );
+
+        // The philosophy header is the single source of truth for "why we
+        // have memory at all". It must be present in every memory prompt.
+        assert!(prompt.contains("## Memory philosophy (read first)"));
+        assert!(prompt.contains("Behavior over narration"));
+        assert!(prompt.contains("Memory ≠ facts"));
     }
 }

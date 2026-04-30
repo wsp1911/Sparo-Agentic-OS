@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, FolderOpen, Pencil, Save, Trash2, X } from 'lucide-react';
+import { Archive, ChevronDown, FolderOpen, Lock, Pencil, Save, Trash2, X } from 'lucide-react';
 import { Markdown, Tooltip } from '@/component-library';
 import type { MemoryRecord } from '../MemoryLibraryAPI';
 import { getRelatedRecords, getTypeColor } from '../utils/memoryLayout';
@@ -14,6 +14,7 @@ interface MemoryDetailDrawerProps {
   onSave: (record: MemoryRecord, content: string) => Promise<void>;
   onReveal: (record: MemoryRecord) => void;
   onDelete: (record: MemoryRecord) => void;
+  onArchive: (record: MemoryRecord) => void;
   onSelectRelated: (record: MemoryRecord) => void;
   formatDate: (timestamp?: number) => string;
   typeLabel: (type: MemoryRecord['type']) => string;
@@ -33,6 +34,7 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
   onSave,
   onReveal,
   onDelete,
+  onArchive,
   onSelectRelated,
   formatDate,
   typeLabel,
@@ -166,6 +168,19 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
                     <FolderOpen size={15} />
                   </button>
                 </Tooltip>
+                {record.status !== 'archived' ? (
+                  <Tooltip content={t('memoryLibrary.actions.archive')} placement="bottom">
+                    <button
+                      type="button"
+                      className="memory-drawer__icon-btn"
+                      disabled={!canDelete}
+                      onClick={() => canDelete && onArchive(record)}
+                      aria-label={t('memoryLibrary.actions.archive')}
+                    >
+                      <Archive size={15} />
+                    </button>
+                  </Tooltip>
+                ) : null}
                 <Tooltip content={t('memoryLibrary.actions.forget')} placement="bottom">
                   <button
                     type="button"
@@ -183,6 +198,45 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
         </div>
 
         <div className="memory-drawer__path" title={record.path}>{record.relativePath}</div>
+
+        {/* Metadata row: layer / status / strength / sensitivity / tags */}
+        <div className="memory-drawer__meta-row">
+          {record.layer ? (
+            <span className="memory-drawer__meta-chip memory-drawer__meta-chip--layer">
+              {record.layer}
+            </span>
+          ) : null}
+          {record.status ? (
+            <span className={`memory-drawer__meta-chip memory-drawer__meta-chip--status memory-drawer__meta-chip--status-${record.status}`}>
+              {t(`memoryLibrary.statuses.${record.status}`)}
+            </span>
+          ) : null}
+          {record.sensitivity && record.sensitivity !== 'normal' ? (
+            <span className="memory-drawer__meta-chip memory-drawer__meta-chip--sensitivity">
+              <Lock size={10} />
+              {t(`memoryLibrary.sensitivity.${record.sensitivity}`)}
+            </span>
+          ) : null}
+          {typeof record.strength === 'number' ? (
+            <span className="memory-drawer__meta-chip memory-drawer__meta-chip--strength">
+              <span
+                className="memory-drawer__strength-bar"
+                style={{ '--strength': record.strength } as React.CSSProperties}
+                title={`${t('memoryLibrary.drawer.strength')}: ${Math.round(record.strength * 100)}%`}
+              />
+            </span>
+          ) : null}
+          {record.tags?.map((tag) => (
+            <span key={tag} className="memory-drawer__meta-chip memory-drawer__meta-chip--tag">
+              #{tag}
+            </span>
+          ))}
+        </div>
+        {record.sourceSession ? (
+          <div className="memory-drawer__source-session">
+            {t('memoryLibrary.drawer.sourceSession')}: <code>{record.sourceSession}</code>
+          </div>
+        ) : null}
       </header>
 
       <div className="memory-drawer__body">

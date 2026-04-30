@@ -93,7 +93,9 @@ impl CdpClient {
             .put(&endpoint)
             .send()
             .await
-            .map_err(|e| BitFunError::tool(format!("Cannot create CDP page on port {}: {}", port, e)))?;
+            .map_err(|e| {
+                BitFunError::tool(format!("Cannot create CDP page on port {}: {}", port, e))
+            })?;
         let page: CdpPageInfo = resp
             .json()
             .await
